@@ -269,10 +269,19 @@ const fallbackModelProviderPresets: ModelProviderPreset[] = [
         key: 'dashscope-payg',
         label: 'DashScope 按量计费',
         provider: 'custom',
-        baseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic',
-        apiMode: 'anthropic_messages',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiMode: 'chat_completions',
         defaultModel: 'qwen3.7-max',
         modelListUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models',
+    },
+    {
+        key: 'opencode-go',
+        label: 'OpenCode Go',
+        provider: 'custom',
+        baseUrl: 'https://opencode.ai/zen/go/v1',
+        apiMode: 'chat_completions',
+        defaultModel: 'deepseek-v4-flash',
+        modelListUrl: 'https://opencode.ai/zen/go/v1/models',
     },
     {
         key: 'deepseek',
@@ -1238,6 +1247,9 @@ function providerKeyFor(model: ModelConfig, presets: ModelProviderPreset[]) {
     if (provider === 'deepseek' || baseUrl.includes('api.deepseek.com')) {
         return 'deepseek';
     }
+    if (provider === 'opencode' || provider === 'opencode-go' || baseUrl.includes('opencode.ai/zen/go')) {
+        return 'opencode-go';
+    }
     if (provider === 'custom' && baseUrl.includes('dashscope.aliyuncs.com')) {
         return 'dashscope-payg';
     }
@@ -1252,6 +1264,9 @@ function auxProviderKeyFor(aux: AuxModel, presets: ModelProviderPreset[], fallba
     }
     if (provider === 'deepseek' || baseUrl.includes('api.deepseek.com')) {
         return 'deepseek';
+    }
+    if (provider === 'opencode' || provider === 'opencode-go' || baseUrl.includes('opencode.ai/zen/go')) {
+        return 'opencode-go';
     }
     if (provider === 'custom' && baseUrl.includes('dashscope.aliyuncs.com')) {
         return 'dashscope-payg';

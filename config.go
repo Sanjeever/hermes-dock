@@ -34,10 +34,19 @@ var modelProviderPresets = []ModelProviderPreset{
 		Key:          "dashscope-payg",
 		Label:        "DashScope 按量计费",
 		Provider:     "custom",
-		BaseURL:      "https://dashscope.aliyuncs.com/apps/anthropic",
-		APIMode:      "anthropic_messages",
+		BaseURL:      "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		APIMode:      "chat_completions",
 		DefaultModel: "qwen3.7-max",
 		ModelListURL: "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+	},
+	{
+		Key:          "opencode-go",
+		Label:        "OpenCode Go",
+		Provider:     "custom",
+		BaseURL:      "https://opencode.ai/zen/go/v1",
+		APIMode:      "chat_completions",
+		DefaultModel: "deepseek-v4-flash",
+		ModelListURL: "https://opencode.ai/zen/go/v1/models",
 	},
 	{
 		Key:          "deepseek",
@@ -114,8 +123,8 @@ func defaultModelConfig() ModelConfig {
 	return ModelConfig{
 		Provider:      "custom",
 		Default:       "qwen3.7-max",
-		BaseURL:       "https://dashscope.aliyuncs.com/apps/anthropic",
-		APIMode:       "anthropic_messages",
+		BaseURL:       "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		APIMode:       "chat_completions",
 		AuxiliaryMode: "auto",
 		Auxiliary:     aux,
 		RawProviders:  map[string]interface{}{},
@@ -215,10 +224,22 @@ func (a *App) normalizeModelConfigForSave(model ModelConfig) ModelConfig {
 		model.APIMode = preset.APIMode
 	}
 	provider := strings.ToLower(strings.TrimSpace(model.Provider))
+	baseURL := strings.ToLower(strings.TrimSpace(model.BaseURL))
+	if preset.Key == "dashscope-payg" {
+		if strings.Contains(baseURL, "dashscope.aliyuncs.com/apps/anthropic") {
+			model.BaseURL = preset.BaseURL
+		}
+		if strings.EqualFold(strings.TrimSpace(model.APIMode), "anthropic_messages") {
+			model.APIMode = preset.APIMode
+		}
+	}
 	if provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope" {
 		if strings.Contains(model.BaseURL, "dashscope.aliyuncs.com") {
 			model.Provider = "custom"
 		}
+	}
+	if provider == "opencode" || provider == "opencode-go" {
+		model.Provider = "custom"
 	}
 	return model
 }
@@ -337,7 +358,7 @@ func modelProviderEnvUpdates(model ModelConfig) []EnvVar {
 		}
 	}
 
-	order := []string{"DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY"}
+	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY"}
 	updates := make([]EnvVar, 0, len(byKey))
 	for _, key := range order {
 		if item, ok := byKey[key]; ok {
@@ -357,6 +378,8 @@ func modelProviderAPIKeyEnv(provider string, baseURL string) string {
 	switch {
 	case provider == "deepseek" || strings.Contains(baseURL, "api.deepseek.com"):
 		return "DEEPSEEK_API_KEY"
+	case provider == "opencode" || provider == "opencode-go" || strings.Contains(baseURL, "opencode.ai/zen/go"):
+		return "OPENCODE_GO_API_KEY"
 	case provider == "custom" && strings.Contains(baseURL, "dashscope.aliyuncs.com"):
 		return "DASHSCOPE_API_KEY"
 	case provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope":
@@ -372,6 +395,8 @@ func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {
 	switch {
 	case provider == "deepseek" || strings.Contains(baseURL, "api.deepseek.com"):
 		return modelProviderPresetByKey("deepseek")
+	case provider == "opencode" || provider == "opencode-go" || strings.Contains(baseURL, "opencode.ai/zen/go"):
+		return modelProviderPresetByKey("opencode-go")
 	case provider == "custom" && strings.Contains(baseURL, "dashscope.aliyuncs.com"):
 		return modelProviderPresetByKey("dashscope-payg")
 	case provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope":

@@ -109,16 +109,22 @@ backup.go                  写入前备份
 
 ## 模型配置
 
-模型 API Key 存在 `data/config.yaml` 的 `model.api_key` 中，不提供环境变量页，也不要求用户填写供应商环境变量。保存模型配置时，启动器会自动把供应商密钥同步到 `data/.env` 的 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`，供容器运行态读取。
+模型 API Key 存在 `data/config.yaml` 的 `model.api_key` 中，不提供环境变量页，也不要求用户填写供应商环境变量。保存模型配置时，启动器会自动把供应商密钥同步到 `data/.env` 的 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`，供容器运行态读取。
 
 内置供应商：
 
 - DashScope 按量计费：
   - `provider: custom`
-  - `base_url: https://dashscope.aliyuncs.com/apps/anthropic`
-  - `api_mode: anthropic_messages`
+  - `base_url: https://dashscope.aliyuncs.com/compatible-mode/v1`
+  - `api_mode: chat_completions`
   - 默认模型 `qwen3.7-max`
   - 拉取模型列表使用 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`
+- OpenCode Go：
+  - `provider: custom`
+  - `base_url: https://opencode.ai/zen/go/v1`
+  - `api_mode: chat_completions`
+  - 默认模型 `deepseek-v4-flash`
+  - 拉取模型列表使用 `https://opencode.ai/zen/go/v1/models`
 - DeepSeek：
   - `provider: deepseek`
   - `base_url: https://api.deepseek.com`

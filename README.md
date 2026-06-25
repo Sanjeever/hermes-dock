@@ -105,16 +105,26 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 
 ## 模型供应商
 
-MVP 内置两个模型供应商预设。
+MVP 内置三个模型供应商预设。
 
 DashScope 按量计费：
 
 ```yaml
 model:
   provider: custom
-  base_url: https://dashscope.aliyuncs.com/apps/anthropic
-  api_mode: anthropic_messages
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_mode: chat_completions
   default: qwen3.7-max
+```
+
+OpenCode Go：
+
+```yaml
+model:
+  provider: custom
+  base_url: https://opencode.ai/zen/go/v1
+  api_mode: chat_completions
+  default: deepseek-v4-flash
 ```
 
 DeepSeek：
@@ -127,7 +137,7 @@ model:
   default: deepseek-v4-flash
 ```
 
-模型 API Key 通过“模型”页面保存到 `data/config.yaml`。Hermes Dock 不提供环境变量编辑页，也不要求用户手动填写 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`；保存模型配置时会自动把供应商密钥同步到 `data/.env`，供容器运行态读取。
+模型 API Key 通过“模型”页面保存到 `data/config.yaml`。Hermes Dock 不提供环境变量编辑页，也不要求用户手动填写 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`；保存模型配置时会自动把供应商密钥同步到 `data/.env`，供容器运行态读取。
 
 ## 平台绑定
 
