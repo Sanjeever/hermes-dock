@@ -136,7 +136,7 @@ skills:
   external_dirs: []
 timezone: Asia/Shanghai
 approvals:
-  mode: false
+  mode: off
 command_allowlist: []
 quick_commands: {}
 platform_hints: {}
