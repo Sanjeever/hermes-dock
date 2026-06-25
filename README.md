@@ -155,10 +155,9 @@ MVP 只支持企业微信 AI Bot WebSocket。默认策略：
 常用命令：
 
 ```bash
-cd /Users/sanjeev/code/go/hermes-dock
 pnpm --dir frontend install
-/Users/sanjeev/go/bin/wails generate module
-/Users/sanjeev/go/bin/wails dev
+wails generate module
+wails dev
 ```
 
 运行后，应用会管理 `~/.hermes-dock`。不需要再手动设置 `HERMES_DOCK_INSTANCE_ROOT`。
@@ -184,13 +183,13 @@ templates/seed-data/   首次启动释放的干净模板
 开发调试：
 
 ```bash
-/Users/sanjeev/go/bin/wails dev
+wails dev
 ```
 
 生成前端绑定：
 
 ```bash
-/Users/sanjeev/go/bin/wails generate module
+ails generate module
 ```
 
 Go 测试：

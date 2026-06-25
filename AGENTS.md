@@ -164,10 +164,9 @@ MVP 每个平台只支持一个实例：
 ## 开发命令
 
 ```bash
-cd /Users/sanjeev/code/go/hermes-dock
 pnpm --dir frontend install
-/Users/sanjeev/go/bin/wails generate module
-/Users/sanjeev/go/bin/wails dev
+wails generate module
+wails dev
 go test ./...
 pnpm --dir frontend run build
 ```
