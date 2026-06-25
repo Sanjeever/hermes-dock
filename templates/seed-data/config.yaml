@@ -1,8 +1,8 @@
 model:
   default: qwen3.7-max
   provider: custom
-  base_url: https://dashscope.aliyuncs.com/apps/anthropic
-  api_mode: anthropic_messages
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  api_mode: chat_completions
 providers: {}
 fallback_providers: []
 toolsets:
@@ -137,6 +137,7 @@ skills:
 timezone: Asia/Shanghai
 approvals:
   mode: off
+  destructive_slash_confirm: true
 command_allowlist: []
 quick_commands: {}
 platform_hints: {}
