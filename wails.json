@@ -9,5 +9,11 @@
   "author": {
     "name": "",
     "email": ""
+  },
+  "info": {
+    "companyName": "Hermes Dock",
+    "productName": "Hermes Dock",
+    "productVersion": "1.0.0",
+    "comments": "Hermes Agent Docker launcher"
   }
 }
