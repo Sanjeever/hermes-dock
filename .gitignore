@@ -1,0 +1,8 @@
+build/bin
+node_modules
+frontend/dist
+.DS_Store
+.hermes-dock
+/data
+/docker-compose.yaml
+/docker-compose.override.yaml

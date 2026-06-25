@@ -1,0 +1,145 @@
+model:
+  default: qwen3.7-max
+  provider: custom
+  base_url: https://dashscope.aliyuncs.com/apps/anthropic
+  api_mode: anthropic_messages
+providers: {}
+fallback_providers: []
+toolsets:
+  - hermes-cli
+agent:
+  max_turns: 150
+  gateway_timeout: 1800
+  restart_drain_timeout: 180
+  api_max_retries: 3
+  reasoning_effort: medium
+terminal:
+  backend: local
+  cwd: /opt/data
+  timeout: 180
+  home_mode: auto
+  docker_image: nikolaik/python-nodejs:python3.11-nodejs20
+  persistent_shell: true
+  lifetime_seconds: 86400
+web:
+  backend: ddgs
+browser:
+  inactivity_timeout: 120
+  command_timeout: 30
+checkpoints:
+  enabled: true
+  max_snapshots: 20
+  max_total_size_mb: 500
+auxiliary:
+  vision:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 120
+    extra_body: {}
+  web_extract:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 360
+    extra_body: {}
+  compression:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 120
+    extra_body: {}
+  skills_hub:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 30
+    extra_body: {}
+  approval:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 30
+    extra_body: {}
+  mcp:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 30
+    extra_body: {}
+  title_generation:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 30
+    extra_body: {}
+  tts_audio_tags:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 30
+    extra_body: {}
+  triage_specifier:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 120
+    extra_body: {}
+  kanban_decomposer:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 180
+    extra_body: {}
+  profile_describer:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 60
+    extra_body: {}
+  curator:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 600
+    extra_body: {}
+  monitor:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 60
+    extra_body: {}
+display:
+  language: zh
+  interface: cli
+dashboard:
+  theme: default
+privacy:
+  redact_pii: false
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+skills:
+  external_dirs: []
+timezone: Asia/Shanghai
+approvals:
+  mode: false
+command_allowlist: []
+quick_commands: {}
+platform_hints: {}
+hooks: {}
+security:
+  allow_private_urls: false

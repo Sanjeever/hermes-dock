@@ -1,0 +1,27 @@
+@font-face {
+    font-family: "Dock Sans";
+    font-style: normal;
+    font-weight: 400;
+    src: url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
+}
+
+html,
+body,
+#root {
+    min-height: 100vh;
+}
+
+body {
+    margin: 0;
+    background: #ece8de;
+    color: #1f2522;
+    font-family: "Dock Sans", "Avenir Next", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
