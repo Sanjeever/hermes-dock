@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -51,7 +52,6 @@ func (a *App) GetAppState() (AppState, error) {
 	env, _ := readEnvFile(a.envPath())
 	model, _ := a.readModelConfig()
 	channels, _ := a.GetChannels()
-	diagnostics, _ := a.RunDiagnostics()
 	containerStatus := a.containerStatus(context.Background())
 
 	return AppState{
@@ -62,7 +62,6 @@ func (a *App) GetAppState() (AppState, error) {
 		Environment:      env,
 		Model:            model,
 		Channels:         channels,
-		Diagnostics:      diagnostics,
 		DockerAvailable:  commandExists("docker"),
 		ComposeAvailable: a.composeAvailable(context.Background()),
 		ContainerStatus:  containerStatus,
@@ -179,74 +178,24 @@ func (a *App) writeOverrideIfMissing() error {
 	return nil
 }
 
-func (a *App) RunDiagnostics() ([]Diagnostic, error) {
-	var items []Diagnostic
-	add := func(id, label, status, message, severity string, fixable bool) {
-		items = append(items, Diagnostic{ID: id, Label: label, Status: status, Message: redact(message), Severity: severity, Fixable: fixable})
+func (a *App) OpenEndpoint(endpoint string) error {
+	settings := a.readComposeSettings()
+	var host, port string
+	switch endpoint {
+	case "dashboard":
+		host = settings.DashboardHost
+		port = settings.DashboardPort
+	case "gateway":
+		host = settings.GatewayHost
+		port = settings.GatewayPort
+	default:
+		return fmt.Errorf("未知入口：%s", endpoint)
 	}
-
-	if commandExists("docker") {
-		add("docker-cli", "Docker CLI", "ok", "docker 命令可用", "info", false)
-	} else {
-		add("docker-cli", "Docker CLI", "error", "未找到 docker 命令", "error", false)
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
 	}
-	if a.composeAvailable(context.Background()) {
-		add("docker-compose", "Docker Compose", "ok", "docker compose 可用", "info", false)
-	} else {
-		add("docker-compose", "Docker Compose", "error", "docker compose 不可用", "error", false)
-	}
-	if err := ensureDir(a.hermesDockDir()); err == nil {
-		add("instance-root", "实例目录", "ok", a.instanceRoot, "info", false)
-	} else {
-		add("instance-root", "实例目录", "error", err.Error(), "error", false)
-	}
-	if _, err := os.Stat(a.composePath()); err == nil {
-		add("compose", "docker-compose.yaml", "ok", "compose 文件已存在", "info", false)
-	} else {
-		add("compose", "docker-compose.yaml", "warn", "compose 文件缺失", "warning", true)
-	}
-	if _, err := os.Stat(a.configPath()); err == nil {
-		if err := parseYAMLFile(a.configPath(), nil); err != nil {
-			add("config-yaml", "config.yaml", "error", err.Error(), "error", false)
-		} else {
-			add("config-yaml", "config.yaml", "ok", "YAML 解析正常", "info", false)
-		}
-	} else {
-		add("config-yaml", "config.yaml", "warn", "config.yaml 缺失", "warning", true)
-	}
-	env, err := readEnvFile(a.envPath())
-	if err != nil {
-		add("env", ".env", "warn", ".env 缺失或不可读取", "warning", true)
-	} else {
-		add("env", ".env", "ok", "环境变量文件可读取", "info", false)
-		if envValue(env, "WEIXIN_ACCOUNT_ID") == "" || envValue(env, "WEIXIN_TOKEN") == "" {
-			add("weixin", "个人微信", "warn", "个人微信尚未绑定", "warning", false)
-		} else {
-			add("weixin", "个人微信", "ok", "个人微信凭据已配置", "info", false)
-		}
-		if envValue(env, "WECOM_BOT_ID") == "" || envValue(env, "WECOM_SECRET") == "" {
-			add("wecom", "企业微信 AI Bot", "warn", "企业微信 AI Bot 凭据不完整", "warning", false)
-		} else {
-			add("wecom", "企业微信 AI Bot", "ok", "企业微信 AI Bot 凭据已配置", "info", false)
-		}
-		if envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD") == "123456" {
-			add("dashboard-password", "控制台密码", "warn", "控制台密码仍为 123456", "warning", false)
-		}
-	}
-	for _, port := range []string{"8642", "9119"} {
-		if portAvailable(port) {
-			add("port-"+port, "端口 "+port, "ok", "端口可用", "info", false)
-		} else {
-			add("port-"+port, "端口 "+port, "warn", "端口可能已被占用", "warning", false)
-		}
-	}
-	status := a.containerStatus(context.Background())
-	if status == "running" {
-		add("container", "Hermes 容器", "ok", "容器正在运行", "info", false)
-	} else {
-		add("container", "Hermes 容器", "warn", "容器状态："+localizedContainerStatus(status), "warning", false)
-	}
-	return items, nil
+	runtime.BrowserOpenURL(a.ctx, "http://"+host+":"+port)
+	return nil
 }
 
 func (a *App) ReadTextFile(path string) (string, error) {

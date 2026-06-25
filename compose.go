@@ -35,6 +35,7 @@ func (a *App) readComposeSettings() ComposeSettings {
 	if state.HermesImage != "" {
 		settings.Image = state.HermesImage
 	}
+	settings.DashboardEnabled = true
 	env, _ := readEnvFile(a.envPath())
 	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_USERNAME"); value != "" {
 		settings.DashboardUsername = value
@@ -49,6 +50,7 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	if settings.Image == "" {
 		settings.Image = defaultImage
 	}
+	settings.DashboardEnabled = true
 	if err := a.writeCompose(settings, "before-compose-save"); err != nil {
 		return err
 	}
@@ -114,9 +116,6 @@ func renderCompose(settings ComposeSettings) string {
 		settings.DashboardPassword = "123456"
 	}
 	dashboard := "1"
-	if !settings.DashboardEnabled {
-		dashboard = "0"
-	}
 	return fmt.Sprintf(`services:
   hermes:
     image: %s
@@ -149,22 +148,22 @@ func renderCompose(settings ComposeSettings) string {
 }
 
 func (a *App) StartHermes() error {
-	return a.applyComposeRuntime()
+	if err := a.syncSavedModelProviderEnv(); err != nil {
+		return err
+	}
+	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d")
 }
 
 func (a *App) StopHermes() error {
-	return a.runComposeStreaming(context.Background(), "docker:progress", "down")
+	return a.runComposeStreaming(context.Background(), "docker:progress", "stop")
 }
 
 func (a *App) RestartHermes() error {
-	return a.applyComposeRuntime()
+	return a.runComposeStreaming(context.Background(), "docker:progress", "restart")
 }
 
 func (a *App) RebuildHermes() error {
-	if err := a.runComposeStreaming(context.Background(), "docker:progress", "pull"); err != nil {
-		return err
-	}
-	err := a.applyComposeRuntime()
+	err := a.forceRecreateComposeRuntime()
 	if err == nil {
 		state, _ := a.readState()
 		state.LastSuccessfulHermesImage = state.HermesImage
@@ -174,12 +173,29 @@ func (a *App) RebuildHermes() error {
 	return err
 }
 
-func (a *App) applyComposeRuntime() error {
+func (a *App) forceRecreateComposeRuntime() error {
+	if err := a.syncSavedModelProviderEnv(); err != nil {
+		return err
+	}
 	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate")
 }
 
 func (a *App) TestModel() error {
+	if err := a.syncSavedModelProviderEnv(); err != nil {
+		return err
+	}
 	return a.runComposeStreaming(context.Background(), "docker:progress", "run", "--rm", "hermes", "hermes", "-z", "请只回复 OK。")
+}
+
+func (a *App) syncSavedModelProviderEnv() error {
+	model, err := a.readModelConfig()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return a.syncModelProviderEnv(a.normalizeModelConfigForSave(model))
 }
 
 func (a *App) composeAvailable(ctx context.Context) bool {

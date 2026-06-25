@@ -93,6 +93,8 @@ func mergeEnv(existing []EnvVar, updates []EnvVar) []EnvVar {
 func defaultEnvVars() []EnvVar {
 	defaults := map[string]string{
 		"OPENCODE_GO_API_KEY":                  "",
+		"DASHSCOPE_API_KEY":                    "",
+		"DEEPSEEK_API_KEY":                     "",
 		"WEIXIN_ACCOUNT_ID":                    "",
 		"WEIXIN_TOKEN":                         "",
 		"WEIXIN_BASE_URL":                      "",
@@ -184,6 +186,7 @@ func unquoteEnv(value string) string {
 func envOrder(key string) int {
 	order := []string{
 		"OPENCODE_GO_API_KEY",
+		"DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY",
 		"WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN", "WEIXIN_BASE_URL", "WEIXIN_CDN_BASE_URL",
 		"WEIXIN_DM_POLICY", "WEIXIN_ALLOW_ALL_USERS", "WEIXIN_ALLOWED_USERS",
 		"WEIXIN_GROUP_POLICY", "WEIXIN_GROUP_ALLOWED_USERS", "WEIXIN_HOME_CHANNEL",

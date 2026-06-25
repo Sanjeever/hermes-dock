@@ -8,7 +8,6 @@ type AppState struct {
 	Environment      []EnvVar        `json:"environment"`
 	Model            ModelConfig     `json:"model"`
 	Channels         ChannelFile     `json:"channels"`
-	Diagnostics      []Diagnostic    `json:"diagnostics"`
 	DockerAvailable  bool            `json:"dockerAvailable"`
 	ComposeAvailable bool            `json:"composeAvailable"`
 	ContainerStatus  string          `json:"containerStatus"`
@@ -109,15 +108,6 @@ type AuxModel struct {
 	APIKey    string                 `json:"apiKey"`
 	Timeout   int                    `json:"timeout"`
 	ExtraBody map[string]interface{} `json:"extraBody"`
-}
-
-type Diagnostic struct {
-	ID       string `json:"id"`
-	Label    string `json:"label"`
-	Status   string `json:"status"`
-	Message  string `json:"message"`
-	Fixable  bool   `json:"fixable"`
-	Severity string `json:"severity"`
 }
 
 type ChannelFile struct {

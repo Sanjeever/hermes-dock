@@ -26,6 +26,10 @@ export function InitializeInstance(arg1) {
   return window['go']['main']['App']['InitializeInstance'](arg1);
 }
 
+export function OpenEndpoint(arg1) {
+  return window['go']['main']['App']['OpenEndpoint'](arg1);
+}
+
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
 }
@@ -36,10 +40,6 @@ export function RebuildHermes() {
 
 export function RestartHermes() {
   return window['go']['main']['App']['RestartHermes']();
-}
-
-export function RunDiagnostics() {
-  return window['go']['main']['App']['RunDiagnostics']();
 }
 
 export function SaveComposeSettings(arg1) {

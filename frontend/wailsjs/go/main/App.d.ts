@@ -14,13 +14,13 @@ export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset
 
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
 
+export function OpenEndpoint(arg1:string):Promise<void>;
+
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function RebuildHermes():Promise<void>;
 
 export function RestartHermes():Promise<void>;
-
-export function RunDiagnostics():Promise<Array<main.Diagnostic>>;
 
 export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 

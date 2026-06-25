@@ -92,7 +92,7 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 				continue
 			}
 			a.emit("weixin-login:status", map[string]string{"status": "正在应用微信配置"})
-			if err := a.applyComposeRuntime(); err != nil {
+			if err := a.forceRecreateComposeRuntime(); err != nil {
 				a.emit("weixin-login:error", map[string]string{"message": redact(err.Error())})
 				continue
 			}

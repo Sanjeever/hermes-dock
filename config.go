@@ -191,6 +191,9 @@ func (a *App) SaveModelConfig(model ModelConfig) error {
 	if err := os.WriteFile(a.configPath(), data, 0644); err != nil {
 		return err
 	}
+	if err := a.syncModelProviderEnv(model); err != nil {
+		return err
+	}
 	state, _ := a.readState()
 	state.ModelAuxiliaryMode = firstNonEmpty(model.AuxiliaryMode, "auto")
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
@@ -292,6 +295,75 @@ func modelProviderPresetByKey(key string) *ModelProviderPreset {
 		}
 	}
 	return nil
+}
+
+func (a *App) syncModelProviderEnv(model ModelConfig) error {
+	updates := modelProviderEnvUpdates(model)
+	if len(updates) == 0 {
+		return nil
+	}
+	existing, _ := readEnvFile(a.envPath())
+	changed := false
+	for _, item := range updates {
+		if envValue(existing, item.Key) != item.Value {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return a.SaveEnvironment(updates)
+}
+
+func modelProviderEnvUpdates(model ModelConfig) []EnvVar {
+	byKey := map[string]EnvVar{}
+	add := func(provider string, baseURL string, apiKey string) {
+		apiKey = strings.TrimSpace(apiKey)
+		if apiKey == "" {
+			return
+		}
+		key := modelProviderAPIKeyEnv(provider, baseURL)
+		if key == "" {
+			return
+		}
+		byKey[key] = EnvVar{Key: key, Value: apiKey, Secret: true}
+	}
+
+	add(model.Provider, model.BaseURL, model.APIKey)
+	if model.AuxiliaryMode == "custom" {
+		for _, aux := range model.Auxiliary {
+			add(aux.Provider, aux.BaseURL, aux.APIKey)
+		}
+	}
+
+	order := []string{"DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY"}
+	updates := make([]EnvVar, 0, len(byKey))
+	for _, key := range order {
+		if item, ok := byKey[key]; ok {
+			updates = append(updates, item)
+			delete(byKey, key)
+		}
+	}
+	for _, item := range byKey {
+		updates = append(updates, item)
+	}
+	return updates
+}
+
+func modelProviderAPIKeyEnv(provider string, baseURL string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	baseURL = strings.ToLower(strings.TrimSpace(baseURL))
+	switch {
+	case provider == "deepseek" || strings.Contains(baseURL, "api.deepseek.com"):
+		return "DEEPSEEK_API_KEY"
+	case provider == "custom" && strings.Contains(baseURL, "dashscope.aliyuncs.com"):
+		return "DASHSCOPE_API_KEY"
+	case provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope":
+		return "DASHSCOPE_API_KEY"
+	default:
+		return ""
+	}
 }
 
 func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {

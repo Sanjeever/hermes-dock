@@ -28,7 +28,7 @@ Hermes Dock 是一个 Wails 桌面启动器，用来管理当前用户下单个 
 templates/seed-data/       内置干净模板，首次启动释放到 data/
 frontend/src/App.tsx       React 主界面
 frontend/src/App.css       React 样式
-app.go                     Wails 状态聚合和诊断
+app.go                     Wails 状态聚合
 compose.go                 Compose 生成和容器生命周期
 config.go                  config.yaml、模型配置和模型列表
 env.go                     .env 读写、合并和脱敏
@@ -56,22 +56,23 @@ backup.go                  写入前备份
 - Hermes 镜像。
 - `command: gateway run`。
 - 控制台和网关端口。
-- 控制台认证环境变量。
+- 控制台认证环境变量，控制台固定启用。
 - 中国大陆友好的 pip、uv、npm 镜像源。
 - `env_file: ./data/.env`。
 - `volumes: ./data:/opt/data`。
 
-启动、重启和重建应使用会刷新容器环境的方式：
+容器操作命令约定：
 
-```bash
-docker compose up -d --force-recreate
-```
+- 启动：`docker compose up -d`
+- 停止：`docker compose stop`
+- 重启：`docker compose restart`
+- 重建：`docker compose up -d --force-recreate`
 
-不要用普通 `docker compose restart` 作为“应用配置”的实现，因为 Docker 不会刷新已创建容器的环境变量。
+不要用普通 `docker compose restart` 作为“应用配置”的实现，因为 Docker 不会刷新已创建容器的环境变量；配置变更需要通过“重建”应用。
 
 ## 架构约定
 
-- Go 后端执行 Docker、文件、备份、诊断、平台绑定和模型列表拉取。
+- Go 后端执行 Docker、文件、备份、平台绑定和模型列表拉取。
 - React 前端只保留表单状态和展示状态，保存动作走 Wails Go 方法。
 - Wails 事件用于流式输出 Docker 日志、命令进度和微信扫码状态。
 - 内置模板来自 `templates/seed-data/`，只能包含干净初始文件和 Hermes 内置 skills 快照。
@@ -87,12 +88,11 @@ docker compose up -d --force-recreate
 - 首次启动初始化。
 - 标准 compose 生成和 override 入口。
 - 启动、停止、重启、重建、状态和日志。
-- 环境变量、部署配置、主模型和 auxiliary 模型配置。
+- 部署配置、主模型和 auxiliary 模型配置，平台配置通过结构化页面写入 `.env`。
 - DashScope 按量计费和 DeepSeek 供应商预设及模型列表拉取。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
 - 通道目录查看、默认通道设置和测试消息。
-- Docker、文件、端口、凭据、配置解析和容器状态诊断。
 - UI 输出脱敏和本地备份。
 
 当前不做：
@@ -109,7 +109,7 @@ docker compose up -d --force-recreate
 
 ## 模型配置
 
-模型 API Key 存在 `data/config.yaml` 的 `model.api_key` 中，不要求用户在环境变量页填写供应商 API key。
+模型 API Key 存在 `data/config.yaml` 的 `model.api_key` 中，不提供环境变量页，也不要求用户填写供应商环境变量。保存模型配置时，启动器会自动把供应商密钥同步到 `data/.env` 的 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`，供容器运行态读取。
 
 内置供应商：
 
@@ -160,6 +160,7 @@ MVP 每个平台只支持一个实例：
 - 操作按钮优先使用 lucide-react 图标。
 - 不要把说明性大段文字塞进主界面；说明放 `README.md` 或 `AGENTS.md`。
 - 保证移动和桌面窗口下按钮文字不溢出、不重叠。
+- 不在普通导航中暴露环境变量编辑页；需要写入 `.env` 时优先走模型、部署或平台绑定等结构化表单，高级编辑可打开 `data/.env`。
 
 ## 开发命令
 

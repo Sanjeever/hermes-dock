@@ -1,27 +1,5 @@
 export namespace main {
 	
-	export class Diagnostic {
-	    id: string;
-	    label: string;
-	    status: string;
-	    message: string;
-	    fixable: boolean;
-	    severity: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new Diagnostic(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.label = source["label"];
-	        this.status = source["status"];
-	        this.message = source["message"];
-	        this.fixable = source["fixable"];
-	        this.severity = source["severity"];
-	    }
-	}
 	export class ChannelFile {
 	    updated_at: string;
 	    platforms: Record<string, Array<ChannelSummary>>;
@@ -284,7 +262,6 @@ export namespace main {
 	    environment: EnvVar[];
 	    model: ModelConfig;
 	    channels: ChannelFile;
-	    diagnostics: Diagnostic[];
 	    dockerAvailable: boolean;
 	    composeAvailable: boolean;
 	    containerStatus: string;
@@ -302,7 +279,6 @@ export namespace main {
 	        this.environment = this.convertValues(source["environment"], EnvVar);
 	        this.model = this.convertValues(source["model"], ModelConfig);
 	        this.channels = this.convertValues(source["channels"], ChannelFile);
-	        this.diagnostics = this.convertValues(source["diagnostics"], Diagnostic);
 	        this.dockerAvailable = source["dockerAvailable"];
 	        this.composeAvailable = source["composeAvailable"];
 	        this.containerStatus = source["containerStatus"];
@@ -347,7 +323,6 @@ export namespace main {
 	        this.thread_id = source["thread_id"];
 	    }
 	}
-	
 	
 	
 	

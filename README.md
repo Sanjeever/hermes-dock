@@ -11,15 +11,14 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 - 捆绑 Hermes 内置 skills 快照。
 - 生成并接管标准 `docker-compose.yaml`。
 - 保留 `docker-compose.override.yaml` 作为高级覆盖入口。
-- 可视化管理 Docker 镜像、端口、控制台账号密码、内存、CPU 和共享内存。
-- 可视化编辑常用环境变量和完整 `.env` 键值表。
+- 可视化管理 Docker 镜像、端口、控制台账号密码、内存、CPU 和共享内存，控制台固定启用。
+- 通过模型、部署和平台绑定表单写入必要配置，不向普通用户提供环境变量编辑页。
 - 可视化配置主模型和 auxiliary 模型。
 - 支持 DashScope 按量计费和 DeepSeek 两个模型供应商预设。
 - 支持通过 API Key 拉取模型列表并选择模型。
 - 支持个人微信 Weixin / WeChat Personal 扫码登录。
 - 支持企业微信 AI Bot WebSocket 配置。
 - 支持查看通道目录、设置默认通道、发送测试消息。
-- 支持 Docker、Compose、端口、配置文件、凭据和容器状态诊断。
 - 写入托管文件前自动备份。
 - UI 日志和事件会脱敏敏感字段。
 
@@ -27,7 +26,7 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 
 Hermes Dock 的运行模型是“桌面启动器 + 本地 Docker Compose 单实例”：
 
-- Go 后端负责文件读写、备份、Docker Compose 命令、诊断、模型列表拉取和平台绑定 helper。
+- Go 后端负责文件读写、备份、Docker Compose 命令、模型列表拉取和平台绑定 helper。
 - React 前端负责表单、状态展示、扫码流程、日志输出和通道管理。
 - Wails 事件用于推送 Docker 输出、日志行和微信扫码状态。
 - Hermes 容器只通过 `./data:/opt/data` 访问用户数据。
@@ -88,14 +87,21 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 
 - Hermes 镜像版本。
 - 网关和控制台端口。
-- 控制台开关及账号密码。
+- 控制台账号密码，控制台固定启用。
 - 内存、CPU 和 shm 限制。
 - `./data:/opt/data` 数据挂载。
 - `./data/.env` 环境变量注入。
 
-高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。
+高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。高级编辑入口也可以打开 `data/.env`，用于处理结构化页面尚未覆盖的少量配置。
 
-启动、重启和重建会使用 `docker compose up -d --force-recreate` 应用当前配置。这样 `.env` 变化后，新容器能拿到最新环境变量。
+容器操作对应的 Compose 命令：
+
+- 启动：`docker compose up -d`
+- 停止：`docker compose stop`
+- 重启：`docker compose restart`
+- 重建：`docker compose up -d --force-recreate`
+
+`.env` 变化后，已创建容器不会自动刷新环境变量，需要使用“重建”让新容器拿到最新配置。
 
 ## 模型供应商
 
@@ -121,7 +127,7 @@ model:
   default: deepseek-v4-flash
 ```
 
-模型 API Key 通过“模型”页面保存到 `data/config.yaml`。环境变量页不再要求填写 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`。
+模型 API Key 通过“模型”页面保存到 `data/config.yaml`。Hermes Dock 不提供环境变量编辑页，也不要求用户手动填写 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`；保存模型配置时会自动把供应商密钥同步到 `data/.env`，供容器运行态读取。
 
 ## 平台绑定
 
@@ -212,14 +218,12 @@ pnpm --dir frontend run build
 - 首次启动从内置干净模板初始化。
 - 标准 compose 生成和高级 override 入口。
 - 启动、停止、重启、重建、状态和日志。
-- 环境变量编辑。
 - 镜像、端口、控制台认证和资源限制编辑。
 - 主模型和 auxiliary 模型配置。
 - DashScope 按量计费和 DeepSeek 供应商预设。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
 - 通道查看、默认通道设置和测试消息发送。
-- Docker、文件、端口、凭据、配置解析和容器状态诊断。
 - UI 输出脱敏。
 - 写入前本地备份。
 
@@ -232,3 +236,4 @@ pnpm --dir frontend run build
 - 不内置真实运行态、日志、会话、缓存、数据库或用户凭据。
 - 不做完整 Hermes 平台配置器，只覆盖 MVP 指定平台。
 - 不做内置聊天客户端，聊天仍使用 Hermes 控制台。
+- 不在普通导航中提供环境变量编辑器；`.env` 默认由结构化配置和平台绑定流程维护，高级编辑可打开。
