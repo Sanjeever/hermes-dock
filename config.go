@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -249,17 +250,17 @@ func (a *App) GetModelProviderPresets() []ModelProviderPreset {
 }
 
 func (a *App) FetchModelList(req ModelListRequest) ([]ModelOption, error) {
-	preset := modelProviderPresetByKey(req.ProviderKey)
-	if preset == nil {
-		return nil, fmt.Errorf("不支持的模型供应商：%s", req.ProviderKey)
-	}
 	apiKey := strings.TrimSpace(req.APIKey)
 	if apiKey == "" {
 		return nil, fmt.Errorf("请先在模型页填写 API 密钥")
 	}
+	modelListURL, err := resolveModelListURL(req)
+	if err != nil {
+		return nil, err
+	}
 
 	client := &http.Client{Timeout: 20 * time.Second}
-	httpReq, err := http.NewRequest(http.MethodGet, preset.ModelListURL, nil)
+	httpReq, err := http.NewRequest(http.MethodGet, modelListURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -307,6 +308,35 @@ func (a *App) FetchModelList(req ModelListRequest) ([]ModelOption, error) {
 		return nil, fmt.Errorf("供应商返回的模型列表为空")
 	}
 	return models, nil
+}
+
+func resolveModelListURL(req ModelListRequest) (string, error) {
+	preset := modelProviderPresetByKey(req.ProviderKey)
+	if preset != nil {
+		return preset.ModelListURL, nil
+	}
+	if req.ProviderKey != "custom" {
+		return "", fmt.Errorf("不支持的模型供应商：%s", req.ProviderKey)
+	}
+	baseURL := strings.TrimSpace(req.BaseURL)
+	if baseURL == "" {
+		return "", fmt.Errorf("请先填写接口地址")
+	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("接口地址不是有效 URL")
+	}
+	if parsed.Scheme != "https" && parsed.Scheme != "http" {
+		return "", fmt.Errorf("接口地址必须以 http:// 或 https:// 开头")
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+	for _, suffix := range []string{"/chat/completions", "/messages", "/responses"} {
+		if strings.HasSuffix(baseURL, suffix) {
+			baseURL = strings.TrimSuffix(baseURL, suffix)
+			break
+		}
+	}
+	return baseURL + "/models", nil
 }
 
 func modelProviderPresetByKey(key string) *ModelProviderPreset {

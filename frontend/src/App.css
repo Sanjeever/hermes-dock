@@ -547,11 +547,17 @@ textarea:focus {
 }
 
 .advanced-fields,
+.custom-provider-fields,
 .mode-summary {
     border-radius: 8px;
     background: #f0eadc;
     padding: 12px;
     margin-bottom: 12px;
+}
+
+.custom-provider-fields {
+    display: grid;
+    gap: 12px;
 }
 
 .mode-summary {

@@ -94,6 +94,7 @@ type ModelProviderPreset struct {
 type ModelListRequest struct {
 	ProviderKey string `json:"providerKey"`
 	APIKey      string `json:"apiKey"`
+	BaseURL     string `json:"baseUrl"`
 }
 
 type ModelOption struct {

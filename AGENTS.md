@@ -134,6 +134,8 @@ backup.go                  写入前备份
 
 Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 `ModelAuxiliaryMode`。
 
+模型页支持自定义 OpenAI 兼容供应商。自定义供应商保存到 `config.yaml` 的 `model.provider: custom`、`model.base_url`、`model.api_mode`、`model.default` 和 `model.api_key`；拉取模型列表时从用户填写的接口地址推导 `/models`，失败时允许用户手动填写模型名。
+
 ## 平台绑定
 
 MVP 每个平台只支持一个实例：

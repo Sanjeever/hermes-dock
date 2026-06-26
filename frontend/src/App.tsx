@@ -94,6 +94,7 @@ type ModelProviderPreset = {
     defaultModel: string;
     modelListUrl: string;
 };
+type ModelListRequest = { providerKey: string; apiKey: string; baseUrl: string };
 type ModelOption = { id: string; ownedBy: string };
 type ChannelSummary = { id: string; name: string; type: string; thread_id?: string };
 type ChannelFile = { updated_at: string; platforms: Record<string, ChannelSummary[]> };
@@ -294,6 +295,8 @@ const fallbackModelProviderPresets: ModelProviderPreset[] = [
     },
 ];
 
+const customProviderKey = 'custom';
+
 function App() {
     const [page, setPage] = useState<Page>('dashboard');
     const [state, setState] = useState<AppState | null>(null);
@@ -317,6 +320,7 @@ function App() {
     const [autoScrollLogs, setAutoScrollLogs] = useState(true);
     const [providerPresets, setProviderPresets] = useState<ModelProviderPreset[]>(fallbackModelProviderPresets);
     const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+    const [modelOptionsKey, setModelOptionsKey] = useState('');
     const [modelListStatus, setModelListStatus] = useState('');
     const [auxModelOptions, setAuxModelOptions] = useState<Record<string, ModelOption[]>>({});
     const [auxModelListStatus, setAuxModelListStatus] = useState('');
@@ -382,32 +386,42 @@ function App() {
     async function fetchModels() {
         if (!model) return;
         const providerKey = providerKeyFor(model, providerPresets);
+        const optionsKey = modelOptionKey(providerKey, providerKey === customProviderKey ? model.baseUrl : undefined);
         setModelListStatus('正在拉取模型列表');
         try {
-            const items = await FetchModelList({providerKey, apiKey: model.apiKey});
+            const req: ModelListRequest = {providerKey, apiKey: model.apiKey, baseUrl: ''};
+            if (providerKey === customProviderKey) req.baseUrl = model.baseUrl;
+            const items = await FetchModelList(req);
+            setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
             setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
+            setModelOptionsKey(optionsKey);
             setModelOptions([]);
             setModelListStatus(String(error));
             appendLog(String(error));
         }
     }
 
-    async function fetchAuxModels(providerKey: string) {
+    async function fetchAuxModels(providerKey: string, baseUrl?: string) {
         if (!model) return;
-        const apiKey = apiKeyForProvider(providerKey, providerKeyFor(model, providerPresets), model.apiKey, model.auxiliary?.[selectedAux]?.apiKey || '').trim();
+        const mainProviderKey = providerKeyFor(model, providerPresets);
+        const mainOptionKey = modelOptionKey(mainProviderKey, mainProviderKey === customProviderKey ? model.baseUrl : undefined);
+        const auxOptionKey = modelOptionKey(providerKey, providerKey === customProviderKey ? (baseUrl || model.auxiliary?.[selectedAux]?.baseUrl || '') : undefined);
+        const apiKey = (auxOptionKey === mainOptionKey ? model.apiKey : model.auxiliary?.[selectedAux]?.apiKey || '').trim();
         if (apiKey === '') {
             setAuxModelListStatus('请先填写该供应商 API 密钥');
             return;
         }
         setAuxModelListStatus('正在拉取模型列表');
         try {
-            const items = await FetchModelList({providerKey, apiKey});
-            setAuxModelOptions((current) => ({...current, [providerKey]: items as ModelOption[]}));
+            const req: ModelListRequest = {providerKey, apiKey, baseUrl: ''};
+            if (providerKey === customProviderKey) req.baseUrl = baseUrl || model.auxiliary?.[selectedAux]?.baseUrl || '';
+            const items = await FetchModelList(req);
+            setAuxModelOptions((current) => ({...current, [auxOptionKey]: items as ModelOption[]}));
             setAuxModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
-            setAuxModelOptions((current) => ({...current, [providerKey]: []}));
+            setAuxModelOptions((current) => ({...current, [auxOptionKey]: []}));
             setAuxModelListStatus(String(error));
             appendLog(String(error));
         }
@@ -512,6 +526,9 @@ function App() {
     const weixinBound = envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN');
     const wecomBound = envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET');
     const weixinHomeChannel = envValue(env, 'WEIXIN_HOME_CHANNEL');
+    const currentProviderKey = model ? providerKeyFor(model, providerPresets) : '';
+    const currentModelOptionsKey = model ? modelOptionKey(currentProviderKey, currentProviderKey === customProviderKey ? model.baseUrl : undefined) : '';
+    const visibleModelOptions = currentModelOptionsKey === modelOptionsKey ? modelOptions : [];
 
     return (
         <div className="shell">
@@ -596,7 +613,7 @@ function App() {
                         selectedAux={selectedAux}
                         setSelectedAux={setSelectedAux}
                         providerPresets={providerPresets}
-                        modelOptions={modelOptions}
+                        modelOptions={visibleModelOptions}
                         modelListStatus={modelListStatus}
                         auxModelOptions={auxModelOptions}
                         auxModelListStatus={auxModelListStatus}
@@ -784,7 +801,7 @@ function ModelsPage(props: {
     setShowApiKey: (value: boolean) => void;
     busy: boolean;
     onFetchModels: () => void;
-    onFetchAuxModels: (providerKey: string) => void;
+    onFetchAuxModels: (providerKey: string, baseUrl?: string) => void;
     onSave: () => void;
     onTest: () => void;
 }) {
@@ -792,15 +809,25 @@ function ModelsPage(props: {
     const aux = model.auxiliary?.[selectedAux] || {provider: 'auto', model: '', baseUrl: '', apiKey: '', timeout: 30, extraBody: {}};
     const setAux = (next: AuxModel) => setModel({...model, auxiliary: {...model.auxiliary, [selectedAux]: next}});
     const selectedProviderKey = providerKeyFor(model, props.providerPresets);
+    const customMainProvider = selectedProviderKey === customProviderKey;
+    const selectedProviderOptionsKey = modelOptionKey(selectedProviderKey, customMainProvider ? model.baseUrl : undefined);
     const modelChoices = ensureCurrentModelOption(props.modelOptions, model.default);
+    const showModelSelect = customMainProvider ? props.modelOptions.length > 0 : modelChoices.length > 0;
     const customAuxiliary = model.auxiliaryMode === 'custom';
-    const modelReady = model.apiKey.trim() !== '' && model.default.trim() !== '';
+    const modelReady = model.apiKey.trim() !== '' && model.default.trim() !== '' && model.baseUrl.trim() !== '' && model.apiMode.trim() !== '';
     const selectedAuxProviderKey = auxProviderKeyFor(aux, props.providerPresets, selectedProviderKey);
-    const selectedAuxPreset = props.providerPresets.find((item) => item.key === selectedAuxProviderKey) || props.providerPresets[0];
-    const auxProviderOptions = props.auxModelOptions[selectedAuxProviderKey] || (selectedAuxProviderKey === selectedProviderKey ? props.modelOptions : []);
-    const auxModelChoices = ensureCurrentModelOption(auxProviderOptions, aux.model || selectedAuxPreset?.defaultModel || model.default);
-    const auxUsesMainProvider = selectedAuxProviderKey === selectedProviderKey;
-    const auxProviderHasKey = apiKeyForProvider(selectedAuxProviderKey, selectedProviderKey, model.apiKey, aux.apiKey).trim() !== '';
+    const customAuxProvider = selectedAuxProviderKey === customProviderKey;
+    const selectedAuxPreset = props.providerPresets.find((item) => item.key === selectedAuxProviderKey);
+    const auxInheritsMainCustomProvider = customAuxProvider && customMainProvider && (aux.baseUrl.trim() === '' || aux.baseUrl.trim() === model.baseUrl.trim());
+    const auxBaseUrl = auxInheritsMainCustomProvider ? model.baseUrl : aux.baseUrl;
+    const auxProviderOptionsKey = modelOptionKey(selectedAuxProviderKey, customAuxProvider ? auxBaseUrl : undefined);
+    const auxUsesMainProvider = auxInheritsMainCustomProvider || auxProviderOptionsKey === selectedProviderOptionsKey;
+    const auxProviderOptions = props.auxModelOptions[auxProviderOptionsKey] || (auxUsesMainProvider ? props.modelOptions : []);
+    const auxCurrentModel = aux.model || (customAuxProvider ? '' : selectedAuxPreset?.defaultModel || model.default);
+    const auxModelChoices = ensureCurrentModelOption(auxProviderOptions, auxCurrentModel);
+    const showAuxModelSelect = customAuxProvider ? auxProviderOptions.length > 0 : auxModelChoices.length > 0;
+    const auxProviderHasKey = (auxUsesMainProvider ? model.apiKey : aux.apiKey).trim() !== '';
+    const auxProviderReady = auxProviderHasKey && (!customAuxProvider || auxBaseUrl.trim() !== '');
     const applyProvider = (key: string) => {
         const preset = props.providerPresets.find((item) => item.key === key);
         if (!preset) return;
@@ -812,6 +839,16 @@ function ModelsPage(props: {
             apiMode: preset.apiMode,
             default: preset.defaultModel,
             apiKey: currentProviderKey === preset.key ? model.apiKey : '',
+        });
+    };
+    const applyCustomProvider = () => {
+        setModel({
+            ...model,
+            provider: 'custom',
+            baseUrl: isPresetProviderKey(selectedProviderKey) ? '' : model.baseUrl,
+            apiMode: model.apiMode || 'chat_completions',
+            default: isPresetProviderKey(selectedProviderKey) ? '' : model.default,
+            apiKey: isPresetProviderKey(selectedProviderKey) ? '' : model.apiKey,
         });
     };
     const setAuxiliaryMode = (mode: string) => {
@@ -849,12 +886,24 @@ function ModelsPage(props: {
             extraBody: aux.extraBody || {},
         });
     };
+    const applyAuxCustomProvider = () => {
+        const useMainCustomProvider = customMainProvider;
+        setAux({
+            ...aux,
+            provider: 'custom',
+            model: useMainCustomProvider ? aux.model || model.default : (isPresetProviderKey(selectedAuxProviderKey) ? '' : aux.model),
+            baseUrl: useMainCustomProvider ? model.baseUrl : (isPresetProviderKey(selectedAuxProviderKey) ? '' : aux.baseUrl),
+            apiKey: useMainCustomProvider ? model.apiKey : (isPresetProviderKey(selectedAuxProviderKey) ? '' : aux.apiKey),
+            timeout: aux.timeout || 30,
+            extraBody: aux.extraBody || {},
+        });
+    };
     const setAuxModel = (value: string) => {
         setAux({
             ...aux,
             provider: selectedAuxPreset?.provider || aux.provider,
             model: value,
-            baseUrl: selectedAuxPreset?.baseUrl || aux.baseUrl,
+            baseUrl: selectedAuxPreset?.baseUrl || auxBaseUrl,
             apiKey: auxUsesMainProvider ? model.apiKey : aux.apiKey,
             timeout: aux.timeout || 30,
             extraBody: aux.extraBody || {},
@@ -876,12 +925,29 @@ function ModelsPage(props: {
                             <span>{preset.defaultModel}</span>
                         </button>
                     ))}
+                    <button className={`provider-card ${customMainProvider ? 'selected' : ''}`} onClick={applyCustomProvider}>
+                        <strong>自定义</strong>
+                        <span>{customProviderModeLabel(model.apiMode)}</span>
+                    </button>
                 </div>
+                {customMainProvider && (
+                    <div className="custom-provider-fields">
+                        <Field label="接口地址" value={model.baseUrl} onChange={(value) => setModel({...model, baseUrl: value})}/>
+                        <label className="field">
+                            <span>API 模式</span>
+                            <select value={model.apiMode || 'chat_completions'} onChange={(event) => setModel({...model, apiMode: event.target.value})}>
+                                <option value="chat_completions">OpenAI Chat Completions</option>
+                                <option value="anthropic_messages">Anthropic Messages</option>
+                            </select>
+                        </label>
+                    </div>
+                )}
                 <SecretField label="API 密钥" value={model.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => setModel({...model, apiKey: value})}/>
                 <label className="field">
                     <span>模型</span>
-                    {modelChoices.length > 0 ? (
+                    {showModelSelect ? (
                         <select value={model.default} onChange={(event) => setModel({...model, default: event.target.value})}>
+                            {model.default.trim() === '' && <option value="">请选择模型</option>}
                             {modelChoices.map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
                         </select>
                     ) : (
@@ -889,11 +955,11 @@ function ModelsPage(props: {
                     )}
                 </label>
                 <div className="actions model-actions">
-                    <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || model.apiKey.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
+                    <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || model.apiKey.trim() === '' || (customMainProvider && model.baseUrl.trim() === '')}><RefreshCcw size={16}/>拉取模型列表</button>
                     {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
                 </div>
-                <button className="ghost detail-toggle" onClick={() => props.setShowAdvanced(!props.showAdvanced)}>接口细节</button>
-                {props.showAdvanced && (
+                {!customMainProvider && <button className="ghost detail-toggle" onClick={() => props.setShowAdvanced(!props.showAdvanced)}>接口细节</button>}
+                {props.showAdvanced && !customMainProvider && (
                     <div className="advanced-fields">
                         <Field label="接口地址" value={model.baseUrl} onChange={(value) => setModel({...model, baseUrl: value})}/>
                         <Field label="API 模式" value={model.apiMode} onChange={(value) => setModel({...model, apiMode: value})}/>
@@ -941,18 +1007,30 @@ function ModelsPage(props: {
                                     <span>{preset.defaultModel}</span>
                                 </button>
                             ))}
+                            <button className={`provider-card ${customAuxProvider ? 'selected' : ''}`} onClick={applyAuxCustomProvider}>
+                                <strong>自定义</strong>
+                                <span>{customAuxProvider && auxUsesMainProvider ? customProviderModeLabel(model.apiMode) : '自定义接口'}</span>
+                            </button>
                         </div>
+                        {customAuxProvider && !auxUsesMainProvider && (
+                            <Field label="接口地址" value={aux.baseUrl} onChange={(value) => setAux({...aux, baseUrl: value})}/>
+                        )}
                         {!auxUsesMainProvider && (
-                            <SecretField label={`${selectedAuxPreset?.label || '供应商'} API 密钥`} value={aux.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => setAux({...aux, apiKey: value})}/>
+                            <SecretField label={`${selectedAuxPreset?.label || '自定义供应商'} API 密钥`} value={aux.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => setAux({...aux, apiKey: value})}/>
                         )}
                         <label className="field">
                             <span>模型</span>
-                            <select value={aux.model || selectedAuxPreset?.defaultModel || model.default} onChange={(event) => setAuxModel(event.target.value)}>
-                                {auxModelChoices.map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
-                            </select>
+                            {showAuxModelSelect ? (
+                                <select value={auxCurrentModel} onChange={(event) => setAuxModel(event.target.value)}>
+                                    {auxCurrentModel.trim() === '' && <option value="">请选择模型</option>}
+                                    {auxModelChoices.map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
+                                </select>
+                            ) : (
+                                <input value={aux.model || ''} onChange={(event) => setAuxModel(event.target.value)}/>
+                            )}
                         </label>
                         <div className="actions model-actions">
-                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderKey)} disabled={props.busy || !auxProviderHasKey}><RefreshCcw size={16}/>拉取模型列表</button>
+                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderKey, customAuxProvider ? auxBaseUrl : undefined)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>拉取模型列表</button>
                             {props.auxModelListStatus && <span className="inline-status">{props.auxModelListStatus}</span>}
                         </div>
                     </>
@@ -1253,6 +1331,9 @@ function providerKeyFor(model: ModelConfig, presets: ModelProviderPreset[]) {
     if (provider === 'custom' && baseUrl.includes('dashscope.aliyuncs.com')) {
         return 'dashscope-payg';
     }
+    if (provider === 'custom') {
+        return customProviderKey;
+    }
     return presets[0]?.key || 'dashscope-payg';
 }
 
@@ -1271,6 +1352,9 @@ function auxProviderKeyFor(aux: AuxModel, presets: ModelProviderPreset[], fallba
     if (provider === 'custom' && baseUrl.includes('dashscope.aliyuncs.com')) {
         return 'dashscope-payg';
     }
+    if (provider === 'custom') {
+        return customProviderKey;
+    }
     return presets[0]?.key || fallback;
 }
 
@@ -1280,12 +1364,30 @@ function ensureCurrentModelOption(options: ModelOption[], current: string) {
     return [{id: current, ownedBy: ''}, ...options];
 }
 
-function apiKeyForProvider(providerKey: string, mainProviderKey: string, mainApiKey: string, auxApiKey: string) {
-    return providerKey === mainProviderKey ? mainApiKey : auxApiKey;
+function isPresetProviderKey(key: string) {
+    return key !== customProviderKey;
+}
+
+function modelOptionKey(providerKey: string, baseUrl?: string) {
+    if (providerKey !== customProviderKey) return providerKey;
+    return `${customProviderKey}:${(baseUrl || '').trim()}`;
+}
+
+function customProviderModeLabel(apiMode: string) {
+    return apiMode === 'anthropic_messages' ? 'Anthropic 兼容' : 'OpenAI 兼容';
 }
 
 function toPlainModelConfig(model: ModelConfig): any {
-    return JSON.parse(JSON.stringify(model));
+    const next = JSON.parse(JSON.stringify(model)) as ModelConfig;
+    if (next.provider === 'custom' && next.auxiliaryMode === 'custom') {
+        for (const aux of Object.values(next.auxiliary || {})) {
+            if (aux.provider === 'custom' && (aux.baseUrl.trim() === '' || aux.baseUrl.trim() === next.baseUrl.trim())) {
+                aux.baseUrl = next.baseUrl;
+                aux.apiKey = next.apiKey;
+            }
+        }
+    }
+    return next;
 }
 
 export default App;

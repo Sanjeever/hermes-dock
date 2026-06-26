@@ -139,6 +139,8 @@ model:
 
 模型 API Key 通过“模型”页面保存到 `data/config.yaml`。Hermes Dock 不提供环境变量编辑页，也不要求用户手动填写 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`；保存模型配置时会自动把供应商密钥同步到 `data/.env`，供容器运行态读取。
 
+模型页也支持自定义 OpenAI 兼容供应商。用户可以填写接口地址、API 密钥、API 模式和模型名；启动器会尝试从接口地址推导 `/models` 拉取模型列表，拉取失败时仍可手动填写模型名。
+
 ## 平台绑定
 
 ### 个人微信

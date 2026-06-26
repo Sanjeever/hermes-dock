@@ -331,6 +331,7 @@ export namespace main {
 	export class ModelListRequest {
 	    providerKey: string;
 	    apiKey: string;
+	    baseUrl: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelListRequest(source);
@@ -340,6 +341,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.providerKey = source["providerKey"];
 	        this.apiKey = source["apiKey"];
+	        this.baseUrl = source["baseUrl"];
 	    }
 	}
 	export class ModelOption {
