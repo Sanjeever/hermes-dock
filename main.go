@@ -12,11 +12,20 @@ import (
 var assets embed.FS
 
 func main() {
+	relaunched, err := ensureElevated()
+	if err != nil {
+		println("Error:", err.Error())
+		return
+	}
+	if relaunched {
+		return
+	}
+
 	// Create an instance of the app structure
 	app := NewApp()
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:  "Hermes Dock",
 		Width:  1280,
 		Height: 820,
