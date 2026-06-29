@@ -156,6 +156,8 @@ func renderCompose(settings ComposeSettings) string {
       - "%s:%s:8642"
       - "%s:%s:9119"
     environment:
+      HERMES_WRITE_SAFE_ROOT: "/opt/data"
+      TMPDIR: "/opt/data/tmp"
       HERMES_DASHBOARD: "%s"
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "%s"
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "%s"
