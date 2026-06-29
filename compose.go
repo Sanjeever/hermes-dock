@@ -51,6 +51,9 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 		settings.Image = defaultImage
 	}
 	settings.DashboardEnabled = true
+	if err := a.syncComposeDashboardEnv(settings); err != nil {
+		return err
+	}
 	if err := a.writeCompose(settings, "before-compose-save"); err != nil {
 		return err
 	}
@@ -61,6 +64,21 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
+}
+
+func (a *App) syncComposeDashboardEnv(settings ComposeSettings) error {
+	updates := []EnvVar{
+		{Key: "HERMES_DASHBOARD", Value: "1"},
+		{Key: "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", Value: firstNonEmpty(settings.DashboardUsername, "admin")},
+		{Key: "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", Value: firstNonEmpty(settings.DashboardPassword, "123456")},
+	}
+	existing, _ := readEnvFile(a.envPath())
+	for _, item := range updates {
+		if envValue(existing, item.Key) != item.Value {
+			return a.SaveEnvironment(updates)
+		}
+	}
+	return nil
 }
 
 func (a *App) writeCompose(settings ComposeSettings, reason string) error {
