@@ -14,6 +14,9 @@ func ensureElevated() (bool, error) {
 	if os.Geteuid() == 0 {
 		return false, nil
 	}
+	if runtime.GOOS == "linux" {
+		return false, nil
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return false, fmt.Errorf("无法定位当前程序: %w", err)
@@ -25,8 +28,6 @@ func ensureElevated() (bool, error) {
 	switch runtime.GOOS {
 	case "darwin":
 		return relaunchWithAppleScript(exe, home, os.Args[1:])
-	case "linux":
-		return relaunchWithLinuxElevator(exe, home, os.Args[1:])
 	default:
 		return false, nil
 	}
@@ -39,34 +40,6 @@ func relaunchWithAppleScript(exe string, home string, args []string) (bool, erro
 		return false, fmt.Errorf("需要管理员权限才能启动 Hermes Dock: %w", err)
 	}
 	return true, nil
-}
-
-func relaunchWithLinuxElevator(exe string, home string, args []string) (bool, error) {
-	elevator, err := exec.LookPath("pkexec")
-	if err != nil {
-		elevator, err = exec.LookPath("sudo")
-		if err != nil {
-			return false, fmt.Errorf("需要 root 权限才能启动 Hermes Dock，请安装 pkexec 或从终端使用 sudo 启动")
-		}
-	}
-	cmd := exec.Command(elevator, append(elevatedEnvArgs(home), append([]string{exe}, args...)...)...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return false, fmt.Errorf("需要 root 权限才能启动 Hermes Dock: %w", err)
-	}
-	return true, nil
-}
-
-func elevatedEnvArgs(home string) []string {
-	args := []string{"env", "HOME=" + home}
-	for _, name := range []string{"DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"} {
-		if value := os.Getenv(name); value != "" {
-			args = append(args, name+"="+value)
-		}
-	}
-	return args
 }
 
 func shellJoin(parts ...string) string {
