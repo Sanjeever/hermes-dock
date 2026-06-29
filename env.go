@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -35,17 +36,21 @@ func readEnvFile(path string) ([]EnvVar, error) {
 }
 
 func (a *App) SaveEnvironment(vars []EnvVar) error {
-	if err := ensureDir(a.dataDir()); err != nil {
+	return a.saveEnvironmentTo(a.envPath(), vars)
+}
+
+func (a *App) saveEnvironmentTo(path string, vars []EnvVar) error {
+	if err := ensureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
-	if _, err := os.Stat(a.envPath()); err == nil {
-		if err := a.backupFile(a.envPath(), "before-env-save"); err != nil {
+	if _, err := os.Stat(path); err == nil {
+		if err := a.backupFile(path, "before-env-save"); err != nil {
 			return err
 		}
 	}
-	existing, _ := readEnvFile(a.envPath())
+	existing, _ := readEnvFile(path)
 	merged := mergeEnv(existing, vars)
-	return writeEnvFile(a.envPath(), merged)
+	return writeEnvFile(path, merged)
 }
 
 func writeEnvFile(path string, vars []EnvVar) error {

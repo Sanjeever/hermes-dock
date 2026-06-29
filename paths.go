@@ -28,6 +28,38 @@ func (a *App) dataDir() string {
 	return filepath.Join(a.instanceRoot, "data")
 }
 
+func (a *App) defaultDataDir() string {
+	return a.dataDir()
+}
+
+func (a *App) profileDataDir(profileID string) string {
+	profileID = strings.TrimSpace(profileID)
+	if profileID == "" || profileID == "default" {
+		return a.defaultDataDir()
+	}
+	return filepath.Join(a.defaultDataDir(), "profiles", profileID)
+}
+
+func (a *App) currentProfileID() string {
+	registry, err := a.readProfileRegistry()
+	if err != nil {
+		return "default"
+	}
+	state, _ := a.readState()
+	id := strings.TrimSpace(state.UI.LastProfile)
+	if id == "" {
+		return "default"
+	}
+	if profileExists(registry, id) {
+		return id
+	}
+	return "default"
+}
+
+func (a *App) currentProfileDataDir() string {
+	return a.profileDataDir(a.currentProfileID())
+}
+
 func (a *App) composePath() string {
 	return filepath.Join(a.instanceRoot, "docker-compose.yaml")
 }
@@ -37,19 +69,47 @@ func (a *App) overridePath() string {
 }
 
 func (a *App) envPath() string {
-	return filepath.Join(a.dataDir(), ".env")
+	return filepath.Join(a.currentProfileDataDir(), ".env")
+}
+
+func (a *App) defaultEnvPath() string {
+	return filepath.Join(a.defaultDataDir(), ".env")
 }
 
 func (a *App) configPath() string {
-	return filepath.Join(a.dataDir(), "config.yaml")
+	return filepath.Join(a.currentProfileDataDir(), "config.yaml")
+}
+
+func (a *App) defaultConfigPath() string {
+	return filepath.Join(a.defaultDataDir(), "config.yaml")
+}
+
+func (a *App) soulPath() string {
+	return filepath.Join(a.currentProfileDataDir(), "SOUL.md")
 }
 
 func (a *App) statePath() string {
 	return filepath.Join(a.hermesDockDir(), "state.json")
 }
 
+func (a *App) profilesPath() string {
+	return filepath.Join(a.hermesDockDir(), "profiles.json")
+}
+
+func (a *App) dockDataDir() string {
+	return filepath.Join(a.defaultDataDir(), ".dock")
+}
+
+func (a *App) runtimeManifestPath() string {
+	return filepath.Join(a.dockDataDir(), "profiles-runtime.json")
+}
+
+func (a *App) runtimeStatusPath() string {
+	return filepath.Join(a.dockDataDir(), "profile-status.json")
+}
+
 func (a *App) channelDirectoryPath() string {
-	return filepath.Join(a.dataDir(), "channel_directory.json")
+	return filepath.Join(a.currentProfileDataDir(), "channel_directory.json")
 }
 
 func (a *App) safePath(path string) (string, error) {
@@ -102,7 +162,7 @@ func defaultState() LauncherState {
 		SkillsSnapshotImage: defaultImage,
 		HermesImage:         defaultImage,
 		ComposeSettings:     defaultComposeSettings(),
-		UI:                  UIState{LastPage: "dashboard"},
+		UI:                  UIState{LastPage: "dashboard", LastProfile: "default"},
 		ModelAuxiliaryMode:  "auto",
 	}
 }

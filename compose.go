@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -36,7 +37,7 @@ func (a *App) readComposeSettings() ComposeSettings {
 		settings.Image = state.HermesImage
 	}
 	settings.DashboardEnabled = true
-	env, _ := readEnvFile(a.envPath())
+	env, _ := readEnvFile(a.defaultEnvPath())
 	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_USERNAME"); value != "" {
 		settings.DashboardUsername = value
 	}
@@ -72,10 +73,10 @@ func (a *App) syncComposeDashboardEnv(settings ComposeSettings) error {
 		{Key: "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", Value: firstNonEmpty(settings.DashboardUsername, "admin")},
 		{Key: "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", Value: firstNonEmpty(settings.DashboardPassword, "123456")},
 	}
-	existing, _ := readEnvFile(a.envPath())
+	existing, _ := readEnvFile(a.defaultEnvPath())
 	for _, item := range updates {
 		if envValue(existing, item.Key) != item.Value {
-			return a.SaveEnvironment(updates)
+			return a.saveEnvironmentTo(a.defaultEnvPath(), updates)
 		}
 	}
 	return nil
@@ -96,7 +97,8 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	if err != nil {
 		return err
 	}
-	if strings.Contains(string(data), "env_file:") {
+	content := string(data)
+	if strings.Contains(content, "hermes-profile-runner") && !strings.Contains(content, "env_file:") {
 		return nil
 	}
 	return a.writeCompose(settings, "before-compose-env-file-migration")
@@ -147,7 +149,7 @@ func renderCompose(settings ComposeSettings) string {
     image: %s
     container_name: %s
     restart: unless-stopped
-    command: gateway run
+    command: /opt/hermes-dock/hermes-profile-runner
     depends_on:
       init-permissions:
         condition: service_completed_successfully
@@ -157,6 +159,7 @@ func renderCompose(settings ComposeSettings) string {
       - "%s:%s:9119"
     environment:
       HERMES_WRITE_SAFE_ROOT: "/opt/data"
+      HERMES_HOME: "/opt/data"
       TMPDIR: "/opt/data/tmp"
       HERMES_DASHBOARD: "%s"
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "%s"
@@ -166,10 +169,9 @@ func renderCompose(settings ComposeSettings) string {
       PIP_DEFAULT_TIMEOUT: "120"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
-    env_file:
-      - ./data/.env
     volumes:
       - ./data:/opt/data
+      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
     deploy:
       resources:
         limits:
@@ -179,6 +181,12 @@ func renderCompose(settings ComposeSettings) string {
 }
 
 func (a *App) StartHermes() error {
+	if err := a.writeRuntimeManifest(); err != nil {
+		return err
+	}
+	if err := a.ensureProfileRunnerHelper(); err != nil {
+		return err
+	}
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
@@ -205,6 +213,12 @@ func (a *App) RebuildHermes() error {
 }
 
 func (a *App) forceRecreateComposeRuntime() error {
+	if err := a.writeRuntimeManifest(); err != nil {
+		return err
+	}
+	if err := a.ensureProfileRunnerHelper(); err != nil {
+		return err
+	}
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
@@ -215,7 +229,32 @@ func (a *App) TestModel() error {
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
-	return a.runComposeStreaming(context.Background(), "docker:progress", "run", "--rm", "hermes", "hermes", "-z", "请只回复 OK。")
+	args := append([]string{"run", "--rm"}, a.currentProfileComposeEnvArgs()...)
+	args = append(args, "hermes")
+	args = append(args, a.currentProfileHermesArgs("-z", "请只回复 OK。")...)
+	return a.runComposeStreaming(context.Background(), "docker:progress", args...)
+}
+
+func (a *App) currentProfileHermesArgs(args ...string) []string {
+	profileID := a.currentProfileID()
+	out := []string{"hermes"}
+	if profileID != defaultProfileID {
+		out = append(out, "-p", profileID)
+	}
+	return append(out, args...)
+}
+
+func (a *App) currentProfileComposeEnvArgs() []string {
+	out := []string{"-e", "HERMES_HOME=/opt/data"}
+	profileID := a.currentProfileID()
+	profileHome := "/opt/data"
+	envFile := "data/.env"
+	if profileID != defaultProfileID {
+		profileHome = "/opt/data/profiles/" + profileID
+		envFile = filepath.ToSlash(filepath.Join("data", "profiles", profileID, ".env"))
+	}
+	out = append(out, "-e", "HERMES_DOCK_PROFILE="+profileID, "-e", "HERMES_DOCK_PROFILE_HOME="+profileHome)
+	return append(out, "--env-from-file", envFile)
 }
 
 func (a *App) syncSavedModelProviderEnv() error {

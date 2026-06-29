@@ -60,7 +60,9 @@ nav button,
 .primary,
 .endpoint-card,
 .provider-card,
-.table-row button {
+.table-row button,
+.profile-row,
+.profile-main {
     border: 0;
     cursor: pointer;
     font: inherit;
@@ -113,6 +115,26 @@ code {
     justify-content: space-between;
     gap: 20px;
     margin-bottom: 22px;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.profile-picker {
+    display: grid;
+    gap: 5px;
+    min-width: 180px;
+}
+
+.profile-picker span {
+    color: #596056;
+    font-size: 12px;
+    font-weight: 800;
 }
 
 .eyebrow {
@@ -365,6 +387,115 @@ button:disabled {
 .health-list {
     display: grid;
     gap: 10px;
+}
+
+.profile-list {
+    display: grid;
+    gap: 10px;
+}
+
+.profile-list.compact-list {
+    gap: 8px;
+}
+
+.profile-row {
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f0eadc;
+    color: #1f2522;
+    text-align: left;
+}
+
+.profile-row.selected {
+    background: #151916;
+    color: #ffffff;
+}
+
+.profile-row.editable {
+    cursor: default;
+}
+
+.profile-main {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+}
+
+.profile-row strong,
+.profile-row code {
+    display: block;
+}
+
+.profile-row code {
+    margin-top: 4px;
+    color: #596056;
+    font-size: 12px;
+}
+
+.profile-row.selected code {
+    color: #d8ff67;
+}
+
+.profile-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border-radius: 999px;
+    padding: 0 9px;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ok-status {
+    background: #dff1d7;
+    color: #1f6f43;
+}
+
+.warn-status {
+    background: #f7e2be;
+    color: #8a520d;
+}
+
+.bad-status {
+    background: #f4c7ba;
+    color: #9d241a;
+}
+
+.muted-status {
+    background: #e0dbcf;
+    color: #596056;
+}
+
+.profile-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.profile-message {
+    margin: 0;
+    color: #a24d12;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.danger-inline {
+    color: #9d241a;
+}
+
+.profile-enable {
+    margin-bottom: 12px;
 }
 
 .health {
@@ -826,9 +957,14 @@ textarea:focus {
     }
 
     .log-head,
-    .rebuild-banner {
+    .rebuild-banner,
+    .topbar {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .topbar-actions {
+        justify-content: flex-start;
     }
 
     .advanced-toolbar select,

@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function CancelWeixinLogin():Promise<void>;
 
+export function CreateProfile(arg1:main.CreateProfileRequest):Promise<void>;
+
+export function DeleteProfile(arg1:string):Promise<void>;
+
 export function DeleteProvider(arg1:string):Promise<void>;
 
 export function FactoryResetInstance():Promise<void>;
@@ -23,6 +27,10 @@ export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset
 export function GetProviderConfig():Promise<main.ProviderConfig>;
 
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
+
+export function ListProfiles():Promise<main.ProfileRegistry>;
+
+export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 
 export function OpenEndpoint(arg1:string):Promise<void>;
 
@@ -44,9 +52,13 @@ export function SaveTextFile(arg1:main.TextFileRequest):Promise<void>;
 
 export function SaveWeComConfig(arg1:main.WeComConfig):Promise<void>;
 
+export function SelectProfile(arg1:string):Promise<void>;
+
 export function SendTestMessage(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetHomeChannel(arg1:string,arg2:string):Promise<void>;
+
+export function SetProfileEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function StartHermes():Promise<void>;
 
@@ -59,3 +71,5 @@ export function StopTailLogs():Promise<void>;
 export function TailLogs():Promise<void>;
 
 export function TestModel():Promise<void>;
+
+export function UpdateProfileName(arg1:string,arg2:string):Promise<void>;

@@ -36,6 +36,8 @@ import {QRCodeSVG} from 'qrcode.react';
 import './App.css';
 import {
     CancelWeixinLogin,
+    CreateProfile,
+    DeleteProfile,
     FactoryResetInstance,
     FetchModelList,
     FetchProviderConfigModelList,
@@ -51,16 +53,20 @@ import {
     SaveTextFile,
     SaveWeComConfig,
     SendTestMessage,
+    SelectProfile,
     SetHomeChannel,
+    SetProfileEnabled,
     StartHermes,
     StartWeixinLogin,
     StopHermes,
     TailLogs,
     TestModel,
+    MoveProfile,
+    UpdateProfileName,
 } from '../wailsjs/go/main/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
 
-type Page = 'dashboard' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'advanced';
+type Page = 'dashboard' | 'profiles' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'advanced';
 
 type EnvVar = { key: string; value: string; secret: boolean };
 type ComposeSettings = {
@@ -112,11 +118,18 @@ type ModelListRequest = { providerId: string; providerKey: string; apiKey: strin
 type ModelOption = { id: string; ownedBy: string };
 type ChannelSummary = { id: string; name: string; type: string; thread_id?: string };
 type ChannelFile = { updated_at: string; platforms: Record<string, ChannelSummary[]> };
+type ProfileEntry = { id: string; name: string; enabled: boolean; createdAt: string; updatedAt: string; modelAuxiliaryMode: string };
+type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
+type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
+type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
 type Notice = { type: 'ok' | 'error' | 'info'; message: string };
 type RunOptions = { rebuildRequired?: boolean; afterSuccess?: () => void };
 type AppState = {
     appVersion: string;
     instanceRoot: string;
+    profiles: ProfileRegistry;
+    activeProfile: string;
+    profileStatus: RuntimeStatus;
     compose: ComposeSettings;
     environment: EnvVar[];
     model: ModelConfig;
@@ -131,6 +144,7 @@ const factoryResetPhrase = '删除 ~/.hermes-dock';
 
 const nav: Array<{ id: Page; label: string; icon: typeof Gauge }> = [
     {id: 'dashboard', label: '总览', icon: Gauge},
+    {id: 'profiles', label: 'Profiles', icon: Boxes},
     {id: 'deploy', label: '部署', icon: Settings},
     {id: 'providers', label: '供应商', icon: Boxes},
     {id: 'models', label: '模型', icon: Boxes},
@@ -359,6 +373,10 @@ function App() {
     const [auxModelListStatus, setAuxModelListStatus] = useState('');
     const [providerModelOptions, setProviderModelOptions] = useState<ModelOption[]>([]);
     const [providerModelListStatus, setProviderModelListStatus] = useState('');
+    const [newProfileID, setNewProfileID] = useState('');
+    const [newProfileName, setNewProfileName] = useState('');
+    const [newProfileCopyMode, setNewProfileCopyMode] = useState('clean');
+    const [newProfileEnabled, setNewProfileEnabled] = useState(true);
 
     useEffect(() => {
         refresh();
@@ -405,6 +423,11 @@ function App() {
         logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [logs, autoScrollLogs]);
 
+    useEffect(() => {
+        if (!state?.activeProfile || advancedDirty) return;
+        setAdvancedPath(defaultAdvancedPath(state.activeProfile));
+    }, [state?.activeProfile]);
+
     async function refresh() {
         const next = await GetAppState();
         setState(next as AppState);
@@ -414,6 +437,43 @@ function App() {
         const nextProviders = (next as AppState).providers || fallbackProviderConfig;
         setProviders(nextProviders);
         setSelectedProvider((current) => nextProviders.providers[current] ? current : firstProviderID(nextProviders));
+    }
+
+    async function selectProfile(id: string) {
+        if (id === state?.activeProfile) return;
+        if (advancedDirty && !window.confirm('当前文件有未保存修改，切换 profile 后会丢失这些修改。是否继续？')) {
+            return;
+        }
+        await run('正在切换 Profile', () => SelectProfile(id), {
+            afterSuccess: () => {
+                setAdvancedDirty(false);
+                setAdvancedPath(defaultAdvancedPath(id));
+            },
+        });
+    }
+
+    async function createProfile() {
+        await run('正在创建 Profile', () => CreateProfile({
+            id: newProfileID,
+            name: newProfileName,
+            enabled: newProfileEnabled,
+            copyFrom: state?.activeProfile || 'default',
+            copyMode: newProfileCopyMode,
+        }), {
+            afterSuccess: () => {
+                setNewProfileID('');
+                setNewProfileName('');
+                setNewProfileCopyMode('clean');
+                setNewProfileEnabled(true);
+                setPage('profiles');
+            },
+        });
+    }
+
+    async function deleteProfile(id: string) {
+        const input = window.prompt(`删除 profile 会先备份整个目录。请输入 ${id} 确认删除。`);
+        if (input !== id) return;
+        await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
     }
 
     function appendLog(line: string) {
@@ -624,9 +684,19 @@ function App() {
                         <p className="eyebrow">Hermes Agent 容器</p>
                         <h1>{titleFor(page)}</h1>
                     </div>
-                    <div className={`status-pill ${statusClass}`}>
-                        {state?.containerStatus === 'running' ? <CheckCircle2 size={16}/> : <CircleAlert size={16}/>}
-                        {containerStatusText(state?.containerStatus)}
+                    <div className="topbar-actions">
+                        {state?.profiles?.profiles && (
+                            <label className="profile-picker">
+                                <span>当前 Profile</span>
+                                <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!busy}>
+                                    {state.profiles.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name || profile.id}</option>)}
+                                </select>
+                            </label>
+                        )}
+                        <div className={`status-pill ${statusClass}`}>
+                            {state?.containerStatus === 'running' ? <CheckCircle2 size={16}/> : <CircleAlert size={16}/>}
+                            {containerStatusText(state?.containerStatus)}
+                        </div>
                     </div>
                 </header>
                 {notice && <div className={`notice ${notice.type}`}>{notice.message}</div>}
@@ -660,6 +730,30 @@ function App() {
                         onOpenEndpoint={openEndpoint}
                         onOpenDeploy={() => setPage('deploy')}
                         onOpenPlatforms={() => setPage('platforms')}
+                        onOpenProfiles={() => setPage('profiles')}
+                    />
+                )}
+
+                {page === 'profiles' && state && (
+                    <ProfilesPage
+                        registry={state.profiles}
+                        activeProfile={state.activeProfile}
+                        status={state.profileStatus}
+                        busy={!!busy}
+                        newProfileID={newProfileID}
+                        setNewProfileID={setNewProfileID}
+                        newProfileName={newProfileName}
+                        setNewProfileName={setNewProfileName}
+                        newProfileCopyMode={newProfileCopyMode}
+                        setNewProfileCopyMode={setNewProfileCopyMode}
+                        newProfileEnabled={newProfileEnabled}
+                        setNewProfileEnabled={setNewProfileEnabled}
+                        onSelect={selectProfile}
+                        onCreate={createProfile}
+                        onRename={(id, name) => run('正在更新 Profile', () => UpdateProfileName(id, name))}
+                        onEnabled={(id, enabled) => run(enabled ? '正在启用 Profile' : '正在停用 Profile', () => SetProfileEnabled(id, enabled), {rebuildRequired: true})}
+                        onMove={(id, direction) => run('正在调整顺序', () => MoveProfile(id, direction))}
+                        onDelete={deleteProfile}
                     />
                 )}
 
@@ -733,6 +827,7 @@ function App() {
 
                 {page === 'advanced' && (
                     <AdvancedPage
+                        options={advancedFileOptions(state?.activeProfile || 'default')}
                         path={advancedPath}
                         setPath={changeAdvancedPath}
                         content={advancedContent}
@@ -773,6 +868,7 @@ function Dashboard(props: {
     onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
     onOpenDeploy: () => void;
     onOpenPlatforms: () => void;
+    onOpenProfiles: () => void;
 }) {
     const actionBusy = props.busy !== '';
     const dashboardURL = endpointURL(props.compose.dashboardHost, props.compose.dashboardPort);
@@ -814,6 +910,29 @@ function Dashboard(props: {
                 </div>
             </div>
             <div className="panel wide">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">Profiles</p>
+                        <h2>运行概览</h2>
+                    </div>
+                    <button className="ghost" onClick={props.onOpenProfiles}>管理 Profiles</button>
+                </div>
+                <div className="profile-list compact-list">
+                    {(props.state.profiles?.profiles || []).map((profile) => {
+                        const status = props.state.profileStatus?.profiles?.[profile.id];
+                        return (
+                            <button key={profile.id} className={`profile-row ${props.state.activeProfile === profile.id ? 'selected' : ''}`} onClick={props.onOpenProfiles}>
+                                <div>
+                                    <strong>{profile.name || profile.id}</strong>
+                                    <code>{profile.id}</code>
+                                </div>
+                                <span className={`profile-status ${statusClassName(status?.state, profile.enabled)}`}>{profileStatusText(status?.state, profile.enabled)}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="panel wide">
                 <div className="log-head">
                     <p className="eyebrow">实时输出</p>
                     <div className="actions compact">
@@ -824,6 +943,91 @@ function Dashboard(props: {
                     </div>
                 </div>
                 <pre ref={props.logRef} className="logbox">{props.logs.length ? props.logs.join('\n') : '暂无命令输出。'}</pre>
+            </div>
+        </section>
+    );
+}
+
+function ProfilesPage(props: {
+    registry: ProfileRegistry;
+    activeProfile: string;
+    status: RuntimeStatus;
+    busy: boolean;
+    newProfileID: string;
+    setNewProfileID: (value: string) => void;
+    newProfileName: string;
+    setNewProfileName: (value: string) => void;
+    newProfileCopyMode: string;
+    setNewProfileCopyMode: (value: string) => void;
+    newProfileEnabled: boolean;
+    setNewProfileEnabled: (value: boolean) => void;
+    onSelect: (id: string) => void;
+    onCreate: () => void;
+    onRename: (id: string, name: string) => void;
+    onEnabled: (id: string, enabled: boolean) => void;
+    onMove: (id: string, direction: string) => void;
+    onDelete: (id: string) => void;
+}) {
+    const profiles = props.registry?.profiles || [];
+    const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
+    return (
+        <section className="grid two">
+            <div className="panel">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">Profiles</p>
+                        <h2>助手列表</h2>
+                    </div>
+                </div>
+                <div className="profile-list">
+                    {profiles.map((profile, index) => {
+                        const status = props.status?.profiles?.[profile.id];
+                        const selected = props.activeProfile === profile.id;
+                        return (
+                            <div key={profile.id} className={`profile-row editable ${selected ? 'selected' : ''}`}>
+                                <button className="profile-main" onClick={() => props.onSelect(profile.id)} disabled={props.busy}>
+                                    <div>
+                                        <strong>{profile.name || profile.id}</strong>
+                                        <code>{profile.id}</code>
+                                    </div>
+                                    <span className={`profile-status ${statusClassName(status?.state, profile.enabled)}`}>{profileStatusText(status?.state, profile.enabled)}</span>
+                                </button>
+                                <div className="profile-controls">
+                                    <label className="mini-toggle"><input type="checkbox" checked={profile.enabled} onChange={(event) => props.onEnabled(profile.id, event.target.checked)} disabled={props.busy}/>参与运行</label>
+                                    <button className="ghost icon-only" title="上移" onClick={() => props.onMove(profile.id, 'up')} disabled={props.busy || index === 0}>↑</button>
+                                    <button className="ghost icon-only" title="下移" onClick={() => props.onMove(profile.id, 'down')} disabled={props.busy || index === profiles.length - 1}>↓</button>
+                                    <button className="ghost" onClick={() => {
+                                        const next = window.prompt('新的显示名', profile.name || profile.id);
+                                        if (next !== null) props.onRename(profile.id, next);
+                                    }} disabled={props.busy}>改名</button>
+                                    <button className="ghost danger-inline" onClick={() => props.onDelete(profile.id)} disabled={props.busy || profile.id === 'default'}>删除</button>
+                                </div>
+                                {status?.message && <p className="profile-message">{status.message}</p>}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="panel">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">新建 Profile</p>
+                        <h2>干净创建</h2>
+                    </div>
+                </div>
+                <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
+                <Field label="显示名" value={props.newProfileName} onChange={props.setNewProfileName}/>
+                <label className="field">
+                    <span>创建方式</span>
+                    <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
+                        <option value="clean">干净 profile</option>
+                        <option value="personality-skills">复制当前 profile 的人格和 skills</option>
+                    </select>
+                </label>
+                <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后参与运行</label>
+                <div className="setting-note">Profile ID 只能包含小写字母、数字和连字符，创建后不可修改。</div>
+                {!canCreate && props.newProfileID && <div className="form-warning">Profile ID 格式不符合要求，或使用了保留 ID。</div>}
+                <button className="primary" onClick={props.onCreate} disabled={props.busy || !canCreate}><Save size={16}/>创建 Profile</button>
             </div>
         </section>
     );
@@ -1275,7 +1479,7 @@ function ChannelsPage({channels, weixinHomeChannel, busy, onRefresh, onHome, onT
     );
 }
 
-function AdvancedPage(props: { path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
+function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
     const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
@@ -1299,9 +1503,7 @@ function AdvancedPage(props: { path: string; setPath: (value: string) => void; c
                 </div>
                 <div className="advanced-toolbar">
                     <select value={props.path} onChange={(event) => props.setPath(event.target.value)}>
-                        <option value="data/config.yaml">data/config.yaml</option>
-                        <option value="data/.env">data/.env</option>
-                        <option value="docker-compose.override.yaml">docker-compose.override.yaml</option>
+                        {props.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                     <div className="editor-actions">
                         <span className="language-badge">{languageLabel}</span>
@@ -1452,6 +1654,56 @@ function containerStatusText(status?: string) {
         default:
             return '未知';
     }
+}
+
+function profileStatusText(state?: string, enabled = true) {
+    if (!enabled) return '已停用';
+    switch (state) {
+        case 'running':
+            return '运行中';
+        case 'failed':
+            return '失败';
+        case 'not_configured':
+            return '未绑定平台';
+        case 'exited':
+            return '已退出';
+        case 'disabled':
+            return '已停用';
+        case 'starting':
+            return '启动中';
+        default:
+            return '未知';
+    }
+}
+
+function statusClassName(state?: string, enabled = true) {
+    if (!enabled || state === 'disabled') return 'muted-status';
+    if (state === 'running') return 'ok-status';
+    if (state === 'failed') return 'bad-status';
+    return 'warn-status';
+}
+
+function slugProfileID(value: string) {
+    return value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+/, '').slice(0, 40);
+}
+
+function defaultAdvancedPath(profileID: string) {
+    if (!profileID || profileID === 'default') return 'data/config.yaml';
+    return `data/profiles/${profileID}/config.yaml`;
+}
+
+function profileFilePath(profileID: string, name: string) {
+    if (!profileID || profileID === 'default') return `data/${name}`;
+    return `data/profiles/${profileID}/${name}`;
+}
+
+function advancedFileOptions(profileID: string) {
+    return [
+        {value: profileFilePath(profileID, 'config.yaml'), label: `${profileID}/config.yaml`},
+        {value: profileFilePath(profileID, '.env'), label: `${profileID}/.env`},
+        {value: profileFilePath(profileID, 'SOUL.md'), label: `${profileID}/SOUL.md`},
+        {value: 'docker-compose.override.yaml', label: 'docker-compose.override.yaml'},
+    ];
 }
 
 function endpointURL(host: string, port: string) {

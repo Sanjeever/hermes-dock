@@ -53,5 +53,8 @@ func (a *App) SendTestMessage(platform string, channelID string, message string)
 	if message == "" {
 		message = "Hermes Dock 测试消息"
 	}
-	return a.runComposeStreaming(context.Background(), "docker:progress", "run", "--rm", "hermes", "send", "--to", target, message)
+	args := append([]string{"run", "--rm"}, a.currentProfileComposeEnvArgs()...)
+	args = append(args, "hermes")
+	args = append(args, a.currentProfileHermesArgs("send", "--to", target, message)...)
+	return a.runComposeStreaming(context.Background(), "docker:progress", args...)
 }

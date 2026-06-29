@@ -6,6 +6,14 @@ export function CancelWeixinLogin() {
   return window['go']['main']['App']['CancelWeixinLogin']();
 }
 
+export function CreateProfile(arg1) {
+  return window['go']['main']['App']['CreateProfile'](arg1);
+}
+
+export function DeleteProfile(arg1) {
+  return window['go']['main']['App']['DeleteProfile'](arg1);
+}
+
 export function DeleteProvider(arg1) {
   return window['go']['main']['App']['DeleteProvider'](arg1);
 }
@@ -44,6 +52,14 @@ export function GetProviderConfig() {
 
 export function InitializeInstance(arg1) {
   return window['go']['main']['App']['InitializeInstance'](arg1);
+}
+
+export function ListProfiles() {
+  return window['go']['main']['App']['ListProfiles']();
+}
+
+export function MoveProfile(arg1, arg2) {
+  return window['go']['main']['App']['MoveProfile'](arg1, arg2);
 }
 
 export function OpenEndpoint(arg1) {
@@ -86,12 +102,20 @@ export function SaveWeComConfig(arg1) {
   return window['go']['main']['App']['SaveWeComConfig'](arg1);
 }
 
+export function SelectProfile(arg1) {
+  return window['go']['main']['App']['SelectProfile'](arg1);
+}
+
 export function SendTestMessage(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendTestMessage'](arg1, arg2, arg3);
 }
 
 export function SetHomeChannel(arg1, arg2) {
   return window['go']['main']['App']['SetHomeChannel'](arg1, arg2);
+}
+
+export function SetProfileEnabled(arg1, arg2) {
+  return window['go']['main']['App']['SetProfileEnabled'](arg1, arg2);
 }
 
 export function StartHermes() {
@@ -116,4 +140,8 @@ export function TailLogs() {
 
 export function TestModel() {
   return window['go']['main']['App']['TestModel']();
+}
+
+export function UpdateProfileName(arg1, arg2) {
+  return window['go']['main']['App']['UpdateProfileName'](arg1, arg2);
 }

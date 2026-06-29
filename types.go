@@ -4,6 +4,9 @@ type AppState struct {
 	AppVersion       string          `json:"appVersion"`
 	InstanceRoot     string          `json:"instanceRoot"`
 	State            LauncherState   `json:"state"`
+	Profiles         ProfileRegistry `json:"profiles"`
+	ActiveProfile    string          `json:"activeProfile"`
+	ProfileStatus    RuntimeStatus   `json:"profileStatus"`
 	Compose          ComposeSettings `json:"compose"`
 	Environment      []EnvVar        `json:"environment"`
 	Model            ModelConfig     `json:"model"`
@@ -46,7 +49,61 @@ type BackupRecord struct {
 }
 
 type UIState struct {
-	LastPage string `json:"lastPage"`
+	LastPage    string `json:"lastPage"`
+	LastProfile string `json:"lastProfile"`
+}
+
+type ProfileRegistry struct {
+	SchemaVersion int            `json:"schemaVersion"`
+	Profiles      []ProfileEntry `json:"profiles"`
+}
+
+type ProfileEntry struct {
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	Enabled            bool   `json:"enabled"`
+	CreatedAt          string `json:"createdAt"`
+	UpdatedAt          string `json:"updatedAt"`
+	ModelAuxiliaryMode string `json:"modelAuxiliaryMode"`
+}
+
+type CreateProfileRequest struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Enabled  bool   `json:"enabled"`
+	CopyFrom string `json:"copyFrom"`
+	CopyMode string `json:"copyMode"`
+}
+
+type RuntimeManifest struct {
+	SchemaVersion int                      `json:"schemaVersion"`
+	GeneratedAt   string                   `json:"generatedAt"`
+	Profiles      []RuntimeManifestProfile `json:"profiles"`
+}
+
+type RuntimeManifestProfile struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`
+	Home      string `json:"home"`
+	IsDefault bool   `json:"isDefault"`
+	Runnable  bool   `json:"runnable"`
+	Reason    string `json:"reason"`
+}
+
+type RuntimeStatus struct {
+	UpdatedAt string                          `json:"updatedAt"`
+	Profiles  map[string]RuntimeProfileStatus `json:"profiles"`
+}
+
+type RuntimeProfileStatus struct {
+	Enabled      bool   `json:"enabled"`
+	State        string `json:"state"`
+	PID          int    `json:"pid"`
+	StartedAt    string `json:"startedAt"`
+	LastExitCode int    `json:"lastExitCode"`
+	RestartCount int    `json:"restartCount"`
+	Message      string `json:"message"`
 }
 
 type ComposeSettings struct {

@@ -98,9 +98,8 @@ func (a *App) readModelConfig() (ModelConfig, error) {
 		Auxiliary:     map[string]AuxModel{},
 		RawProviders:  asMap(cfg["providers"]),
 	}
-	state, _ := a.readState()
-	if state.ModelAuxiliaryMode != "" {
-		model.AuxiliaryMode = state.ModelAuxiliaryMode
+	if mode := a.currentProfileAuxiliaryMode(); mode != "" {
+		model.AuxiliaryMode = mode
 	}
 	if fallbacks, ok := cfg["fallback_providers"].([]interface{}); ok {
 		for _, item := range fallbacks {
@@ -201,7 +200,7 @@ func (a *App) SaveModelConfig(model ModelConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureDir(a.dataDir()); err != nil {
+	if err := ensureDir(a.currentProfileDataDir()); err != nil {
 		return err
 	}
 	if err := os.WriteFile(a.configPath(), data, 0644); err != nil {
@@ -210,10 +209,7 @@ func (a *App) SaveModelConfig(model ModelConfig) error {
 	if err := a.syncReferencedProviderEnv(providers); err != nil {
 		return err
 	}
-	state, _ := a.readState()
-	state.ModelAuxiliaryMode = firstNonEmpty(model.AuxiliaryMode, "auto")
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.updateCurrentProfileAuxiliaryMode(firstNonEmpty(model.AuxiliaryMode, "auto"))
 }
 
 func (a *App) normalizeModelConfigForSave(model ModelConfig) ModelConfig {
@@ -296,7 +292,7 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureDir(a.dataDir()); err != nil {
+	if err := ensureDir(a.currentProfileDataDir()); err != nil {
 		return err
 	}
 	if err := os.WriteFile(a.configPath(), data, 0644); err != nil {

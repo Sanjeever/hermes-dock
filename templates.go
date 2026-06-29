@@ -12,7 +12,11 @@ import (
 var seedData embed.FS
 
 func (a *App) releaseSeedData() error {
-	if err := ensureDir(a.dataDir()); err != nil {
+	return a.releaseSeedDataTo(a.dataDir(), "default")
+}
+
+func (a *App) releaseSeedDataTo(targetRoot string, profileID string) error {
+	if err := ensureDir(targetRoot); err != nil {
 		return err
 	}
 	return fs.WalkDir(seedData, "templates/seed-data", func(path string, d fs.DirEntry, err error) error {
@@ -23,7 +27,7 @@ func (a *App) releaseSeedData() error {
 		if err != nil || rel == "." {
 			return err
 		}
-		target := filepath.Join(a.dataDir(), rel)
+		target := filepath.Join(targetRoot, rel)
 		if d.IsDir() {
 			return ensureDir(target)
 		}
@@ -34,6 +38,7 @@ func (a *App) releaseSeedData() error {
 		if err != nil {
 			return err
 		}
+		data = profileSeedData(data, rel, profileID)
 		mode := os.FileMode(0644)
 		if strings.HasSuffix(target, ".env") {
 			mode = 0600
@@ -43,4 +48,23 @@ func (a *App) releaseSeedData() error {
 		}
 		return os.WriteFile(target, data, mode)
 	})
+}
+
+func profileSeedData(data []byte, rel string, profileID string) []byte {
+	profileID = strings.TrimSpace(profileID)
+	if profileID == "" || profileID == "default" {
+		return data
+	}
+	home := "/opt/data/profiles/" + profileID
+	switch filepath.ToSlash(rel) {
+	case "config.yaml":
+		text := strings.ReplaceAll(string(data), "cwd: /opt/data", "cwd: "+home)
+		return []byte(text)
+	case "SOUL.md":
+		text := string(data)
+		text = strings.ReplaceAll(text, "/opt/data", home)
+		return []byte(text)
+	default:
+		return data
+	}
 }

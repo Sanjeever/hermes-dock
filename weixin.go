@@ -24,7 +24,7 @@ type weixinEvent struct {
 
 func (a *App) StartWeixinLogin() error {
 	a.CancelWeixinLogin()
-	if err := ensureDir(a.dataDir()); err != nil {
+	if err := ensureDir(a.currentProfileDataDir()); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -34,7 +34,8 @@ func (a *App) StartWeixinLogin() error {
 		return err
 	}
 	settings := a.readComposeSettings()
-	go a.runWeixinLogin(ctx, helperPath, settings.Image)
+	profileID := a.currentProfileID()
+	go a.runWeixinLogin(ctx, helperPath, settings.Image, profileID)
 	return nil
 }
 
@@ -45,11 +46,18 @@ func (a *App) CancelWeixinLogin() {
 	}
 }
 
-func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image string) {
+func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image string, profileID string) {
+	profileHome := "/opt/data"
+	if profileID != defaultProfileID {
+		profileHome = "/opt/data/profiles/" + profileID
+	}
 	args := []string{
 		"run", "--rm",
 		"-v", a.dataDir() + ":/opt/data",
 		"-v", helperPath + ":/opt/hermes-dock/weixin_login.py:ro",
+		"-e", "HERMES_HOME=/opt/data",
+		"-e", "HERMES_DOCK_PROFILE=" + profileID,
+		"-e", "HERMES_DOCK_PROFILE_HOME=" + profileHome,
 		image,
 		"python", "/opt/hermes-dock/weixin_login.py",
 	}
@@ -91,11 +99,7 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 				a.emit("weixin-login:error", map[string]string{"message": err.Error()})
 				continue
 			}
-			a.emit("weixin-login:status", map[string]string{"status": "正在应用微信配置"})
-			if err := a.forceRecreateComposeRuntime(); err != nil {
-				a.emit("weixin-login:error", map[string]string{"message": redact(err.Error())})
-				continue
-			}
+			a.emit("weixin-login:status", map[string]string{"status": "微信配置已保存，请应用并重建后生效"})
 			event.Token = ""
 			a.emit("weixin-login:confirmed", event)
 		case "qr_ready":
@@ -183,6 +187,7 @@ func (a *App) writeWeixinHelper() (string, error) {
 
 const weixinLoginHelper = `import asyncio
 import json
+import os
 import sys
 import time
 
@@ -204,7 +209,7 @@ def emit(payload):
 
 
 async def main():
-    hermes_home = "/opt/data"
+    hermes_home = os.environ.get("HERMES_DOCK_PROFILE_HOME") or "/opt/data"
     bot_type = "3"
     timeout_seconds = 480
     async with aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector()) as session:

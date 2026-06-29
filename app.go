@@ -49,6 +49,7 @@ func (a *App) GetAppState() (AppState, error) {
 		return AppState{}, err
 	}
 	state, _ := a.readState()
+	profiles, _ := a.readProfileRegistry()
 	compose := a.readComposeSettings()
 	env, _ := readEnvFile(a.envPath())
 	model, _ := a.readModelConfig()
@@ -60,6 +61,9 @@ func (a *App) GetAppState() (AppState, error) {
 		AppVersion:       appVersion,
 		InstanceRoot:     a.instanceRoot,
 		State:            state,
+		Profiles:         profiles,
+		ActiveProfile:    a.currentProfileID(),
+		ProfileStatus:    a.readRuntimeStatus(),
 		Compose:          compose,
 		Environment:      env,
 		Model:            model,
@@ -78,8 +82,18 @@ func (a *App) ensureInstanceReady() error {
 }
 
 func (a *App) ensureInstanceReadyLocked() error {
-	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.envPath()) && fileExists(a.configPath()) {
-		return nil
+	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.defaultEnvPath()) && fileExists(a.defaultConfigPath()) {
+		settings := a.readComposeSettings()
+		if err := a.migrateComposeIfNeeded(settings); err != nil {
+			return err
+		}
+		if err := a.writeOverrideIfMissing(); err != nil {
+			return err
+		}
+		if err := ensureDir(a.dockDataDir()); err != nil {
+			return err
+		}
+		return a.ensureProfileRegistry()
 	}
 	if err := ensureDir(a.instanceRoot); err != nil {
 		return err
@@ -88,6 +102,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		return err
 	}
 	if err := a.releaseSeedData(); err != nil {
+		return err
+	}
+	if err := ensureDir(a.dockDataDir()); err != nil {
 		return err
 	}
 	settings := a.readComposeSettings()
@@ -112,9 +129,12 @@ func (a *App) ensureInstanceReadyLocked() error {
 		state.InitializedAt = now
 		state.UpdatedAt = now
 		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{ID: "seed-data-v1", AppliedAt: now})
-		return a.writeState(state)
+		if err := a.writeState(state); err != nil {
+			return err
+		}
+		return a.ensureProfileRegistry()
 	}
-	return nil
+	return a.ensureProfileRegistry()
 }
 
 func (a *App) InitializeInstance(settings ComposeSettings) (LauncherState, error) {
@@ -135,6 +155,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		return LauncherState{}, err
 	}
 	if err := a.releaseSeedData(); err != nil {
+		return LauncherState{}, err
+	}
+	if err := ensureDir(a.dockDataDir()); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.writeCompose(settings, "initialize-compose"); err != nil {
@@ -173,6 +196,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		ModelAuxiliaryMode: firstNonEmpty(existing.ModelAuxiliaryMode, "auto"),
 	}
 	if err := a.writeState(state); err != nil {
+		return LauncherState{}, err
+	}
+	if err := a.ensureProfileRegistry(); err != nil {
 		return LauncherState{}, err
 	}
 	return state, nil
@@ -271,7 +297,11 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	if err := a.backupFile(resolved, firstNonEmpty(req.Reason, "before-text-save")); err != nil {
 		return err
 	}
-	return os.WriteFile(resolved, []byte(req.Content), 0644)
+	mode := os.FileMode(0644)
+	if filepath.Base(resolved) == ".env" {
+		mode = 0600
+	}
+	return os.WriteFile(resolved, []byte(req.Content), mode)
 }
 
 func (a *App) emit(event string, payload interface{}) {

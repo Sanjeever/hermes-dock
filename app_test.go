@@ -63,6 +63,9 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 		"    command: chown -R 10000:10000 /opt/data",
 		"    restart: \"no\"",
 		"    depends_on:\n      init-permissions:\n        condition: service_completed_successfully",
+		"    command: /opt/hermes-dock/hermes-profile-runner",
+		"      HERMES_HOME: \"/opt/data\"",
+		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 	} {
 		if !strings.Contains(compose, want) {
 			t.Fatalf("compose missing %q:\n%s", want, compose)
@@ -70,7 +73,7 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 	}
 }
 
-func TestEnsureInstanceReadyDoesNotRewriteExistingCompose(t *testing.T) {
+func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -93,12 +96,15 @@ func TestEnsureInstanceReadyDoesNotRewriteExistingCompose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(actual) != string(content) {
-		t.Fatalf("compose was rewritten:\n%s", actual)
+	if string(actual) == string(content) {
+		t.Fatalf("legacy compose was not migrated")
+	}
+	if !strings.Contains(string(actual), "hermes-profile-runner") {
+		t.Fatalf("migrated compose missing runner:\n%s", actual)
 	}
 }
 
-func TestNormalizeDashScopeUsesAnthropicPayAsYouGoEndpoint(t *testing.T) {
+func TestNormalizeDashScopeUsesCompatiblePayAsYouGoEndpoint(t *testing.T) {
 	app := NewApp()
 	model := app.normalizeModelConfigForSave(ModelConfig{
 		Provider: "dashscope",
@@ -109,10 +115,10 @@ func TestNormalizeDashScopeUsesAnthropicPayAsYouGoEndpoint(t *testing.T) {
 	if model.Provider != "custom" {
 		t.Fatalf("provider = %q, want custom", model.Provider)
 	}
-	if model.BaseURL != "https://dashscope.aliyuncs.com/apps/anthropic" {
+	if model.BaseURL != "https://dashscope.aliyuncs.com/compatible-mode/v1" {
 		t.Fatalf("base URL = %q", model.BaseURL)
 	}
-	if model.APIMode != "anthropic_messages" {
+	if model.APIMode != "chat_completions" {
 		t.Fatalf("api mode = %q", model.APIMode)
 	}
 }
