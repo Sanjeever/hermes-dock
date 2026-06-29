@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -35,6 +36,37 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, ".hermes-dock")); !os.IsNotExist(err) {
 		t.Fatalf("unexpected nested .hermes-dock directory: %v", err)
+	}
+}
+
+func TestStartupComposeIncludesInitPermissions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	app := NewApp()
+	app.startup(context.Background())
+	if app.startupErr != nil {
+		t.Fatal(app.startupErr)
+	}
+
+	composePath := filepath.Join(home, ".hermes-dock", "docker-compose.yaml")
+	data, err := os.ReadFile(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compose := string(data)
+	for _, want := range []string{
+		"  init-permissions:",
+		"    image: alpine:3.22",
+		"    user: \"0:0\"",
+		"    command: chown -R 10000:10000 /opt/data",
+		"    restart: \"no\"",
+		"    depends_on:\n      init-permissions:\n        condition: service_completed_successfully",
+	} {
+		if !strings.Contains(compose, want) {
+			t.Fatalf("compose missing %q:\n%s", want, compose)
+		}
 	}
 }
 

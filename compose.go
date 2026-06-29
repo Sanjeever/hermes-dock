@@ -117,11 +117,22 @@ func renderCompose(settings ComposeSettings) string {
 	}
 	dashboard := "1"
 	return fmt.Sprintf(`services:
+  init-permissions:
+    image: alpine:3.22
+    user: "0:0"
+    command: chown -R 10000:10000 /opt/data
+    volumes:
+      - ./data:/opt/data
+    restart: "no"
+
   hermes:
     image: %s
     container_name: %s
     restart: unless-stopped
     command: gateway run
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
     shm_size: %s
     ports:
       - "%s:%s:8642"
