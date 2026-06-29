@@ -127,6 +127,8 @@ type AppState = {
     containerStatus: string;
 };
 
+const factoryResetPhrase = '删除 ~/.hermes-dock';
+
 const nav: Array<{ id: Page; label: string; icon: typeof Gauge }> = [
     {id: 'dashboard', label: '总览', icon: Gauge},
     {id: 'deploy', label: '部署', icon: Settings},
@@ -530,9 +532,6 @@ function App() {
     }
 
     async function factoryReset() {
-        const phrase = '删除 ~/.hermes-dock';
-        const input = window.prompt(`此操作会停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。\n\n请输入「${phrase}」确认。`);
-        if (input !== phrase) return;
         await run('正在恢复出厂设置', FactoryResetInstance, {
             afterSuccess: () => {
                 setLogs([]);
@@ -746,6 +745,7 @@ function App() {
                         busy={!!busy}
                         onSave={saveAdvancedFile}
                         onFactoryReset={factoryReset}
+                        resetConfirmPhrase={factoryResetPhrase}
                     />
                 )}
             </main>
@@ -1275,9 +1275,17 @@ function ChannelsPage({channels, weixinHomeChannel, busy, onRefresh, onHome, onT
     );
 }
 
-function AdvancedPage(props: { path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => void }) {
+function AdvancedPage(props: { path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
+    const [resetConfirmText, setResetConfirmText] = useState('');
     const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
+    const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
+
+    async function factoryReset() {
+        if (!resetConfirmed) return;
+        await props.onFactoryReset();
+        setResetConfirmText('');
+    }
 
     return (
         <section className="advanced-stack">
@@ -1316,7 +1324,11 @@ function AdvancedPage(props: { path: string; setPath: (value: string) => void; c
                     </div>
                 </div>
                 <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
-                <button className="danger-button" onClick={props.onFactoryReset} disabled={props.busy}><Trash2 size={16}/>恢复出厂设置</button>
+                <label className="reset-confirm">
+                    <span>输入「{props.resetConfirmPhrase}」确认</span>
+                    <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>
+                </label>
+                <button className="danger-button" onClick={factoryReset} disabled={props.busy || !resetConfirmed}><Trash2 size={16}/>恢复出厂设置</button>
             </div>
         </section>
     );

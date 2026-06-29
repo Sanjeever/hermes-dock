@@ -716,6 +716,19 @@ textarea:focus {
     background: #7d1b13;
 }
 
+.reset-confirm {
+    display: grid;
+    gap: 8px;
+    max-width: 420px;
+    margin-top: 12px;
+    font-weight: 800;
+}
+
+.reset-confirm input {
+    width: 100%;
+    background: #fffaf5;
+}
+
 .advanced-toolbar select {
     max-width: 360px;
 }
