@@ -970,6 +970,17 @@ function ProfilesPage(props: {
 }) {
     const profiles = props.registry?.profiles || [];
     const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
+    const [editingID, setEditingID] = useState('');
+    const [editingName, setEditingName] = useState('');
+    const startRename = (profile: ProfileEntry) => {
+        setEditingID(profile.id);
+        setEditingName(profile.name || profile.id);
+    };
+    const saveRename = (id: string) => {
+        props.onRename(id, editingName);
+        setEditingID('');
+        setEditingName('');
+    };
     return (
         <section className="grid two">
             <div className="panel">
@@ -996,12 +1007,19 @@ function ProfilesPage(props: {
                                     <label className="mini-toggle"><input type="checkbox" checked={profile.enabled} onChange={(event) => props.onEnabled(profile.id, event.target.checked)} disabled={props.busy}/>参与运行</label>
                                     <button className="ghost icon-only" title="上移" onClick={() => props.onMove(profile.id, 'up')} disabled={props.busy || index === 0}>↑</button>
                                     <button className="ghost icon-only" title="下移" onClick={() => props.onMove(profile.id, 'down')} disabled={props.busy || index === profiles.length - 1}>↓</button>
-                                    <button className="ghost" onClick={() => {
-                                        const next = window.prompt('新的显示名', profile.name || profile.id);
-                                        if (next !== null) props.onRename(profile.id, next);
-                                    }} disabled={props.busy}>改名</button>
+                                    <button className="ghost" onClick={() => startRename(profile)} disabled={props.busy || editingID === profile.id}>改名</button>
                                     <button className="ghost danger-inline" onClick={() => props.onDelete(profile.id)} disabled={props.busy || profile.id === 'default'}>删除</button>
                                 </div>
+                                {editingID === profile.id && (
+                                    <div className="profile-rename">
+                                        <input value={editingName} onChange={(event) => setEditingName(event.target.value)} autoFocus disabled={props.busy}/>
+                                        <button className="primary inline-primary" onClick={() => saveRename(profile.id)} disabled={props.busy || editingName.trim() === ''}>保存</button>
+                                        <button className="ghost" onClick={() => {
+                                            setEditingID('');
+                                            setEditingName('');
+                                        }} disabled={props.busy}>取消</button>
+                                    </div>
+                                )}
                                 {status?.message && <p className="profile-message">{status.message}</p>}
                             </div>
                         );

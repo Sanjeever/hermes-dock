@@ -483,6 +483,17 @@ button:disabled {
     flex-wrap: wrap;
 }
 
+.profile-rename {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.inline-primary {
+    margin-top: 0;
+}
+
 .profile-message {
     margin: 0;
     color: #a24d12;
@@ -954,6 +965,10 @@ textarea:focus {
     .table-row {
         grid-template-columns: 1fr;
         padding: 12px;
+    }
+
+    .profile-rename {
+        grid-template-columns: 1fr;
     }
 
     .log-head,
