@@ -10,6 +10,14 @@ export function FetchModelList(arg1) {
   return window['go']['main']['App']['FetchModelList'](arg1);
 }
 
+export function FetchProviderConfigModelList(arg1) {
+  return window['go']['main']['App']['FetchProviderConfigModelList'](arg1);
+}
+
+export function FetchProviderModelList(arg1) {
+  return window['go']['main']['App']['FetchProviderModelList'](arg1);
+}
+
 export function GetAppState() {
   return window['go']['main']['App']['GetAppState']();
 }
@@ -20,6 +28,10 @@ export function GetChannels() {
 
 export function GetModelProviderPresets() {
   return window['go']['main']['App']['GetModelProviderPresets']();
+}
+
+export function GetProviderConfig() {
+  return window['go']['main']['App']['GetProviderConfig']();
 }
 
 export function InitializeInstance(arg1) {
@@ -52,6 +64,10 @@ export function SaveEnvironment(arg1) {
 
 export function SaveModelConfig(arg1) {
   return window['go']['main']['App']['SaveModelConfig'](arg1);
+}
+
+export function SaveProviderConfig(arg1) {
+  return window['go']['main']['App']['SaveProviderConfig'](arg1);
 }
 
 export function SaveTextFile(arg1) {

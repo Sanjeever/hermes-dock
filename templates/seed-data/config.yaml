@@ -1,9 +1,40 @@
 model:
   default: qwen3.7-max
-  provider: custom
+  provider: dashscope-payg
   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
   api_mode: chat_completions
-providers: {}
+  api_key: ''
+providers:
+  dashscope-payg:
+    label: DashScope 按量计费
+    provider: custom
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: https://dashscope.aliyuncs.com/compatible-mode/v1/models
+    default_model: qwen3.7-max
+    builtin: true
+    disabled: false
+  opencode-go:
+    label: OpenCode Go
+    provider: custom
+    base_url: https://opencode.ai/zen/go/v1
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: https://opencode.ai/zen/go/v1/models
+    default_model: deepseek-v4-flash
+    builtin: true
+    disabled: false
+  deepseek:
+    label: DeepSeek
+    provider: deepseek
+    base_url: https://api.deepseek.com
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: https://api.deepseek.com/models
+    default_model: deepseek-v4-flash
+    builtin: true
+    disabled: false
 fallback_providers: []
 toolsets:
   - hermes-cli

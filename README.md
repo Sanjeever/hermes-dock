@@ -105,41 +105,17 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 
 ## 模型供应商
 
-MVP 内置三个模型供应商预设。
+供应商配置独立保存在 `data/config.yaml` 的顶层 `providers` 中，`model.provider` 和辅助模型的 `provider` 字段只引用供应商 ID。启动器保存时会把当前引用供应商的 `base_url`、`api_mode` 和 `api_key` 展开回 `model` / `auxiliary`，兼容 Hermes 当前运行态。
 
-DashScope 按量计费：
+MVP 内置三个供应商实例：
 
-```yaml
-model:
-  provider: custom
-  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  api_mode: chat_completions
-  default: qwen3.7-max
-```
+- `dashscope-payg`：DashScope 按量计费，默认模型 `qwen3.7-max`。
+- `opencode-go`：OpenCode Go，默认模型 `deepseek-v4-flash`。
+- `deepseek`：DeepSeek，默认模型 `deepseek-v4-flash`。
 
-OpenCode Go：
+供应商页负责新增、编辑、禁用供应商，以及填写 API Key、接口地址、API 模式和模型列表地址。模型页只选择已配置的供应商和模型名。保存供应商或模型配置时，启动器只把当前主模型和辅助模型实际引用的供应商密钥同步到 `data/.env` 的 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`，供容器运行态读取。
 
-```yaml
-model:
-  provider: custom
-  base_url: https://opencode.ai/zen/go/v1
-  api_mode: chat_completions
-  default: deepseek-v4-flash
-```
-
-DeepSeek：
-
-```yaml
-model:
-  provider: deepseek
-  base_url: https://api.deepseek.com
-  api_mode: chat_completions
-  default: deepseek-v4-flash
-```
-
-模型 API Key 通过“模型”页面保存到 `data/config.yaml`。Hermes Dock 不提供环境变量编辑页，也不要求用户手动填写 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`；保存模型配置时会自动把供应商密钥同步到 `data/.env`，供容器运行态读取。
-
-模型页也支持自定义 OpenAI 兼容供应商。用户可以填写接口地址、API 密钥、API 模式和模型名；启动器会尝试从接口地址推导 `/models` 拉取模型列表，拉取失败时仍可手动填写模型名。
+自定义供应商在 UI 中统一保存为 `provider: custom`，适配 OpenAI 兼容或 Anthropic Messages 兼容接口。模型列表不持久化；拉取失败时仍可手动填写模型名。
 
 ## 平台绑定
 

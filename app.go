@@ -51,6 +51,7 @@ func (a *App) GetAppState() (AppState, error) {
 	compose := a.readComposeSettings()
 	env, _ := readEnvFile(a.envPath())
 	model, _ := a.readModelConfig()
+	providers, _ := a.readProviderConfig()
 	channels, _ := a.GetChannels()
 	containerStatus := a.containerStatus(context.Background())
 
@@ -61,6 +62,7 @@ func (a *App) GetAppState() (AppState, error) {
 		Compose:          compose,
 		Environment:      env,
 		Model:            model,
+		Providers:        providers,
 		Channels:         channels,
 		DockerAvailable:  commandExists("docker"),
 		ComposeAvailable: a.composeAvailable(context.Background()),

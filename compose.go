@@ -199,14 +199,14 @@ func (a *App) TestModel() error {
 }
 
 func (a *App) syncSavedModelProviderEnv() error {
-	model, err := a.readModelConfig()
+	cfg, err := a.readConfigMap()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	return a.syncModelProviderEnv(a.normalizeModelConfigForSave(model))
+	return a.syncReferencedProviderEnv(normalizeProviderConfig(readProviderConfigFromMap(cfg)))
 }
 
 func (a *App) composeAvailable(ctx context.Context) bool {

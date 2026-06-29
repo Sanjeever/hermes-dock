@@ -109,32 +109,17 @@ backup.go                  写入前备份
 
 ## 模型配置
 
-模型 API Key 存在 `data/config.yaml` 的 `model.api_key` 中，不提供环境变量页，也不要求用户填写供应商环境变量。保存模型配置时，启动器会自动把供应商密钥同步到 `data/.env` 的 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`，供容器运行态读取。
+供应商配置是独立模块，事实来源是 `data/config.yaml` 顶层 `providers`。`model.provider` 和 `auxiliary.<name>.provider` 只保存供应商 ID；保存时启动器会从 `providers` 展开 `base_url`、`api_mode` 和 `api_key` 到 `model` / `auxiliary`，兼容 Hermes 当前运行态。不要把模型页重新做成 API Key、Base URL 和模型名混在一起的表单。
 
-内置供应商：
+内置供应商实例：
 
-- DashScope 按量计费：
-  - `provider: custom`
-  - `base_url: https://dashscope.aliyuncs.com/compatible-mode/v1`
-  - `api_mode: chat_completions`
-  - 默认模型 `qwen3.7-max`
-  - 拉取模型列表使用 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`
-- OpenCode Go：
-  - `provider: custom`
-  - `base_url: https://opencode.ai/zen/go/v1`
-  - `api_mode: chat_completions`
-  - 默认模型 `deepseek-v4-flash`
-  - 拉取模型列表使用 `https://opencode.ai/zen/go/v1/models`
-- DeepSeek：
-  - `provider: deepseek`
-  - `base_url: https://api.deepseek.com`
-  - `api_mode: chat_completions`
-  - 默认模型 `deepseek-v4-flash`
-  - 拉取模型列表使用 `https://api.deepseek.com/models`
+- `dashscope-payg`：DashScope 按量计费，`provider: custom`，默认模型 `qwen3.7-max`，模型列表 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`。
+- `opencode-go`：OpenCode Go，`provider: custom`，默认模型 `deepseek-v4-flash`，模型列表 `https://opencode.ai/zen/go/v1/models`。
+- `deepseek`：DeepSeek，`provider: deepseek`，默认模型 `deepseek-v4-flash`，模型列表 `https://api.deepseek.com/models`。
 
-Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 `ModelAuxiliaryMode`。
+供应商页负责新增、编辑、禁用供应商和填写 API Key。内置供应商不可删除，自定义供应商被主模型或辅助模型引用时不可删除。模型页只选择供应商 ID 和模型名；主供应商没有 API Key 时允许保存模型选择，但禁止测试。保存供应商或模型配置时，只把当前主模型和辅助模型实际引用的供应商密钥同步到 `data/.env`，空密钥不同步，也不清理旧 `.env` 遗留键。
 
-模型页支持自定义 OpenAI 兼容供应商。自定义供应商保存到 `config.yaml` 的 `model.provider: custom`、`model.base_url`、`model.api_mode`、`model.default` 和 `model.api_key`；拉取模型列表时从用户填写的接口地址推导 `/models`，失败时允许用户手动填写模型名。
+Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 `ModelAuxiliaryMode`。`auto` 策略下辅助模型保持 `provider: auto` 和空兼容字段；`follow-main` 和 `custom` 才根据引用供应商展开兼容字段。
 
 ## 平台绑定
 

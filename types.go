@@ -7,6 +7,7 @@ type AppState struct {
 	Compose          ComposeSettings `json:"compose"`
 	Environment      []EnvVar        `json:"environment"`
 	Model            ModelConfig     `json:"model"`
+	Providers        ProviderConfig  `json:"providers"`
 	Channels         ChannelFile     `json:"channels"`
 	DockerAvailable  bool            `json:"dockerAvailable"`
 	ComposeAvailable bool            `json:"composeAvailable"`
@@ -81,6 +82,22 @@ type ModelConfig struct {
 	RawProviders  map[string]interface{} `json:"rawProviders"`
 }
 
+type ProviderConfig struct {
+	Providers map[string]ProviderConfigEntry `json:"providers"`
+}
+
+type ProviderConfigEntry struct {
+	Label        string `json:"label" yaml:"label"`
+	Provider     string `json:"provider" yaml:"provider"`
+	BaseURL      string `json:"baseUrl" yaml:"base_url"`
+	APIMode      string `json:"apiMode" yaml:"api_mode"`
+	APIKey       string `json:"apiKey" yaml:"api_key"`
+	ModelListURL string `json:"modelListUrl" yaml:"model_list_url"`
+	DefaultModel string `json:"defaultModel" yaml:"default_model"`
+	Builtin      bool   `json:"builtin" yaml:"builtin"`
+	Disabled     bool   `json:"disabled" yaml:"disabled"`
+}
+
 type ModelProviderPreset struct {
 	Key          string `json:"key"`
 	Label        string `json:"label"`
@@ -92,6 +109,7 @@ type ModelProviderPreset struct {
 }
 
 type ModelListRequest struct {
+	ProviderID  string `json:"providerId"`
 	ProviderKey string `json:"providerKey"`
 	APIKey      string `json:"apiKey"`
 	BaseURL     string `json:"baseUrl"`

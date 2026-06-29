@@ -518,6 +518,39 @@ textarea:focus {
     margin-bottom: 14px;
 }
 
+.provider-layout {
+    align-items: start;
+}
+
+.provider-list {
+    display: grid;
+    gap: 8px;
+}
+
+.provider-list-item {
+    display: grid;
+    gap: 4px;
+    border-radius: 8px;
+    padding: 12px;
+    background: #eee8da;
+    color: #1f2522;
+    text-align: left;
+}
+
+.provider-list-item.selected {
+    background: #151916;
+    color: #ffffff;
+}
+
+.provider-list-item span {
+    font-size: 12px;
+    color: #697263;
+}
+
+.provider-list-item.selected span {
+    color: #d8ff67;
+}
+
 .provider-grid.compact .provider-card {
     min-height: 58px;
 }

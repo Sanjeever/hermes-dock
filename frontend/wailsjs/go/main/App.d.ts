@@ -6,11 +6,17 @@ export function CancelWeixinLogin():Promise<void>;
 
 export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
 
+export function FetchProviderConfigModelList(arg1:main.ProviderConfigEntry):Promise<Array<main.ModelOption>>;
+
+export function FetchProviderModelList(arg1:string):Promise<Array<main.ModelOption>>;
+
 export function GetAppState():Promise<main.AppState>;
 
 export function GetChannels():Promise<main.ChannelFile>;
 
 export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset>>;
+
+export function GetProviderConfig():Promise<main.ProviderConfig>;
 
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
 
@@ -27,6 +33,8 @@ export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 export function SaveEnvironment(arg1:Array<main.EnvVar>):Promise<void>;
 
 export function SaveModelConfig(arg1:main.ModelConfig):Promise<void>;
+
+export function SaveProviderConfig(arg1:main.ProviderConfig):Promise<void>;
 
 export function SaveTextFile(arg1:main.TextFileRequest):Promise<void>;
 

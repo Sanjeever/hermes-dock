@@ -1,19 +1,19 @@
 export namespace main {
-	
+
 	export class ChannelFile {
 	    updated_at: string;
 	    platforms: Record<string, Array<ChannelSummary>>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ChannelFile(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.updated_at = source["updated_at"];
 	        this.platforms = this.convertValues(source["platforms"], Array<ChannelSummary>, true);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -39,11 +39,11 @@ export namespace main {
 	    apiKey: string;
 	    timeout: number;
 	    extraBody: Record<string, any>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new AuxModel(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.provider = source["provider"];
@@ -53,6 +53,64 @@ export namespace main {
 	        this.timeout = source["timeout"];
 	        this.extraBody = source["extraBody"];
 	    }
+	}
+	export class ProviderConfigEntry {
+	    label: string;
+	    provider: string;
+	    baseUrl: string;
+	    apiMode: string;
+	    apiKey: string;
+	    modelListUrl: string;
+	    defaultModel: string;
+	    builtin: boolean;
+	    disabled: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new ProviderConfigEntry(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.provider = source["provider"];
+	        this.baseUrl = source["baseUrl"];
+	        this.apiMode = source["apiMode"];
+	        this.apiKey = source["apiKey"];
+	        this.modelListUrl = source["modelListUrl"];
+	        this.defaultModel = source["defaultModel"];
+	        this.builtin = source["builtin"];
+	        this.disabled = source["disabled"];
+	    }
+	}
+	export class ProviderConfig {
+	    providers: Record<string, ProviderConfigEntry>;
+
+	    static createFrom(source: any = {}) {
+	        return new ProviderConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.providers = this.convertValues(source["providers"], ProviderConfigEntry, true);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ModelConfig {
 	    provider: string;
@@ -64,11 +122,11 @@ export namespace main {
 	    auxiliary: Record<string, AuxModel>;
 	    fallbacks: string[];
 	    rawProviders: Record<string, any>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModelConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.provider = source["provider"];
@@ -81,7 +139,7 @@ export namespace main {
 	        this.fallbacks = source["fallbacks"];
 	        this.rawProviders = source["rawProviders"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -104,11 +162,11 @@ export namespace main {
 	    key: string;
 	    value: string;
 	    secret: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new EnvVar(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.key = source["key"];
@@ -118,11 +176,11 @@ export namespace main {
 	}
 	export class UIState {
 	    lastPage: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new UIState(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.lastPage = source["lastPage"];
@@ -132,11 +190,11 @@ export namespace main {
 	    id: string;
 	    reason: string;
 	    path: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new BackupRecord(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -147,11 +205,11 @@ export namespace main {
 	export class MigrationRecord {
 	    id: string;
 	    appliedAt: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new MigrationRecord(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -171,11 +229,11 @@ export namespace main {
 	    memoryLimit: string;
 	    cpuLimit: string;
 	    shmSize: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ComposeSettings(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.image = source["image"];
@@ -210,11 +268,11 @@ export namespace main {
 	    backups: BackupRecord[];
 	    ui: UIState;
 	    modelAuxiliaryMode: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LauncherState(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schemaVersion = source["schemaVersion"];
@@ -235,7 +293,7 @@ export namespace main {
 	        this.ui = this.convertValues(source["ui"], UIState);
 	        this.modelAuxiliaryMode = source["modelAuxiliaryMode"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -261,15 +319,16 @@ export namespace main {
 	    compose: ComposeSettings;
 	    environment: EnvVar[];
 	    model: ModelConfig;
+	    providers: ProviderConfig;
 	    channels: ChannelFile;
 	    dockerAvailable: boolean;
 	    composeAvailable: boolean;
 	    containerStatus: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.appVersion = source["appVersion"];
@@ -278,12 +337,13 @@ export namespace main {
 	        this.compose = this.convertValues(source["compose"], ComposeSettings);
 	        this.environment = this.convertValues(source["environment"], EnvVar);
 	        this.model = this.convertValues(source["model"], ModelConfig);
+	        this.providers = this.convertValues(source["providers"], ProviderConfig);
 	        this.channels = this.convertValues(source["channels"], ChannelFile);
 	        this.dockerAvailable = source["dockerAvailable"];
 	        this.composeAvailable = source["composeAvailable"];
 	        this.containerStatus = source["containerStatus"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -302,19 +362,19 @@ export namespace main {
 		    return a;
 		}
 	}
-	
-	
-	
+
+
+
 	export class ChannelSummary {
 	    id: string;
 	    name: string;
 	    type: string;
 	    thread_id: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ChannelSummary(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -323,22 +383,24 @@ export namespace main {
 	        this.thread_id = source["thread_id"];
 	    }
 	}
-	
-	
-	
-	
-	
+
+
+
+
+
 	export class ModelListRequest {
+	    providerId: string;
 	    providerKey: string;
 	    apiKey: string;
 	    baseUrl: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModelListRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.providerId = source["providerId"];
 	        this.providerKey = source["providerKey"];
 	        this.apiKey = source["apiKey"];
 	        this.baseUrl = source["baseUrl"];
@@ -347,11 +409,11 @@ export namespace main {
 	export class ModelOption {
 	    id: string;
 	    ownedBy: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModelOption(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -366,11 +428,11 @@ export namespace main {
 	    apiMode: string;
 	    defaultModel: string;
 	    modelListUrl: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ModelProviderPreset(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.key = source["key"];
@@ -386,11 +448,11 @@ export namespace main {
 	    path: string;
 	    content: string;
 	    reason: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new TextFileRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -398,7 +460,7 @@ export namespace main {
 	        this.reason = source["reason"];
 	    }
 	}
-	
+
 	export class WeComConfig {
 	    botId: string;
 	    secret: string;
@@ -407,11 +469,11 @@ export namespace main {
 	    allowedUsers: string;
 	    groupPolicy: string;
 	    groupAllowUsers: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new WeComConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.botId = source["botId"];
@@ -425,4 +487,3 @@ export namespace main {
 	}
 
 }
-
