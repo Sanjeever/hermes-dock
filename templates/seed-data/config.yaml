@@ -163,6 +163,9 @@ privacy:
 memory:
   memory_enabled: true
   user_profile_enabled: true
+  memory_char_limit: 6000
+  user_char_limit: 3000
+  write_approval: false
 skills:
   external_dirs: []
 timezone: Asia/Shanghai
