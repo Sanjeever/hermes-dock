@@ -71,6 +71,7 @@ jobs:
   build-macos:
     name: macOS arm64
     runs-on: macos-15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -99,7 +100,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Build
-        run: wails build -clean -platform darwin/arm64
+        run: wails build -clean -platform darwin/arm64 -v 2 -nocolour
 
       - name: Collect artifacts
         run: |
