@@ -68,3 +68,20 @@
 3. 找到目标会话后，向前后滚动读取上下文。
 4. 只把长期稳定、未来仍有价值的信息写入 MEMORY.md 或 USER.md。
 5. 日志、代码块、临时错误信息只保留在会话历史中，不写入固定记忆。
+
+## 微信公众号文章提取策略
+
+当用户分享 `mp.weixin.qq.com/s/...` 链接要求读/摘要，走以下策略：
+
+1. **不要使用 browser 工具**。微信的"环境异常"验证码会直接封住无头浏览器，点 CAPTCHA 绕不过去。
+2. **立即使用 curl + MicroMessenger User-Agent**。核心欺骗点是：
+   - `User-Agent` 必须含 `MicroMessenger/8.0.x`
+   - `X-Requested-With: com.tencent.mm`
+   - `Referer: https://mp.weixin.qq.com/`
+   - `Accept-Language: zh-CN,zh;...`
+3. **HTML 会很大（2~3MB）**，全是混淆 JS。先用 `-o` 存文件再解析，不要管道。
+4. **正文在 `<div id="js_content">`** 里，用 Python 正则提取、清洗 HTML 标签。
+5. **图片用 `mmbiz.qpic.cn`** 链接，公开可访问，可单独下载。
+6. **完成后删除临时文件**。
+
+完整脚本和步骤见 `wechat-content` skill。核心口诀：**别拼浏览器，拼 curl UA 伪装。**
