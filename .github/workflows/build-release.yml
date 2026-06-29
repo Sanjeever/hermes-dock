@@ -56,7 +56,7 @@ jobs:
           $env:CGO_ENABLED = "0"
           $env:GOOS = "linux"
           $env:GOARCH = "amd64"
-          go build -trimpath -ldflags="-s -w" -o build/windows/profile-runner/hermes-profile-runner-linux-amd64 ./cmd/hermes-profile-runner
+          go build -buildvcs=false -trimpath -ldflags="-s -w" -o build/windows/profile-runner/hermes-profile-runner-linux-amd64 ./cmd/hermes-profile-runner
 
       - name: Build
         shell: pwsh
@@ -121,7 +121,7 @@ jobs:
           mkdir -p dist
           runner="build/profile-runner/hermes-profile-runner-linux-arm64"
           mkdir -p "$(dirname "$runner")"
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -buildvcs=false -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
           install -m 755 "$runner" build/bin/hermes-dock.app/Contents/MacOS/hermes-profile-runner-linux-arm64
           ditto -c -k --keepParent build/bin/hermes-dock.app "dist/hermes-dock-${version}-darwin-arm64.zip"
 
@@ -192,7 +192,7 @@ jobs:
           mkdir -p dist
           runner="build/profile-runner/hermes-profile-runner-linux-amd64"
           mkdir -p "$(dirname "$runner")"
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
           install -Dm755 "$runner" build/bin/hermes-profile-runner
           tar -C build/bin -czf "dist/hermes-dock-${version}-linux-amd64.tar.gz" hermes-dock hermes-profile-runner
 

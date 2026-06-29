@@ -65,7 +65,7 @@ func (a *App) buildProfileRunner(target string) error {
 	if !fileExists(filepath.Join(source, "main.go")) {
 		return fmt.Errorf("缺少 runner 源码：%s", source)
 	}
-	cmd := exec.Command("go", "build", "-o", target, source)
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", target, source)
 	cmd.Dir = a.projectRoot()
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
