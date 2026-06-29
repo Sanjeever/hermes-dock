@@ -694,6 +694,28 @@ textarea:focus {
     flex-wrap: wrap;
 }
 
+.advanced-stack {
+    display: grid;
+    gap: 16px;
+}
+
+.danger-panel {
+    background: #fff1ee;
+}
+
+.danger-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    background: #9d241a;
+    color: #fffaf5;
+}
+
+.danger-button:hover:not(:disabled) {
+    background: #7d1b13;
+}
+
 .advanced-toolbar select {
     max-width: 360px;
 }

@@ -48,6 +48,7 @@ backup.go                  写入前备份
 - 不要把密钥写入 `launcher/state.json`。
 - UI 日志、事件、错误信息中不要输出完整 token、API key、secret。
 - 不要为了兼容失败而吞掉错误；应返回清晰错误，让 UI 展示。
+- 高级页“恢复出厂设置”是唯一允许删除整个 `~/.hermes-dock` 的流程；必须先 `docker compose down`，失败则中止，不加 `--volumes`。
 
 ## Compose 约定
 

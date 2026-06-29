@@ -6,6 +6,8 @@ export function CancelWeixinLogin():Promise<void>;
 
 export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
 
+export function FactoryResetInstance():Promise<void>;
+
 export function FetchProviderConfigModelList(arg1:main.ProviderConfigEntry):Promise<Array<main.ModelOption>>;
 
 export function FetchProviderModelList(arg1:string):Promise<Array<main.ModelOption>>;

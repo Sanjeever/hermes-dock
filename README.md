@@ -80,6 +80,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 - 修改 `config.yaml`、`.env`、`docker-compose.yaml` 等托管文件前会写入本地备份。
 - 密钥保存在 Hermes 兼容的本地文件中，例如 `data/.env` 和 `data/weixin/accounts/*.json`。
 - 启动器状态文件 `launcher/state.json` 不应存放密钥。
+- “恢复出厂设置”是显式危险操作，会执行 `docker compose down`，删除整个 `~/.hermes-dock`，然后重新释放内置模板。
 
 ## Docker Compose
 

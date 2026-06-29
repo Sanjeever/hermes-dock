@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -73,6 +74,10 @@ func (a *App) GetAppState() (AppState, error) {
 func (a *App) ensureInstanceReady() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.ensureInstanceReadyLocked()
+}
+
+func (a *App) ensureInstanceReadyLocked() error {
 	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.envPath()) && fileExists(a.configPath()) {
 		return nil
 	}
@@ -176,6 +181,47 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 func (a *App) writeOverrideIfMissing() error {
 	if _, err := os.Stat(a.overridePath()); errors.Is(err, os.ErrNotExist) {
 		return os.WriteFile(a.overridePath(), []byte("# 在这里添加高级 Docker Compose 覆盖配置。\n"), 0644)
+	}
+	return nil
+}
+
+func (a *App) FactoryResetInstance() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if err := a.validateResetRoot(); err != nil {
+		return err
+	}
+	a.StopTailLogs()
+	if a.loginCancel != nil {
+		a.loginCancel()
+		a.loginCancel = nil
+	}
+
+	if fileExists(a.composePath()) {
+		if err := a.runComposeBlocking(context.Background(), "down"); err != nil {
+			return err
+		}
+	}
+	if err := os.RemoveAll(a.instanceRoot); err != nil {
+		return err
+	}
+	a.startupErr = nil
+	return a.ensureInstanceReadyLocked()
+}
+
+func (a *App) validateResetRoot() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	expected := filepath.Clean(filepath.Join(home, ".hermes-dock"))
+	actual := filepath.Clean(a.instanceRoot)
+	if actual != expected {
+		return fmt.Errorf("拒绝重置：实例目录不是 ~/.hermes-dock")
+	}
+	if actual == filepath.Clean(home) || actual == string(os.PathSeparator) {
+		return fmt.Errorf("拒绝重置：实例目录不安全")
 	}
 	return nil
 }

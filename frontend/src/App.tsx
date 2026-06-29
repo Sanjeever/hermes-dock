@@ -36,6 +36,7 @@ import {QRCodeSVG} from 'qrcode.react';
 import './App.css';
 import {
     CancelWeixinLogin,
+    FactoryResetInstance,
     FetchModelList,
     FetchProviderConfigModelList,
     GetAppState,
@@ -528,6 +529,20 @@ function App() {
         }
     }
 
+    async function factoryReset() {
+        const phrase = '删除 ~/.hermes-dock';
+        const input = window.prompt(`此操作会停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。\n\n请输入「${phrase}」确认。`);
+        if (input !== phrase) return;
+        await run('正在恢复出厂设置', FactoryResetInstance, {
+            afterSuccess: () => {
+                setLogs([]);
+                setNeedsRebuild(false);
+                setAdvancedDirty(false);
+                setPage('providers');
+            },
+        });
+    }
+
     function changeAdvancedPath(path: string) {
         if (path === advancedPath) return;
         if (advancedDirty && !window.confirm('当前文件有未保存修改，切换后会丢失这些修改。是否继续？')) {
@@ -730,6 +745,7 @@ function App() {
                         dirty={advancedDirty}
                         busy={!!busy}
                         onSave={saveAdvancedFile}
+                        onFactoryReset={factoryReset}
                     />
                 )}
             </main>
@@ -1259,37 +1275,49 @@ function ChannelsPage({channels, weixinHomeChannel, busy, onRefresh, onHome, onT
     );
 }
 
-function AdvancedPage(props: { path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void }) {
+function AdvancedPage(props: { path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => void }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
 
     return (
-        <section className="panel">
-            <div className="section-head">
-                <div>
-                    <p className="eyebrow">原始文件编辑器</p>
-                    <h2>{props.path}</h2>
+        <section className="advanced-stack">
+            <div className="panel">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">原始文件编辑器</p>
+                        <h2>{props.path}</h2>
+                    </div>
+                    <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>
                 </div>
-                <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>
-            </div>
-            <div className="advanced-toolbar">
-                <select value={props.path} onChange={(event) => props.setPath(event.target.value)}>
-                    <option value="data/config.yaml">data/config.yaml</option>
-                    <option value="data/.env">data/.env</option>
-                    <option value="docker-compose.override.yaml">docker-compose.override.yaml</option>
-                </select>
-                <div className="editor-actions">
-                    <span className="language-badge">{languageLabel}</span>
-                    <button type="button" className="ghost" onClick={() => editorView && openSearchPanel(editorView)} disabled={!editorView} title="搜索">
-                        <Search size={16}/>搜索
-                    </button>
-                    <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
-                        <CornerDownRight size={16}/>跳行
-                    </button>
-                    <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
+                <div className="advanced-toolbar">
+                    <select value={props.path} onChange={(event) => props.setPath(event.target.value)}>
+                        <option value="data/config.yaml">data/config.yaml</option>
+                        <option value="data/.env">data/.env</option>
+                        <option value="docker-compose.override.yaml">docker-compose.override.yaml</option>
+                    </select>
+                    <div className="editor-actions">
+                        <span className="language-badge">{languageLabel}</span>
+                        <button type="button" className="ghost" onClick={() => editorView && openSearchPanel(editorView)} disabled={!editorView} title="搜索">
+                            <Search size={16}/>搜索
+                        </button>
+                        <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
+                            <CornerDownRight size={16}/>跳行
+                        </button>
+                        <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
+                    </div>
                 </div>
+                <CodeEditor path={props.path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
             </div>
-            <CodeEditor path={props.path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
+            <div className="panel danger-panel">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">危险操作</p>
+                        <h2>恢复出厂设置</h2>
+                    </div>
+                </div>
+                <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
+                <button className="danger-button" onClick={props.onFactoryReset} disabled={props.busy}><Trash2 size={16}/>恢复出厂设置</button>
+            </div>
         </section>
     );
 }

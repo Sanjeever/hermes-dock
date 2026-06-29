@@ -10,6 +10,10 @@ export function FetchModelList(arg1) {
   return window['go']['main']['App']['FetchModelList'](arg1);
 }
 
+export function FactoryResetInstance() {
+  return window['go']['main']['App']['FactoryResetInstance']();
+}
+
 export function FetchProviderConfigModelList(arg1) {
   return window['go']['main']['App']['FetchProviderConfigModelList'](arg1);
 }

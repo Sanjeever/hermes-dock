@@ -21,6 +21,24 @@ func (a *App) runComposeStreaming(ctx context.Context, event string, args ...str
 	return a.runStreaming(ctx, event, "docker", fullArgs...)
 }
 
+func (a *App) runComposeBlocking(ctx context.Context, args ...string) error {
+	if !commandExists("docker") {
+		return fmt.Errorf("未找到 docker 命令")
+	}
+	fullArgs := append([]string{"compose"}, args...)
+	cmd := exec.CommandContext(ctx, "docker", fullArgs...)
+	cmd.Dir = a.instanceRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(redact(string(out)))
+		if message != "" {
+			return fmt.Errorf("%w: %s", err, message)
+		}
+		return err
+	}
+	return nil
+}
+
 func (a *App) runStreaming(ctx context.Context, event string, name string, args ...string) error {
 	if !commandExists(name) {
 		return fmt.Errorf("未找到 %s 命令", name)
