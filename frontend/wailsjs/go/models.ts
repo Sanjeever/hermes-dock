@@ -32,28 +32,6 @@ export namespace main {
 		    return a;
 		}
 	}
-	export class AuxModel {
-	    provider: string;
-	    model: string;
-	    baseUrl: string;
-	    apiKey: string;
-	    timeout: number;
-	    extraBody: Record<string, any>;
-
-	    static createFrom(source: any = {}) {
-	        return new AuxModel(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.provider = source["provider"];
-	        this.model = source["model"];
-	        this.baseUrl = source["baseUrl"];
-	        this.apiKey = source["apiKey"];
-	        this.timeout = source["timeout"];
-	        this.extraBody = source["extraBody"];
-	    }
-	}
 	export class ProviderConfigEntry {
 	    label: string;
 	    provider: string;
@@ -111,6 +89,28 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class AuxModel {
+	    provider: string;
+	    model: string;
+	    baseUrl: string;
+	    apiKey: string;
+	    timeout: number;
+	    extraBody: Record<string, any>;
+
+	    static createFrom(source: any = {}) {
+	        return new AuxModel(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.provider = source["provider"];
+	        this.model = source["model"];
+	        this.baseUrl = source["baseUrl"];
+	        this.apiKey = source["apiKey"];
+	        this.timeout = source["timeout"];
+	        this.extraBody = source["extraBody"];
+	    }
 	}
 	export class ModelConfig {
 	    provider: string;
@@ -444,6 +444,8 @@ export namespace main {
 	        this.modelListUrl = source["modelListUrl"];
 	    }
 	}
+
+
 	export class TextFileRequest {
 	    path: string;
 	    content: string;

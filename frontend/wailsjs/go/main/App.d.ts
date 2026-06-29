@@ -4,9 +4,11 @@ import {main} from '../models';
 
 export function CancelWeixinLogin():Promise<void>;
 
-export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
+export function DeleteProvider(arg1:string):Promise<void>;
 
 export function FactoryResetInstance():Promise<void>;
+
+export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
 
 export function FetchProviderConfigModelList(arg1:main.ProviderConfigEntry):Promise<Array<main.ModelOption>>;
 

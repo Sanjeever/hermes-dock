@@ -1,4 +1,4 @@
-//go:build windows && !dev && !bindings
+//go:build bindings
 
 package main
 

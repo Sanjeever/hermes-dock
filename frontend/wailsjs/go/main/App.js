@@ -6,12 +6,16 @@ export function CancelWeixinLogin() {
   return window['go']['main']['App']['CancelWeixinLogin']();
 }
 
-export function FetchModelList(arg1) {
-  return window['go']['main']['App']['FetchModelList'](arg1);
+export function DeleteProvider(arg1) {
+  return window['go']['main']['App']['DeleteProvider'](arg1);
 }
 
 export function FactoryResetInstance() {
   return window['go']['main']['App']['FactoryResetInstance']();
+}
+
+export function FetchModelList(arg1) {
+  return window['go']['main']['App']['FetchModelList'](arg1);
 }
 
 export function FetchProviderConfigModelList(arg1) {

@@ -1,4 +1,4 @@
-//go:build !darwin && !linux && !windows && !dev
+//go:build !darwin && !linux && !windows && !dev && !bindings
 
 package main
 
