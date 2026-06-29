@@ -87,6 +87,7 @@ Section
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
+    File "/oname=hermes-profile-runner-linux-amd64" "..\profile-runner\hermes-profile-runner-linux-amd64"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"

@@ -30,10 +30,7 @@ func (a *App) ensureProfileRunnerHelper() error {
 }
 
 func (a *App) copyPrebuiltProfileRunner(target string) error {
-	candidates := []string{
-		filepath.Join(a.instanceRoot, "build", "profile-runner", "hermes-profile-runner-linux-"+runtime.GOARCH),
-		filepath.Join(a.instanceRoot, "build", "profile-runner", "hermes-profile-runner"),
-	}
+	candidates := profileRunnerCandidates(a.instanceRoot, runtime.GOARCH)
 	for _, candidate := range candidates {
 		if !fileExists(candidate) {
 			continue
@@ -41,6 +38,26 @@ func (a *App) copyPrebuiltProfileRunner(target string) error {
 		return copyFile(candidate, target, 0755)
 	}
 	return os.ErrNotExist
+}
+
+func profileRunnerCandidates(instanceRoot string, goarch string) []string {
+	exe, _ := os.Executable()
+	return profileRunnerCandidatesForExecutable(instanceRoot, goarch, exe)
+}
+
+func profileRunnerCandidatesForExecutable(instanceRoot string, goarch string, exe string) []string {
+	candidates := make([]string, 0, 5)
+	if exe != "" {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "hermes-profile-runner-linux-"+goarch),
+			filepath.Join(exeDir, "hermes-profile-runner"),
+		)
+	}
+	return append(candidates,
+		filepath.Join(instanceRoot, "build", "profile-runner", "hermes-profile-runner-linux-"+goarch),
+		filepath.Join(instanceRoot, "build", "profile-runner", "hermes-profile-runner"),
+	)
 }
 
 func (a *App) buildProfileRunner(target string) error {
