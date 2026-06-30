@@ -202,6 +202,9 @@ func renderCompose(settings ComposeSettings) string {
     depends_on:
       init-permissions:
         condition: service_completed_successfully
+    dns:
+      - 223.5.5.5
+      - 119.29.29.29
     shm_size: %s
     ports:
       - "%s:%s:8642"
