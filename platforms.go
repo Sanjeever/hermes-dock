@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 )
 
 func (a *App) SaveWeComConfig(config WeComConfig) error {
@@ -16,6 +18,27 @@ func (a *App) SaveWeComConfig(config WeComConfig) error {
 		{Key: "WECOM_ALLOWED_USERS", Value: config.AllowedUsers},
 		{Key: "WECOM_GROUP_POLICY", Value: firstNonEmpty(config.GroupPolicy, "open")},
 		{Key: "WECOM_GROUP_ALLOWED_USERS", Value: config.GroupAllowUsers},
+	}
+	return a.SaveEnvironment(mergeEnv(env, updates))
+}
+
+func (a *App) SaveFeishuConfig(config FeishuConfig) error {
+	domain := firstNonEmpty(strings.TrimSpace(config.Domain), "feishu")
+	if !oneOf(domain, "feishu", "lark") {
+		return fmt.Errorf("飞书平台区域无效：%s", domain)
+	}
+	groupPolicy := firstNonEmpty(strings.TrimSpace(config.GroupPolicy), "allowlist")
+	if !oneOf(groupPolicy, "open", "allowlist", "disabled") {
+		return fmt.Errorf("飞书群聊策略无效：%s", groupPolicy)
+	}
+	env, _ := readEnvFile(a.envPath())
+	updates := []EnvVar{
+		{Key: "FEISHU_APP_ID", Value: strings.TrimSpace(config.AppID)},
+		{Key: "FEISHU_APP_SECRET", Value: strings.TrimSpace(config.AppSecret)},
+		{Key: "FEISHU_DOMAIN", Value: domain},
+		{Key: "FEISHU_CONNECTION_MODE", Value: "websocket"},
+		{Key: "FEISHU_ALLOWED_USERS", Value: config.AllowedUsers},
+		{Key: "FEISHU_GROUP_POLICY", Value: groupPolicy},
 	}
 	return a.SaveEnvironment(mergeEnv(env, updates))
 }

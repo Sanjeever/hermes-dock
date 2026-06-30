@@ -48,6 +48,7 @@ import {
     RestartHermes,
     SaveComposeSettings,
     SaveEnvironment,
+    SaveFeishuConfig,
     SaveModelConfig,
     SaveProviderConfig,
     SaveTextFile,
@@ -649,6 +650,7 @@ function App() {
     const statusClass = state?.containerStatus === 'running' ? 'ok' : 'warn';
     const weixinBound = envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN');
     const wecomBound = envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET');
+    const feishuBound = envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET');
     const weixinHomeChannel = envValue(env, 'WEIXIN_HOME_CHANNEL');
     const currentProviderKey = model ? model.provider : '';
     const currentModelOptionsKey = model ? modelOptionKey(currentProviderKey) : '';
@@ -720,6 +722,7 @@ function App() {
                         logs={logs}
                         weixinBound={!!weixinBound}
                         wecomBound={!!wecomBound}
+                        feishuBound={!!feishuBound}
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
@@ -819,6 +822,13 @@ function App() {
                             groupPolicy: envValue(env, 'WECOM_GROUP_POLICY') || 'open',
                             groupAllowUsers: envValue(env, 'WECOM_GROUP_ALLOWED_USERS'),
                         }), {rebuildRequired: true})}
+                        onSaveFeishu={() => run('正在保存飞书配置', () => SaveFeishuConfig({
+                            appId: envValue(env, 'FEISHU_APP_ID'),
+                            appSecret: envValue(env, 'FEISHU_APP_SECRET'),
+                            domain: envValue(env, 'FEISHU_DOMAIN') || 'feishu',
+                            allowedUsers: envValue(env, 'FEISHU_ALLOWED_USERS'),
+                            groupPolicy: envValue(env, 'FEISHU_GROUP_POLICY') || 'allowlist',
+                        }), {rebuildRequired: true})}
                     />
                 )}
 
@@ -858,6 +868,7 @@ function Dashboard(props: {
     logs: string[];
     weixinBound: boolean;
     wecomBound: boolean;
+    feishuBound: boolean;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -910,6 +921,7 @@ function Dashboard(props: {
                     <Health label="Compose" ok={props.state.composeAvailable} onClick={props.onOpenDeploy}/>
                     <Health label="个人微信" ok={props.weixinBound} onClick={props.onOpenPlatforms}/>
                     <Health label="企业微信 AI Bot" ok={props.wecomBound} onClick={props.onOpenPlatforms}/>
+                    <Health label="飞书 / Lark" ok={props.feishuBound} onClick={props.onOpenPlatforms}/>
                 </div>
             </div>
             <div className="panel wide">
@@ -1463,6 +1475,7 @@ function PlatformsPage(props: {
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
     onSaveWeCom: () => void;
+    onSaveFeishu: () => void;
 }) {
     const set = (key: string, value: string) => props.setEnv(setEnvValue(props.env, key, value));
     const setWeixinPolicy = (key: string, value: string) => {
@@ -1476,6 +1489,8 @@ function PlatformsPage(props: {
     const weixinGroupPolicy = envValue(props.env, 'WEIXIN_GROUP_POLICY') || 'open';
     const wecomDMPolicy = envValue(props.env, 'WECOM_DM_POLICY') || 'open';
     const wecomGroupPolicy = envValue(props.env, 'WECOM_GROUP_POLICY') || 'open';
+    const feishuDomain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
+    const feishuGroupPolicy = enumValue(envValue(props.env, 'FEISHU_GROUP_POLICY'), ['open', 'allowlist', 'disabled'], 'allowlist');
     return (
         <section className="grid two">
             <div className="panel">
@@ -1506,6 +1521,24 @@ function PlatformsPage(props: {
                 {wecomDMPolicy === 'allowlist' && <Field label="允许用户" value={envValue(props.env, 'WECOM_ALLOWED_USERS')} onChange={(value) => set('WECOM_ALLOWED_USERS', value)}/>}
                 {wecomGroupPolicy === 'allowlist' && <Field label="允许群用户" value={envValue(props.env, 'WECOM_GROUP_ALLOWED_USERS')} onChange={(value) => set('WECOM_GROUP_ALLOWED_USERS', value)}/>}
                 <button className="primary" onClick={props.onSaveWeCom} disabled={props.busy}><Save size={16}/>保存企业微信配置</button>
+            </div>
+            <div className="panel wide">
+                <p className="eyebrow">飞书 / Lark WebSocket</p>
+                <div className="field-grid">
+                    <label className="field">
+                        <span>平台区域</span>
+                        <select value={feishuDomain} onChange={(event) => set('FEISHU_DOMAIN', event.target.value)}>
+                            <option value="feishu">飞书（中国大陆）</option>
+                            <option value="lark">Lark（海外）</option>
+                        </select>
+                    </label>
+                    <Field label="App ID" value={envValue(props.env, 'FEISHU_APP_ID')} onChange={(value) => set('FEISHU_APP_ID', value)}/>
+                    <Field label="App Secret" value={envValue(props.env, 'FEISHU_APP_SECRET')} secret onChange={(value) => set('FEISHU_APP_SECRET', value)}/>
+                    <FeishuGroupPolicySelect label="群聊策略" value={feishuGroupPolicy} onChange={(value) => set('FEISHU_GROUP_POLICY', value)}/>
+                </div>
+                <Field label="允许用户" value={envValue(props.env, 'FEISHU_ALLOWED_USERS')} onChange={(value) => set('FEISHU_ALLOWED_USERS', value)}/>
+                <div className="setting-note">使用 WebSocket 模式连接飞书开放平台；允许用户填写 Open ID，多个用逗号分隔。</div>
+                <button className="primary" onClick={props.onSaveFeishu} disabled={props.busy}><Save size={16}/>保存飞书配置</button>
             </div>
         </section>
     );
@@ -1674,6 +1707,19 @@ function PolicySelect({label, value, onChange}: { label: string; value: string; 
     );
 }
 
+function FeishuGroupPolicySelect({label, value, onChange}: { label: string; value: string; onChange: (value: string) => void }) {
+    return (
+        <label className="field">
+            <span>{label}</span>
+            <select value={value || 'allowlist'} onChange={(event) => onChange(event.target.value)}>
+                <option value="allowlist">指定用户</option>
+                <option value="open">开放</option>
+                <option value="disabled">关闭</option>
+            </select>
+        </label>
+    );
+}
+
 function SecretField(props: { label: string; value: string; visible: boolean; setVisible: (value: boolean) => void; onChange: (value: string) => void }) {
     return (
         <label className="field">
@@ -1791,6 +1837,10 @@ function doneLabel(label: string) {
 
 function envValue(env: EnvVar[], key: string) {
     return env.find((item) => item.key === key)?.value || '';
+}
+
+function enumValue(value: string, allowed: string[], fallback: string) {
+    return allowed.includes(value) ? value : fallback;
 }
 
 function setEnvValue(env: EnvVar[], key: string, value: string) {

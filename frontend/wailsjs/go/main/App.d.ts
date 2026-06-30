@@ -44,6 +44,8 @@ export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 
 export function SaveEnvironment(arg1:Array<main.EnvVar>):Promise<void>;
 
+export function SaveFeishuConfig(arg1:main.FeishuConfig):Promise<void>;
+
 export function SaveModelConfig(arg1:main.ModelConfig):Promise<void>;
 
 export function SaveProviderConfig(arg1:main.ProviderConfig):Promise<void>;

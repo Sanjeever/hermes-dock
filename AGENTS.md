@@ -35,7 +35,7 @@ compose.go                 Compose 生成和容器生命周期
 config.go                  config.yaml、模型配置和模型列表
 env.go                     .env 读写、合并和脱敏
 weixin.go                  个人微信扫码登录
-platforms.go               企业微信和通道相关操作
+platforms.go               企业微信、飞书和通道相关操作
 paths.go                   实例路径和 safePath 限制
 backup.go                  写入前备份
 ```
@@ -108,7 +108,7 @@ backup.go                  写入前备份
 - 一个 Hermes 容器。
 - 一个 Hermes Dock runner 作为容器主进程。
 - 多个 Hermes profile gateway 子进程并行运行。
-- 每个子进程绑定一个 Hermes profile，服务该 profile 的个人微信或企业微信入口。
+- 每个子进程绑定一个 Hermes profile，服务该 profile 的个人微信、企业微信或飞书 / Lark 入口。
 
 profile 目录和 ID：
 
@@ -122,7 +122,7 @@ profile 隔离：
 - 按 profile 隔离：`SOUL.md`、`skills/`、`config.yaml`、`.env`、供应商、模型、平台绑定、通道目录、记忆和会话。
 - 全局共享：Docker 镜像、容器名、端口、CPU、内存、shm、`docker-compose.override.yaml`。
 - 模型供应商和 API Key 默认 profile 级隔离。UI 可以提供显式复制模型配置到其他 profile，默认不复制 API Key。
-- 平台策略如 `WECOM_DM_POLICY`、`WECOM_GROUP_POLICY`、`WEIXIN_DM_POLICY` 也按 profile 写入各自 `.env`。
+- 平台策略如 `WECOM_DM_POLICY`、`WECOM_GROUP_POLICY`、`WEIXIN_DM_POLICY`、`FEISHU_GROUP_POLICY` 也按 profile 写入各自 `.env`。
 
 profile 创建：
 
@@ -141,8 +141,8 @@ runner 行为：
 - enabled 且有完整平台绑定的 profile 才启动。
 - enabled 但未绑定平台的 profile 不启动，状态为未绑定平台，不视为严重错误。
 - 平台绑定不完整、enabled profile 平台身份冲突、`config.yaml` 无法解析等严重错误应在“应用并重建”前阻止。
-- 同一个 `WECOM_BOT_ID` 或 `WEIXIN_ACCOUNT_ID` 不能被多个 enabled profile 同时使用。
-- 一个 profile 可以同时绑定个人微信和企业微信。
+- 同一个 `WECOM_BOT_ID`、`WEIXIN_ACCOUNT_ID` 或 `FEISHU_APP_ID` 不能被多个 enabled profile 同时使用。
+- 一个 profile 可以同时绑定个人微信、企业微信和飞书 / Lark。
 - runner 给每行子进程日志加 profile 前缀，例如 `[sales] ...`；runner 自身日志使用 `[runner]`。
 - runner 对异常退出的 profile 做有限自动重启，连续失败后标记 failed，其他 profile 继续运行。
 - 无可运行 profile 时 runner 仍保持容器 running。
@@ -176,6 +176,7 @@ UI 和功能边界：
 - DashScope 按量计费和 DeepSeek 供应商预设及模型列表拉取。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
+- 飞书 / Lark WebSocket 配置。
 - 通道目录查看、默认通道设置和测试消息。
 - UI 输出脱敏和本地备份。
 
@@ -211,6 +212,7 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 
 - 一个 Weixin / WeChat Personal。
 - 一个 WeCom AI Bot。
+- 一个 Feishu / Lark App。
 
 个人微信：
 
@@ -228,6 +230,14 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 - 默认 `WECOM_DM_POLICY=open`。
 - 默认 `WECOM_GROUP_POLICY=open`。
 - 多 profile 版本中 `WECOM_BOT_ID` 在 enabled profiles 中必须唯一。
+
+飞书 / Lark：
+
+- 只支持 WebSocket 模式，手动填写 App ID 和 App Secret，不做 webhook。
+- 默认 `FEISHU_DOMAIN=feishu`，可切换 `lark`。
+- 固定写入 `FEISHU_CONNECTION_MODE=websocket`。
+- 默认 `FEISHU_GROUP_POLICY=allowlist`。
+- 多 profile 版本中 `FEISHU_APP_ID` 在 enabled profiles 中必须唯一。
 
 ## 前端约定
 

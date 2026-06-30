@@ -18,6 +18,7 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 - 支持通过 API Key 拉取模型列表并选择模型。
 - 支持个人微信 Weixin / WeChat Personal 扫码登录。
 - 支持企业微信 AI Bot WebSocket 配置。
+- 支持飞书 / Lark WebSocket 配置。
 - 支持查看通道目录、设置默认通道、发送测试消息。
 - 写入托管文件前自动备份。
 - UI 日志和事件会脱敏敏感字段。
@@ -97,7 +98,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 
 ## 多 Profile 设计
 
-多 profile 第一版的目标是：在一个 Docker 容器内并行运行多个 Hermes profile gateway worker，让不同 profile 绑定不同的个人微信或企业微信 AI Bot，并隔离人格、记忆、模型、skills、平台凭据和通道。
+多 profile 第一版的目标是：在一个 Docker 容器内并行运行多个 Hermes profile gateway worker，让不同 profile 绑定不同的个人微信、企业微信 AI Bot 或飞书 / Lark 应用，并隔离人格、记忆、模型、skills、平台凭据和通道。
 
 运行规则：
 
@@ -106,8 +107,8 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 - profile ID 使用路径安全 ASCII slug，例如 `sales`、`support`；中文只作为显示名。
 - 每个 enabled profile 如果绑定了完整平台身份，就由 runner 启动对应 gateway。
 - enabled 但未绑定平台的 profile 不启动，状态显示为未配置平台。
-- 同一个企业微信 Bot 或个人微信账号不能被多个 enabled profile 同时使用。
-- 一个 profile 可以同时绑定个人微信和企业微信，表示同一个助手服务多个入口。
+- 同一个企业微信 Bot、个人微信账号或飞书 App 不能被多个 enabled profile 同时使用。
+- 一个 profile 可以同时绑定个人微信、企业微信和飞书，表示同一个助手服务多个入口。
 - 平台入口固定归属一个 profile，第一版不做按消息内容跨 profile 路由。
 - 配置保存后只写入文件，不自动重建容器；用户手动点击“应用并重建”后统一生效。
 
@@ -116,7 +117,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 - 按 profile 隔离：`SOUL.md`、`skills/`、`config.yaml`、`.env`、供应商、模型、平台绑定、通道目录、记忆和会话。
 - 全局共享：Docker 镜像、端口、容器名、CPU、内存、shm、`docker-compose.override.yaml`。
 - 模型供应商和 API Key 默认按 profile 隔离；UI 可以提供显式“复制模型配置到其他 profile”，默认不复制 API Key。
-- 平台策略如 `WECOM_DM_POLICY`、`WECOM_GROUP_POLICY`、`WEIXIN_DM_POLICY` 也按 profile 写入各自 `.env`。
+- 平台策略如 `WECOM_DM_POLICY`、`WECOM_GROUP_POLICY`、`WEIXIN_DM_POLICY`、`FEISHU_GROUP_POLICY` 也按 profile 写入各自 `.env`。
 
 runner 设计：
 
@@ -217,6 +218,14 @@ MVP 只支持企业微信 AI Bot WebSocket。多 profile 版本中，每个 prof
 - `WECOM_DM_POLICY=open`
 - `WECOM_GROUP_POLICY=open`
 
+### 飞书 / Lark
+
+MVP 只支持飞书 / Lark WebSocket 模式，用户手动填写 App ID 和 App Secret，不做 webhook 回调配置，也不封装 `hermes gateway setup`。多 profile 版本中，每个 profile 可以绑定一个飞书 / Lark App，enabled profiles 中 `FEISHU_APP_ID` 必须唯一。默认策略：
+
+- `FEISHU_DOMAIN=feishu`
+- `FEISHU_CONNECTION_MODE=websocket`
+- `FEISHU_GROUP_POLICY=allowlist`
+
 ## 开发环境
 
 需要：
@@ -244,7 +253,7 @@ compose.go             Docker Compose 生成和生命周期操作
 config.go              Hermes config.yaml 读写、模型供应商和模型列表
 env.go                 data/.env 读写和脱敏
 weixin.go              个人微信扫码登录 helper 和凭据保存
-platforms.go           企业微信配置、通道和测试消息
+platforms.go           企业微信、飞书配置、通道和测试消息
 templates.go           内置 seed data 释放
 paths.go               实例路径和安全路径限制
 frontend/src/App.tsx   React 主界面
@@ -291,6 +300,7 @@ pnpm --dir frontend run build
 - DashScope 按量计费和 DeepSeek 供应商预设。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
+- 飞书 / Lark WebSocket 配置。
 - 通道查看、默认通道设置和测试消息发送。
 - UI 输出脱敏。
 - 写入前本地备份。

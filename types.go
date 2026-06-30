@@ -216,3 +216,11 @@ type WeComConfig struct {
 	GroupPolicy     string `json:"groupPolicy"`
 	GroupAllowUsers string `json:"groupAllowUsers"`
 }
+
+type FeishuConfig struct {
+	AppID        string `json:"appId"`
+	AppSecret    string `json:"appSecret"`
+	Domain       string `json:"domain"`
+	AllowedUsers string `json:"allowedUsers"`
+	GroupPolicy  string `json:"groupPolicy"`
+}

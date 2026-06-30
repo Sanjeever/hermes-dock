@@ -86,6 +86,10 @@ export function SaveEnvironment(arg1) {
   return window['go']['main']['App']['SaveEnvironment'](arg1);
 }
 
+export function SaveFeishuConfig(arg1) {
+  return window['go']['main']['App']['SaveFeishuConfig'](arg1);
+}
+
 export function SaveModelConfig(arg1) {
   return window['go']['main']['App']['SaveModelConfig'](arg1);
 }

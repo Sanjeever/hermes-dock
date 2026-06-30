@@ -501,6 +501,7 @@ func (a *App) buildRuntimeManifest(registry ProfileRegistry) (RuntimeManifest, e
 func (a *App) validateRuntimeProfiles(registry ProfileRegistry) error {
 	wecomOwners := map[string]string{}
 	weixinOwners := map[string]string{}
+	feishuOwners := map[string]string{}
 	for _, profile := range registry.Profiles {
 		if err := validateProfileID(profile.ID, true); err != nil {
 			return err
@@ -527,14 +528,21 @@ func (a *App) validateRuntimeProfiles(registry ProfileRegistry) error {
 			}
 			weixinOwners[binding.weixinID] = profile.Name
 		}
+		if binding.feishuAppID != "" {
+			if owner := feishuOwners[binding.feishuAppID]; owner != "" {
+				return fmt.Errorf("飞书 App 被多个启用 profile 使用：%s 和 %s", owner, profile.Name)
+			}
+			feishuOwners[binding.feishuAppID] = profile.Name
+		}
 	}
 	return nil
 }
 
 type platformBinding struct {
-	runnable bool
-	wecomID  string
-	weixinID string
+	runnable    bool
+	wecomID     string
+	weixinID    string
+	feishuAppID string
 }
 
 func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) {
@@ -543,16 +551,26 @@ func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) 
 	wecomSecret := strings.TrimSpace(envValue(env, "WECOM_SECRET"))
 	weixinID := strings.TrimSpace(envValue(env, "WEIXIN_ACCOUNT_ID"))
 	weixinToken := strings.TrimSpace(envValue(env, "WEIXIN_TOKEN"))
+	feishuAppID := strings.TrimSpace(envValue(env, "FEISHU_APP_ID"))
+	feishuAppSecret := strings.TrimSpace(envValue(env, "FEISHU_APP_SECRET"))
+	feishuConnectionMode := firstNonEmpty(strings.TrimSpace(envValue(env, "FEISHU_CONNECTION_MODE")), "websocket")
 	if (wecomID == "") != (wecomSecret == "") {
 		return platformBinding{}, fmt.Errorf("企业微信 Bot ID 和密钥必须同时填写")
 	}
 	if (weixinID == "") != (weixinToken == "") {
 		return platformBinding{}, fmt.Errorf("个人微信账号和 token 必须同时存在")
 	}
+	if (feishuAppID == "") != (feishuAppSecret == "") {
+		return platformBinding{}, fmt.Errorf("飞书 App ID 和 App Secret 必须同时填写")
+	}
+	if feishuAppID != "" && feishuConnectionMode != "websocket" {
+		return platformBinding{}, fmt.Errorf("飞书第一版只支持 WebSocket 模式")
+	}
 	return platformBinding{
-		runnable: (wecomID != "" && wecomSecret != "") || (weixinID != "" && weixinToken != ""),
-		wecomID:  wecomID,
-		weixinID: weixinID,
+		runnable:    (wecomID != "" && wecomSecret != "") || (weixinID != "" && weixinToken != "") || (feishuAppID != "" && feishuAppSecret != ""),
+		wecomID:     wecomID,
+		weixinID:    weixinID,
+		feishuAppID: feishuAppID,
 	}, nil
 }
 

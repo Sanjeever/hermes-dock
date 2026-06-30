@@ -529,6 +529,26 @@ export namespace main {
 	    }
 	}
 	
+	export class FeishuConfig {
+	    appId: string;
+	    appSecret: string;
+	    domain: string;
+	    allowedUsers: string;
+	    groupPolicy: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FeishuConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.appId = source["appId"];
+	        this.appSecret = source["appSecret"];
+	        this.domain = source["domain"];
+	        this.allowedUsers = source["allowedUsers"];
+	        this.groupPolicy = source["groupPolicy"];
+	    }
+	}
 	
 	
 	
