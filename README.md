@@ -149,7 +149,7 @@ profile registry 和运行态文件：
 - 不做单 profile 启停/重启；第一版统一通过容器重建应用全部变更。
 - 不做 Kanban/跨 profile 协作 UI，但保持 Hermes 原生 profile 和 Kanban 机制兼容。
 - 不做 profile 导入/导出。
-- 不做 skills marketplace 或细粒度启停；第一版只做查看、补缺失、从其他 profile 复制。
+- 暂不提供 skills 管理界面；后续重新讨论 skills marketplace、文件编辑和细粒度启停。
 
 ## 数据安全策略
 
@@ -173,7 +173,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - `./data:/opt/data` 数据挂载。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。
 
-高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。高级编辑入口也可以打开 `data/.env`，用于处理结构化页面尚未覆盖的少量配置。
+高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。高级编辑入口也可以打开当前 profile 的 `config.yaml` 和 `.env`，用于处理结构化页面尚未覆盖的少量配置。`SOUL.md` 使用独立菜单管理。
 
 容器操作对应的 Compose 命令：
 

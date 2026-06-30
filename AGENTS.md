@@ -155,9 +155,9 @@ UI 和功能边界：
 - `enabled` 只表示参与运行，不影响编辑。
 - 保存配置不自动重建；显示未应用变更，由用户手动“应用并重建”。
 - 模型测试和平台测试消息只针对当前 profile。
-- 高级编辑以当前 profile 为上下文，打开当前 profile 的 `config.yaml`、`.env`、`SOUL.md` 或 `skills/`。
+- 高级编辑以当前 profile 为上下文，只打开当前 profile 的 `config.yaml` 和 `.env`；`SOUL.md` 使用独立菜单管理。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。
-- 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导，不做 skills marketplace。
+- 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导，不做 skills marketplace，也暂不提供 skills 管理界面。
 
 测试要求：
 

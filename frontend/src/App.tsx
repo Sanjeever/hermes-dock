@@ -9,6 +9,7 @@ import {gotoLine, openSearchPanel, search} from '@codemirror/search';
 import {tags} from '@lezer/highlight';
 import {
     Activity,
+    BookOpen,
     Boxes,
     CheckCircle2,
     CircleAlert,
@@ -67,7 +68,7 @@ import {
 } from '../wailsjs/go/main/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
 
-type Page = 'dashboard' | 'profiles' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'advanced';
+type Page = 'dashboard' | 'profiles' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'soul' | 'advanced';
 
 type EnvVar = { key: string; value: string; secret: boolean };
 type ComposeSettings = {
@@ -154,6 +155,7 @@ const nav: Array<{ id: Page; label: string; icon: typeof Gauge }> = [
     {id: 'models', label: '模型', icon: Boxes},
     {id: 'platforms', label: '平台绑定', icon: MessageSquare},
     {id: 'channels', label: '通道', icon: Activity},
+    {id: 'soul', label: '人格', icon: BookOpen},
     {id: 'advanced', label: '高级编辑', icon: FileCog},
 ];
 
@@ -365,6 +367,9 @@ function App() {
     const [advancedContent, setAdvancedContent] = useState('');
     const [advancedStatus, setAdvancedStatus] = useState('');
     const [advancedDirty, setAdvancedDirty] = useState(false);
+    const [soulContent, setSoulContent] = useState('');
+    const [soulStatus, setSoulStatus] = useState('');
+    const [soulDirty, setSoulDirty] = useState(false);
     const [selectedAux, setSelectedAux] = useState('vision');
     const [showApiKey, setShowApiKey] = useState(false);
     const [autoScrollLogs, setAutoScrollLogs] = useState(true);
@@ -423,6 +428,12 @@ function App() {
     }, [page, advancedPath]);
 
     useEffect(() => {
+        if (page !== 'soul') return;
+        if (soulDirty) return;
+        loadSoulFile(state?.activeProfile || 'default');
+    }, [page, state?.activeProfile]);
+
+    useEffect(() => {
         if (!autoScrollLogs || !logRef.current) return;
         logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [logs, autoScrollLogs]);
@@ -445,13 +456,16 @@ function App() {
 
     async function selectProfile(id: string) {
         if (id === state?.activeProfile) return;
-        if (advancedDirty && !window.confirm('当前文件有未保存修改，切换 profile 后会丢失这些修改。是否继续？')) {
+        if (advancedDirty || soulDirty) {
+            setNotice({type: 'error', message: '当前有未保存修改，请先保存或放弃修改后再切换 profile'});
             return;
         }
         await run('正在切换 Profile', () => SelectProfile(id), {
             afterSuccess: () => {
                 setAdvancedDirty(false);
                 setAdvancedPath(defaultAdvancedPath(id));
+                setSoulDirty(false);
+                setSoulContent('');
             },
         });
     }
@@ -475,8 +489,6 @@ function App() {
     }
 
     async function deleteProfile(id: string) {
-        const input = window.prompt(`删除 profile 会先备份整个目录。请输入 ${id} 确认删除。`);
-        if (input !== id) return;
         await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
     }
 
@@ -595,6 +607,42 @@ function App() {
         }
     }
 
+    async function loadSoulFile(profileID: string) {
+        const path = profileFilePath(profileID, 'SOUL.md');
+        setSoulStatus('正在读取人格文件');
+        try {
+            setSoulContent(await ReadTextFile(path));
+            setSoulStatus(`已加载 ${path}`);
+            setSoulDirty(false);
+        } catch (error) {
+            setSoulContent('');
+            setSoulStatus(String(error));
+            setSoulDirty(false);
+            appendLog(String(error));
+        }
+    }
+
+    async function saveSoulFile() {
+        const path = profileFilePath(state?.activeProfile || 'default', 'SOUL.md');
+        setBusy('正在保存人格文件');
+        setNotice({type: 'info', message: '正在保存人格文件'});
+        setSoulStatus('正在保存人格文件');
+        try {
+            await SaveTextFile({path, content: soulContent, reason: 'before-soul-save'});
+            setSoulDirty(false);
+            setNeedsRebuild(true);
+            setSoulStatus(`已保存 ${path}`);
+            setNotice({type: 'ok', message: '已保存人格文件'});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setSoulStatus(message);
+            setNotice({type: 'error', message});
+        } finally {
+            setBusy('');
+        }
+    }
+
     async function factoryReset() {
         await run('正在恢复出厂设置', FactoryResetInstance, {
             afterSuccess: () => {
@@ -608,7 +656,8 @@ function App() {
 
     function changeAdvancedPath(path: string) {
         if (path === advancedPath) return;
-        if (advancedDirty && !window.confirm('当前文件有未保存修改，切换后会丢失这些修改。是否继续？')) {
+        if (advancedDirty) {
+            setNotice({type: 'error', message: '当前文件有未保存修改，请先保存后再切换文件'});
             return;
         }
         setAdvancedDirty(false);
@@ -838,6 +887,22 @@ function App() {
                                   onTest={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, 'Hermes Dock 测试消息'))}/>
                 )}
 
+                {page === 'soul' && (
+                    <SoulPage
+                        profileID={state?.activeProfile || 'default'}
+                        content={soulContent}
+                        setContent={(value) => {
+                            setSoulContent(value);
+                            setSoulDirty(true);
+                        }}
+                        status={soulStatus}
+                        dirty={soulDirty}
+                        busy={!!busy}
+                        onSave={saveSoulFile}
+                        onDiscard={() => loadSoulFile(state?.activeProfile || 'default')}
+                    />
+                )}
+
                 {page === 'advanced' && (
                     <AdvancedPage
                         options={advancedFileOptions(state?.activeProfile || 'default')}
@@ -987,6 +1052,8 @@ function ProfilesPage(props: {
     const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
     const [editingID, setEditingID] = useState('');
     const [editingName, setEditingName] = useState('');
+    const [deleteID, setDeleteID] = useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const startRename = (profile: ProfileEntry) => {
         setEditingID(profile.id);
         setEditingName(profile.name || profile.id);
@@ -1023,7 +1090,10 @@ function ProfilesPage(props: {
                                     <button className="ghost icon-only" title="上移" onClick={() => props.onMove(profile.id, 'up')} disabled={props.busy || index === 0}>↑</button>
                                     <button className="ghost icon-only" title="下移" onClick={() => props.onMove(profile.id, 'down')} disabled={props.busy || index === profiles.length - 1}>↓</button>
                                     <button className="ghost" onClick={() => startRename(profile)} disabled={props.busy || editingID === profile.id}>改名</button>
-                                    <button className="ghost danger-inline" onClick={() => props.onDelete(profile.id)} disabled={props.busy || profile.id === 'default'}>删除</button>
+                                    <button className="ghost danger-inline" onClick={() => {
+                                        setDeleteID(profile.id);
+                                        setDeleteConfirmText('');
+                                    }} disabled={props.busy || profile.id === 'default'}>删除</button>
                                 </div>
                                 {editingID === profile.id && (
                                     <div className="profile-rename">
@@ -1036,6 +1106,20 @@ function ProfilesPage(props: {
                                     </div>
                                 )}
                                 {status?.message && <p className="profile-message">{status.message}</p>}
+                                {deleteID === profile.id && (
+                                    <div className="profile-rename danger-confirm">
+                                        <input value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} placeholder={`输入 ${profile.id} 确认删除`} disabled={props.busy}/>
+                                        <button className="danger-button compact" onClick={() => {
+                                            props.onDelete(profile.id);
+                                            setDeleteID('');
+                                            setDeleteConfirmText('');
+                                        }} disabled={props.busy || deleteConfirmText !== profile.id}>确认删除</button>
+                                        <button className="ghost" onClick={() => {
+                                            setDeleteID('');
+                                            setDeleteConfirmText('');
+                                        }} disabled={props.busy}>取消</button>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -1580,6 +1664,38 @@ function ChannelsPage({channels, weixinHomeChannel, busy, onRefresh, onHome, onT
     );
 }
 
+function SoulPage(props: { profileID: string; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onDiscard: () => void }) {
+    const [editorView, setEditorView] = useState<EditorView | null>(null);
+    const path = profileFilePath(props.profileID, 'SOUL.md');
+    return (
+        <section className="advanced-stack">
+            <div className="panel">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">人格设定</p>
+                        <h2>{path}</h2>
+                    </div>
+                    <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>
+                </div>
+                <div className="advanced-toolbar">
+                    <span className="language-badge">Markdown</span>
+                    <div className="editor-actions">
+                        <button type="button" className="ghost" onClick={() => editorView && openSearchPanel(editorView)} disabled={!editorView} title="搜索">
+                            <Search size={16}/>搜索
+                        </button>
+                        <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
+                            <CornerDownRight size={16}/>跳行
+                        </button>
+                        <button className="ghost" onClick={props.onDiscard} disabled={props.busy || !props.dirty}>放弃修改</button>
+                        <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存人格</button>
+                    </div>
+                </div>
+                <CodeEditor path={path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
+            </div>
+        </section>
+    );
+}
+
 function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
@@ -1815,7 +1931,6 @@ function advancedFileOptions(profileID: string) {
     return [
         {value: profileFilePath(profileID, 'config.yaml'), label: `${profileID}/config.yaml`},
         {value: profileFilePath(profileID, '.env'), label: `${profileID}/.env`},
-        {value: profileFilePath(profileID, 'SOUL.md'), label: `${profileID}/SOUL.md`},
         {value: 'docker-compose.override.yaml', label: 'docker-compose.override.yaml'},
     ];
 }
