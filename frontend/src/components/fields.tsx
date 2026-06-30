@@ -6,7 +6,6 @@ export function PolicySelect({label, value, onChange}: { label: string; value: s
             <span>{label}</span>
             <select value={value || 'open'} onChange={(event) => onChange(event.target.value)}>
                 <option value="open">开放</option>
-                <option value="allowlist">指定名单</option>
                 <option value="closed">关闭</option>
             </select>
         </label>
@@ -17,8 +16,7 @@ export function FeishuGroupPolicySelect({label, value, onChange}: { label: strin
     return (
         <label className="field">
             <span>{label}</span>
-            <select value={value || 'allowlist'} onChange={(event) => onChange(event.target.value)}>
-                <option value="allowlist">指定用户</option>
+            <select value={value || 'open'} onChange={(event) => onChange(event.target.value)}>
                 <option value="open">开放</option>
                 <option value="disabled">关闭</option>
             </select>

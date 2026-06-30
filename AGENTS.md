@@ -229,6 +229,7 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 - 只支持企业微信 AI Bot WebSocket。
 - 默认 `WECOM_DM_POLICY=open`。
 - 默认 `WECOM_GROUP_POLICY=open`。
+- 私聊和群聊策略只支持 `open` 和 `closed`；保存企业微信配置时清空旧版本名单字段。
 - 多 profile 版本中 `WECOM_BOT_ID` 在 enabled profiles 中必须唯一。
 
 飞书 / Lark：
@@ -236,7 +237,8 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 - 只支持 WebSocket 模式，手动填写 App ID 和 App Secret，不做 webhook。
 - 默认 `FEISHU_DOMAIN=feishu`，可切换 `lark`。
 - 固定写入 `FEISHU_CONNECTION_MODE=websocket`。
-- 默认 `FEISHU_GROUP_POLICY=allowlist`。
+- 默认 `FEISHU_GROUP_POLICY=open`。
+- 群聊策略只支持 `open` 和 `disabled`，界面显示为“开放”和“关闭”；保存飞书配置时清空旧版本名单字段。
 - 多 profile 版本中 `FEISHU_APP_ID` 在 enabled profiles 中必须唯一。
 
 ## 前端约定

@@ -218,13 +218,17 @@ MVP 只支持企业微信 AI Bot WebSocket。多 profile 版本中，每个 prof
 - `WECOM_DM_POLICY=open`
 - `WECOM_GROUP_POLICY=open`
 
+私聊和群聊策略只支持 `open` 和 `closed`。保存企业微信配置时会清空旧版本的名单字段。
+
 ### 飞书 / Lark
 
 MVP 只支持飞书 / Lark WebSocket 模式，用户手动填写 App ID 和 App Secret，不做 webhook 回调配置，也不封装 `hermes gateway setup`。多 profile 版本中，每个 profile 可以绑定一个飞书 / Lark App，enabled profiles 中 `FEISHU_APP_ID` 必须唯一。默认策略：
 
 - `FEISHU_DOMAIN=feishu`
 - `FEISHU_CONNECTION_MODE=websocket`
-- `FEISHU_GROUP_POLICY=allowlist`
+- `FEISHU_GROUP_POLICY=open`
+
+群聊策略只支持 `open` 和 `disabled`，界面显示为“开放”和“关闭”。保存飞书配置时会清空旧版本的名单字段。
 
 ## 开发环境
 

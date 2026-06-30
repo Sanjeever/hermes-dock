@@ -122,7 +122,7 @@ func defaultEnvVars() []EnvVar {
 		"FEISHU_DOMAIN":                        "feishu",
 		"FEISHU_CONNECTION_MODE":               "websocket",
 		"FEISHU_ALLOWED_USERS":                 "",
-		"FEISHU_GROUP_POLICY":                  "allowlist",
+		"FEISHU_GROUP_POLICY":                  "open",
 		"TERMINAL_LIFETIME_SECONDS":            "86400",
 		"HERMES_DASHBOARD_BASIC_AUTH_USERNAME": "admin",
 		"HERMES_DASHBOARD_BASIC_AUTH_PASSWORD": "123456",

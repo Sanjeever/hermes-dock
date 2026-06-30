@@ -14,7 +14,6 @@ import {
     RebuildHermes,
     RestartHermes,
     SaveComposeSettings,
-    SaveEnvironment,
     SaveFeishuConfig,
     SaveModelConfig,
     SaveProviderConfig,
@@ -574,24 +573,23 @@ function App() {
                         qrData={qrData}
                         qrStatus={qrStatus}
                         busy={!!busy}
-                        onSaveEnv={() => run('正在保存平台配置', () => SaveEnvironment(env), {rebuildRequired: true})}
                         onWeixinLogin={() => run('正在启动微信扫码登录', StartWeixinLogin)}
                         onCancelWeixin={() => CancelWeixinLogin()}
                         onSaveWeCom={() => run('正在保存企业微信配置', () => SaveWeComConfig({
                             botId: envValue(env, 'WECOM_BOT_ID'),
                             secret: envValue(env, 'WECOM_SECRET'),
                             websocketUrl: envValue(env, 'WECOM_WEBSOCKET_URL'),
-                            dmPolicy: envValue(env, 'WECOM_DM_POLICY') || 'open',
-                            allowedUsers: envValue(env, 'WECOM_ALLOWED_USERS'),
-                            groupPolicy: envValue(env, 'WECOM_GROUP_POLICY') || 'open',
-                            groupAllowUsers: envValue(env, 'WECOM_GROUP_ALLOWED_USERS'),
+                            dmPolicy: closedPolicyValue(envValue(env, 'WECOM_DM_POLICY')),
+                            allowedUsers: '',
+                            groupPolicy: closedPolicyValue(envValue(env, 'WECOM_GROUP_POLICY')),
+                            groupAllowUsers: '',
                         }), {rebuildRequired: true})}
                         onSaveFeishu={() => run('正在保存飞书配置', () => SaveFeishuConfig({
                             appId: envValue(env, 'FEISHU_APP_ID'),
                             appSecret: envValue(env, 'FEISHU_APP_SECRET'),
                             domain: envValue(env, 'FEISHU_DOMAIN') || 'feishu',
-                            allowedUsers: envValue(env, 'FEISHU_ALLOWED_USERS'),
-                            groupPolicy: envValue(env, 'FEISHU_GROUP_POLICY') || 'allowlist',
+                            allowedUsers: '',
+                            groupPolicy: disabledPolicyValue(envValue(env, 'FEISHU_GROUP_POLICY')),
                         }), {rebuildRequired: true})}
                     />
                 )}
@@ -639,6 +637,14 @@ function App() {
             </main>
         </div>
     );
+}
+
+function closedPolicyValue(value: string) {
+    return value === 'open' || value === '' ? 'open' : 'closed';
+}
+
+function disabledPolicyValue(value: string) {
+    return value === 'open' || value === '' ? 'open' : 'disabled';
 }
 
 export default App;
