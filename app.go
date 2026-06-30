@@ -145,9 +145,7 @@ func (a *App) InitializeInstance(settings ComposeSettings) (LauncherState, error
 }
 
 func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState, error) {
-	if settings.Image == "" {
-		settings = defaultComposeSettings()
-	}
+	settings = withComposeDefaults(settings)
 	if err := ensureDir(a.instanceRoot); err != nil {
 		return LauncherState{}, err
 	}

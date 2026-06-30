@@ -338,6 +338,9 @@ export namespace main {
 	    dashboardEnabled: boolean;
 	    dashboardUsername: string;
 	    dashboardPassword: string;
+	    gatewayBusyInputMode: string;
+	    gatewayBusyAckEnabled: string;
+	    backgroundNotifications: string;
 	    memoryLimit: string;
 	    cpuLimit: string;
 	    shmSize: string;
@@ -357,6 +360,9 @@ export namespace main {
 	        this.dashboardEnabled = source["dashboardEnabled"];
 	        this.dashboardUsername = source["dashboardUsername"];
 	        this.dashboardPassword = source["dashboardPassword"];
+	        this.gatewayBusyInputMode = source["gatewayBusyInputMode"];
+	        this.gatewayBusyAckEnabled = source["gatewayBusyAckEnabled"];
+	        this.backgroundNotifications = source["backgroundNotifications"];
 	        this.memoryLimit = source["memoryLimit"];
 	        this.cpuLimit = source["cpuLimit"];
 	        this.shmSize = source["shmSize"];

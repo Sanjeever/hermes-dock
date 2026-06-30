@@ -12,31 +12,99 @@ import (
 
 func defaultComposeSettings() ComposeSettings {
 	return ComposeSettings{
-		Image:             defaultImage,
-		ContainerName:     "hermes",
-		GatewayHost:       "127.0.0.1",
-		GatewayPort:       "8642",
-		DashboardHost:     "127.0.0.1",
-		DashboardPort:     "9119",
-		DashboardEnabled:  true,
-		DashboardUsername: "admin",
-		DashboardPassword: "123456",
-		MemoryLimit:       "4G",
-		CPULimit:          "2.0",
-		ShmSize:           "1g",
+		Image:                   defaultImage,
+		ContainerName:           "hermes",
+		GatewayHost:             "127.0.0.1",
+		GatewayPort:             "8642",
+		DashboardHost:           "127.0.0.1",
+		DashboardPort:           "9119",
+		DashboardEnabled:        true,
+		DashboardUsername:       "admin",
+		DashboardPassword:       "123456",
+		GatewayBusyInputMode:    "queue",
+		GatewayBusyAckEnabled:   "true",
+		BackgroundNotifications: "result",
+		MemoryLimit:             "4G",
+		CPULimit:                "2.0",
+		ShmSize:                 "1g",
 	}
+}
+
+func withComposeDefaults(settings ComposeSettings) ComposeSettings {
+	defaults := defaultComposeSettings()
+	if settings.Image == "" {
+		settings.Image = defaults.Image
+	}
+	if settings.ContainerName == "" {
+		settings.ContainerName = defaults.ContainerName
+	}
+	if settings.GatewayHost == "" {
+		settings.GatewayHost = defaults.GatewayHost
+	}
+	if settings.GatewayPort == "" {
+		settings.GatewayPort = defaults.GatewayPort
+	}
+	if settings.DashboardHost == "" {
+		settings.DashboardHost = defaults.DashboardHost
+	}
+	if settings.DashboardPort == "" {
+		settings.DashboardPort = defaults.DashboardPort
+	}
+	settings.DashboardEnabled = true
+	if settings.DashboardUsername == "" {
+		settings.DashboardUsername = defaults.DashboardUsername
+	}
+	if settings.DashboardPassword == "" {
+		settings.DashboardPassword = defaults.DashboardPassword
+	}
+	if settings.GatewayBusyInputMode == "" {
+		settings.GatewayBusyInputMode = defaults.GatewayBusyInputMode
+	}
+	if !oneOf(settings.GatewayBusyInputMode, "queue", "steer", "interrupt") {
+		settings.GatewayBusyInputMode = defaults.GatewayBusyInputMode
+	}
+	if settings.GatewayBusyAckEnabled == "" {
+		settings.GatewayBusyAckEnabled = defaults.GatewayBusyAckEnabled
+	}
+	if !oneOf(settings.GatewayBusyAckEnabled, "true", "false") {
+		settings.GatewayBusyAckEnabled = defaults.GatewayBusyAckEnabled
+	}
+	if settings.BackgroundNotifications == "" {
+		settings.BackgroundNotifications = defaults.BackgroundNotifications
+	}
+	if !oneOf(settings.BackgroundNotifications, "all", "result", "error", "off") {
+		settings.BackgroundNotifications = defaults.BackgroundNotifications
+	}
+	if settings.MemoryLimit == "" {
+		settings.MemoryLimit = defaults.MemoryLimit
+	}
+	if settings.CPULimit == "" {
+		settings.CPULimit = defaults.CPULimit
+	}
+	if settings.ShmSize == "" {
+		settings.ShmSize = defaults.ShmSize
+	}
+	return settings
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, item := range allowed {
+		if value == item {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) readComposeSettings() ComposeSettings {
 	state, _ := a.readState()
 	settings := defaultComposeSettings()
 	if state.ComposeSettings.Image != "" {
-		settings = state.ComposeSettings
+		settings = withComposeDefaults(state.ComposeSettings)
 	}
 	if state.HermesImage != "" {
 		settings.Image = state.HermesImage
 	}
-	settings.DashboardEnabled = true
 	env, _ := readEnvFile(a.defaultEnvPath())
 	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_USERNAME"); value != "" {
 		settings.DashboardUsername = value
@@ -44,15 +112,21 @@ func (a *App) readComposeSettings() ComposeSettings {
 	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD"); value != "" {
 		settings.DashboardPassword = value
 	}
-	return settings
+	if value := envValue(env, "HERMES_GATEWAY_BUSY_INPUT_MODE"); value != "" {
+		settings.GatewayBusyInputMode = value
+	}
+	if value := envValue(env, "HERMES_GATEWAY_BUSY_ACK_ENABLED"); value != "" {
+		settings.GatewayBusyAckEnabled = value
+	}
+	if value := envValue(env, "HERMES_BACKGROUND_NOTIFICATIONS"); value != "" {
+		settings.BackgroundNotifications = value
+	}
+	return withComposeDefaults(settings)
 }
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
-	if settings.Image == "" {
-		settings.Image = defaultImage
-	}
-	settings.DashboardEnabled = true
-	if err := a.syncComposeDashboardEnv(settings); err != nil {
+	settings = withComposeDefaults(settings)
+	if err := a.syncComposeEnv(settings); err != nil {
 		return err
 	}
 	if err := a.writeCompose(settings, "before-compose-save"); err != nil {
@@ -67,11 +141,15 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	return a.writeState(state)
 }
 
-func (a *App) syncComposeDashboardEnv(settings ComposeSettings) error {
+func (a *App) syncComposeEnv(settings ComposeSettings) error {
+	settings = withComposeDefaults(settings)
 	updates := []EnvVar{
 		{Key: "HERMES_DASHBOARD", Value: "1"},
-		{Key: "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", Value: firstNonEmpty(settings.DashboardUsername, "admin")},
-		{Key: "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", Value: firstNonEmpty(settings.DashboardPassword, "123456")},
+		{Key: "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", Value: settings.DashboardUsername},
+		{Key: "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", Value: settings.DashboardPassword},
+		{Key: "HERMES_GATEWAY_BUSY_INPUT_MODE", Value: settings.GatewayBusyInputMode},
+		{Key: "HERMES_GATEWAY_BUSY_ACK_ENABLED", Value: settings.GatewayBusyAckEnabled},
+		{Key: "HERMES_BACKGROUND_NOTIFICATIONS", Value: settings.BackgroundNotifications},
 	}
 	existing, _ := readEnvFile(a.defaultEnvPath())
 	for _, item := range updates {
@@ -105,36 +183,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 }
 
 func renderCompose(settings ComposeSettings) string {
-	if settings.ContainerName == "" {
-		settings.ContainerName = "hermes"
-	}
-	if settings.GatewayHost == "" {
-		settings.GatewayHost = "127.0.0.1"
-	}
-	if settings.GatewayPort == "" {
-		settings.GatewayPort = "8642"
-	}
-	if settings.DashboardHost == "" {
-		settings.DashboardHost = "127.0.0.1"
-	}
-	if settings.DashboardPort == "" {
-		settings.DashboardPort = "9119"
-	}
-	if settings.MemoryLimit == "" {
-		settings.MemoryLimit = "4G"
-	}
-	if settings.CPULimit == "" {
-		settings.CPULimit = "2.0"
-	}
-	if settings.ShmSize == "" {
-		settings.ShmSize = "1g"
-	}
-	if settings.DashboardUsername == "" {
-		settings.DashboardUsername = "admin"
-	}
-	if settings.DashboardPassword == "" {
-		settings.DashboardPassword = "123456"
-	}
+	settings = withComposeDefaults(settings)
 	dashboard := "1"
 	return fmt.Sprintf(`services:
   init-permissions:
@@ -161,9 +210,13 @@ func renderCompose(settings ComposeSettings) string {
       HERMES_WRITE_SAFE_ROOT: "/opt/data"
       HERMES_HOME: "/opt/data"
       TMPDIR: "/opt/data/tmp"
+      TZ: "Asia/Shanghai"
       HERMES_DASHBOARD: "%s"
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "%s"
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "%s"
+      HERMES_GATEWAY_BUSY_INPUT_MODE: "%s"
+      HERMES_GATEWAY_BUSY_ACK_ENABLED: "%s"
+      HERMES_BACKGROUND_NOTIFICATIONS: "%s"
       UV_DEFAULT_INDEX: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_INDEX_URL: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_DEFAULT_TIMEOUT: "120"
@@ -177,7 +230,7 @@ func renderCompose(settings ComposeSettings) string {
         limits:
           memory: %s
           cpus: "%s"
-`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), settings.MemoryLimit, settings.CPULimit)
+`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), settings.MemoryLimit, settings.CPULimit)
 }
 
 func (a *App) StartHermes() error {

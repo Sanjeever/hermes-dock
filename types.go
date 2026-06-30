@@ -107,18 +107,21 @@ type RuntimeProfileStatus struct {
 }
 
 type ComposeSettings struct {
-	Image             string `json:"image"`
-	ContainerName     string `json:"containerName"`
-	GatewayHost       string `json:"gatewayHost"`
-	GatewayPort       string `json:"gatewayPort"`
-	DashboardHost     string `json:"dashboardHost"`
-	DashboardPort     string `json:"dashboardPort"`
-	DashboardEnabled  bool   `json:"dashboardEnabled"`
-	DashboardUsername string `json:"dashboardUsername"`
-	DashboardPassword string `json:"dashboardPassword"`
-	MemoryLimit       string `json:"memoryLimit"`
-	CPULimit          string `json:"cpuLimit"`
-	ShmSize           string `json:"shmSize"`
+	Image                   string `json:"image"`
+	ContainerName           string `json:"containerName"`
+	GatewayHost             string `json:"gatewayHost"`
+	GatewayPort             string `json:"gatewayPort"`
+	DashboardHost           string `json:"dashboardHost"`
+	DashboardPort           string `json:"dashboardPort"`
+	DashboardEnabled        bool   `json:"dashboardEnabled"`
+	DashboardUsername       string `json:"dashboardUsername"`
+	DashboardPassword       string `json:"dashboardPassword"`
+	GatewayBusyInputMode    string `json:"gatewayBusyInputMode"`
+	GatewayBusyAckEnabled   string `json:"gatewayBusyAckEnabled"`
+	BackgroundNotifications string `json:"backgroundNotifications"`
+	MemoryLimit             string `json:"memoryLimit"`
+	CPULimit                string `json:"cpuLimit"`
+	ShmSize                 string `json:"shmSize"`
 }
 
 type EnvVar struct {
