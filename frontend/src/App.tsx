@@ -49,6 +49,7 @@ import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel
 function App() {
     const [page, setPage] = useState<Page>('dashboard');
     const [state, setState] = useState<AppState | null>(null);
+    const activeProfileRef = useRef('default');
     const [env, setEnv] = useState<EnvVar[]>([]);
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
     const [model, setModel] = useState<ModelConfig | null>(null);
@@ -94,19 +95,29 @@ function App() {
             }
         });
         const offLogs = EventsOn('logs:line', (event: { line?: string }) => event.line && appendLog(event.line));
-        const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string }) => {
+        const isCurrentProfileEvent = (event: { profile_id?: string }) => !event.profile_id || event.profile_id === activeProfileRef.current;
+        const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
             setQrData(event.scan_data);
             setQrStatus('等待微信扫码');
         });
-        const offQRStatus = EventsOn('weixin-login:status', (event: { status?: string; message?: string }) => {
+        const offQRStatus = EventsOn('weixin-login:status', (event: { status?: string; message?: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
             setQrStatus(event.message || event.status || '');
         });
-        const offQRDone = EventsOn('weixin-login:confirmed', (event: { account_id: string; user_id: string }) => {
+        const offQRDone = EventsOn('weixin-login:confirmed', (event: { account_id: string; user_id: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) {
+                refresh();
+                return;
+            }
             setQrStatus(`绑定成功 ${event.user_id || event.account_id}`);
             setQrData('');
             refresh();
         });
-        const offQRError = EventsOn('weixin-login:error', (event: { message: string }) => setQrStatus(event.message));
+        const offQRError = EventsOn('weixin-login:error', (event: { message: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setQrStatus(event.message);
+        });
         return () => {
             offDocker();
             offLogs();
@@ -139,13 +150,21 @@ function App() {
         setAdvancedPath(defaultAdvancedPath(state.activeProfile));
     }, [state?.activeProfile]);
 
+    useEffect(() => {
+        activeProfileRef.current = state?.activeProfile || 'default';
+        setQrData('');
+        setQrStatus('');
+    }, [state?.activeProfile]);
+
     async function refresh() {
         const next = await GetAppState();
-        setState(next as AppState);
-        setEnv((next as AppState).environment || []);
-        setCompose((next as AppState).compose);
-        setModel((next as AppState).model);
-        const nextProviders = (next as AppState).providers || fallbackProviderConfig;
+        const nextState = next as AppState;
+        activeProfileRef.current = nextState.activeProfile || 'default';
+        setState(nextState);
+        setEnv(nextState.environment || []);
+        setCompose(nextState.compose);
+        setModel(nextState.model);
+        const nextProviders = nextState.providers || fallbackProviderConfig;
         setProviders(nextProviders);
         setSelectedProvider((current) => nextProviders.providers[current] ? current : firstProviderID(nextProviders));
     }

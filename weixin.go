@@ -13,6 +13,7 @@ import (
 
 type weixinEvent struct {
 	Type      string `json:"type"`
+	ProfileID string `json:"profile_id,omitempty"`
 	ScanData  string `json:"scan_data,omitempty"`
 	Status    string `json:"status,omitempty"`
 	AccountID string `json:"account_id,omitempty"`
@@ -65,16 +66,16 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 	cmd.Dir = a.instanceRoot
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		a.emit("weixin-login:error", map[string]string{"message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		a.emit("weixin-login:error", map[string]string{"message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
 		return
 	}
 	if err := cmd.Start(); err != nil {
-		a.emit("weixin-login:error", map[string]string{"message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
 		return
 	}
 
@@ -93,25 +94,26 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 			a.forwardWeixinHelperLine(string(line))
 			continue
 		}
+		event.ProfileID = profileID
 		switch event.Type {
 		case "confirmed":
-			if err := a.persistWeixinCredentials(event); err != nil {
-				a.emit("weixin-login:error", map[string]string{"message": err.Error()})
+			if err := a.persistWeixinCredentials(profileID, event); err != nil {
+				a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
 				continue
 			}
-			a.emit("weixin-login:status", map[string]string{"status": "微信配置已保存，请应用并重建后生效"})
+			a.emit("weixin-login:status", map[string]string{"profile_id": profileID, "status": "微信配置已保存，请应用并重建后生效"})
 			event.Token = ""
 			a.emit("weixin-login:confirmed", event)
 		case "qr_ready":
 			a.emit("weixin-login:qr", event)
 		case "error":
-			a.emit("weixin-login:error", map[string]string{"message": redact(event.Message)})
+			a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(event.Message)})
 		default:
 			a.emit("weixin-login:status", event)
 		}
 	}
 	if err := cmd.Wait(); err != nil && ctx.Err() == nil {
-		a.emit("weixin-login:error", map[string]string{"message": redact(err.Error())})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
 	}
 }
 
@@ -159,8 +161,9 @@ func isWeixinHelperNoise(line string) bool {
 	return false
 }
 
-func (a *App) persistWeixinCredentials(event weixinEvent) error {
-	env, _ := readEnvFile(a.envPath())
+func (a *App) persistWeixinCredentials(profileID string, event weixinEvent) error {
+	path := filepath.Join(a.profileDataDir(profileID), ".env")
+	env, _ := readEnvFile(path)
 	updates := []EnvVar{
 		{Key: "WEIXIN_ACCOUNT_ID", Value: event.AccountID},
 		{Key: "WEIXIN_TOKEN", Value: event.Token},
@@ -173,7 +176,7 @@ func (a *App) persistWeixinCredentials(event weixinEvent) error {
 		{Key: "WEIXIN_GROUP_ALLOWED_USERS", Value: ""},
 		{Key: "WEIXIN_HOME_CHANNEL", Value: event.UserID},
 	}
-	return a.SaveEnvironment(mergeEnv(env, updates))
+	return a.saveEnvironmentTo(path, mergeEnv(env, updates))
 }
 
 func (a *App) writeWeixinHelper() (string, error) {

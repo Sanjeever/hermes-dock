@@ -1,4 +1,4 @@
-import {QrCode, Save, Square} from 'lucide-react';
+import {CheckCircle2, QrCode, Save, Square} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
 import {FeishuGroupPolicySelect, Field, PolicySelect} from '../components/fields';
 import {IconButton} from '../components/primitives';
@@ -27,6 +27,9 @@ export function PlatformsPage(props: {
     };
     const weixinDMPolicy = envValue(props.env, 'WEIXIN_DM_POLICY') || 'open';
     const weixinGroupPolicy = envValue(props.env, 'WEIXIN_GROUP_POLICY') || 'open';
+    const weixinAccountID = envValue(props.env, 'WEIXIN_ACCOUNT_ID');
+    const weixinHomeChannel = envValue(props.env, 'WEIXIN_HOME_CHANNEL');
+    const weixinBound = !!weixinAccountID && !!envValue(props.env, 'WEIXIN_TOKEN');
     const wecomDMPolicy = envValue(props.env, 'WECOM_DM_POLICY') || 'open';
     const wecomGroupPolicy = envValue(props.env, 'WECOM_GROUP_POLICY') || 'open';
     const feishuDomain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
@@ -36,8 +39,9 @@ export function PlatformsPage(props: {
             <div className="panel">
                 <p className="eyebrow">个人微信</p>
                 <div className="qr-stage">
-                    {props.qrData ? <QRCodeSVG value={props.qrData} size={184}/> : <QrCode size={120}/>}
-                    <span>{props.qrStatus || '点击扫码登录绑定个人微信。'}</span>
+                    {props.qrData ? <QRCodeSVG value={props.qrData} size={184}/> : weixinBound ? <CheckCircle2 className="bound-icon" size={112}/> : <QrCode size={120}/>}
+                    <span>{props.qrStatus || (weixinBound ? `已绑定个人微信 ${maskID(weixinAccountID)}` : '点击扫码登录绑定个人微信。')}</span>
+                    {weixinBound && weixinHomeChannel && !props.qrStatus && <small>默认通道 {maskID(weixinHomeChannel)}</small>}
                 </div>
                 <div className="actions">
                     <IconButton icon={QrCode} label="扫码登录" onClick={props.onWeixinLogin} disabled={props.busy}/>
@@ -82,4 +86,9 @@ export function PlatformsPage(props: {
             </div>
         </section>
     );
+}
+
+function maskID(value: string) {
+    if (value.length <= 10) return value;
+    return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }

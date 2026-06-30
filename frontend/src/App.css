@@ -794,6 +794,15 @@ textarea:focus {
     color: #52604e;
 }
 
+.qr-stage .bound-icon {
+    color: #2f7a3e;
+}
+
+.qr-stage small {
+    color: #6d7668;
+    font-weight: 700;
+}
+
 .table {
     display: grid;
     gap: 8px;
