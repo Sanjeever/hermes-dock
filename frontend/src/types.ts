@@ -1,0 +1,76 @@
+export type Page = 'dashboard' | 'profiles' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'soul' | 'advanced';
+
+export type EnvVar = { key: string; value: string; secret: boolean };
+export type ComposeSettings = {
+    image: string;
+    containerName: string;
+    gatewayHost: string;
+    gatewayPort: string;
+    dashboardHost: string;
+    dashboardPort: string;
+    dashboardEnabled: boolean;
+    dashboardUsername: string;
+    dashboardPassword: string;
+    gatewayBusyInputMode: string;
+    gatewayBusyAckEnabled: string;
+    backgroundNotifications: string;
+    memoryLimit: string;
+    cpuLimit: string;
+    shmSize: string;
+};
+export type AuxModel = { provider: string; model: string; baseUrl: string; apiKey: string; timeout: number; extraBody: Record<string, unknown> };
+export type ModelConfig = {
+    provider: string;
+    default: string;
+    baseUrl: string;
+    apiMode: string;
+    apiKey: string;
+    auxiliaryMode: string;
+    auxiliary: Record<string, AuxModel>;
+};
+export type ModelProviderPreset = {
+    key: string;
+    label: string;
+    provider: string;
+    baseUrl: string;
+    apiMode: string;
+    defaultModel: string;
+    modelListUrl: string;
+};
+export type ProviderEntry = {
+    label: string;
+    provider: string;
+    baseUrl: string;
+    apiMode: string;
+    apiKey: string;
+    modelListUrl: string;
+    defaultModel: string;
+    builtin: boolean;
+    disabled: boolean;
+};
+export type ProviderConfig = { providers: Record<string, ProviderEntry> };
+export type ModelListRequest = { providerId: string; providerKey: string; apiKey: string; baseUrl: string };
+export type ModelOption = { id: string; ownedBy: string };
+export type ChannelSummary = { id: string; name: string; type: string; thread_id?: string };
+export type ChannelFile = { updated_at: string; platforms: Record<string, ChannelSummary[]> };
+export type ProfileEntry = { id: string; name: string; enabled: boolean; createdAt: string; updatedAt: string; modelAuxiliaryMode: string };
+export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
+export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
+export type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
+export type Notice = { type: 'ok' | 'error' | 'info'; message: string };
+export type RunOptions = { rebuildRequired?: boolean; afterSuccess?: () => void };
+export type AppState = {
+    appVersion: string;
+    instanceRoot: string;
+    profiles: ProfileRegistry;
+    activeProfile: string;
+    profileStatus: RuntimeStatus;
+    compose: ComposeSettings;
+    environment: EnvVar[];
+    model: ModelConfig;
+    providers: ProviderConfig;
+    channels: ChannelFile;
+    dockerAvailable: boolean;
+    composeAvailable: boolean;
+    containerStatus: string;
+};

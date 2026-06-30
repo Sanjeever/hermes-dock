@@ -1,0 +1,79 @@
+import {Activity, BookOpen, Boxes, FileCog, Gauge, MessageSquare, Settings} from 'lucide-react';
+import type {ModelProviderPreset, Page, ProviderEntry, ProviderConfig} from './types';
+
+export const factoryResetPhrase = '删除 ~/.hermes-dock';
+
+export const nav: Array<{ id: Page; label: string; icon: typeof Gauge }> = [
+    {id: 'dashboard', label: '总览', icon: Gauge},
+    {id: 'profiles', label: 'Profiles', icon: Boxes},
+    {id: 'deploy', label: '部署', icon: Settings},
+    {id: 'providers', label: '供应商', icon: Boxes},
+    {id: 'models', label: '模型', icon: Boxes},
+    {id: 'platforms', label: '平台绑定', icon: MessageSquare},
+    {id: 'channels', label: '通道', icon: Activity},
+    {id: 'soul', label: '人格', icon: BookOpen},
+    {id: 'advanced', label: '高级编辑', icon: FileCog},
+];
+
+export const auxLabels: Record<string, string> = {
+    vision: '视觉理解',
+    web_extract: '网页提取',
+    compression: '上下文压缩',
+    skills_hub: '技能中心',
+    approval: '审批',
+    mcp: 'MCP 配置',
+    title_generation: '标题生成',
+    tts_audio_tags: 'TTS 音频标签',
+    triage_specifier: '任务分流',
+    kanban_decomposer: '看板拆解',
+    profile_describer: '档案描述',
+    curator: '技能维护',
+    monitor: '监控',
+};
+
+export const fallbackModelProviderPresets: ModelProviderPreset[] = [
+    {
+        key: 'dashscope-payg',
+        label: 'DashScope 按量计费',
+        provider: 'custom',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiMode: 'chat_completions',
+        defaultModel: 'qwen3.7-max',
+        modelListUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models',
+    },
+    {
+        key: 'opencode-go',
+        label: 'OpenCode Go',
+        provider: 'custom',
+        baseUrl: 'https://opencode.ai/zen/go/v1',
+        apiMode: 'chat_completions',
+        defaultModel: 'deepseek-v4-flash',
+        modelListUrl: 'https://opencode.ai/zen/go/v1/models',
+    },
+    {
+        key: 'deepseek',
+        label: 'DeepSeek',
+        provider: 'deepseek',
+        baseUrl: 'https://api.deepseek.com',
+        apiMode: 'chat_completions',
+        defaultModel: 'deepseek-v4-flash',
+        modelListUrl: 'https://api.deepseek.com/models',
+    },
+];
+
+export const fallbackProviderConfig: ProviderConfig = {
+    providers: fallbackModelProviderPresets.reduce<Record<string, ProviderEntry>>((providers, preset) => {
+        providers[preset.key] = {
+            label: preset.label,
+            provider: preset.provider,
+            baseUrl: preset.baseUrl,
+            apiMode: preset.apiMode,
+            apiKey: '',
+            modelListUrl: preset.modelListUrl,
+            defaultModel: preset.defaultModel,
+            builtin: true,
+            disabled: false,
+        };
+        return providers;
+    }, {}),
+};
