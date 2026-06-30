@@ -38,6 +38,7 @@ providers:
 fallback_providers: []
 toolsets:
   - hermes-cli
+  - messaging
 agent:
   max_turns: 150
   gateway_timeout: 1800
