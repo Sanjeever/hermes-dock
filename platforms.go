@@ -98,7 +98,7 @@ func (a *App) SendTestMessage(platform string, channelID string, message string)
 		target = platform + ":" + channelID
 	}
 	if message == "" {
-		message = "Hermes Dock 测试消息"
+		message = "企智盒测试消息"
 	}
 	args := append([]string{"run", "--rm"}, a.currentProfileComposeEnvArgs()...)
 	args = append(args, "hermes")

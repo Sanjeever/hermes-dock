@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {CheckCircle2, CircleAlert, RotateCcw} from 'lucide-react';
 import './App.css';
+import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
     CompleteProfileSetup,
@@ -460,9 +461,11 @@ function App() {
         <div className="shell">
             <aside className="rail">
                 <div className="brand">
-                    <div className="brand-mark">HD</div>
+                    <div className="brand-mark">
+                        <img src={logoUniversal} alt="" aria-hidden="true"/>
+                    </div>
                     <div>
-                        <strong>Hermes Dock</strong>
+                        <strong>企智盒</strong>
                         <span>Docker 启动器</span>
                     </div>
                 </div>
@@ -486,7 +489,6 @@ function App() {
             <main className="workspace">
                 <header className="topbar">
                     <div>
-                        <p className="eyebrow">Hermes Agent 容器</p>
                         <h1>{titleFor(page)}</h1>
                     </div>
                     <div className="topbar-actions">
@@ -634,7 +636,7 @@ function App() {
                         onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true})}
                         onRefreshChannels={() => run('正在刷新通道', refresh)}
                         onHomeChannel={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
-                        onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, 'Hermes Dock 测试消息'))}
+                        onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'))}
                         onSaveAdvanced={saveAdvancedFile}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}

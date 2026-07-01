@@ -169,7 +169,7 @@ export function AssistantsPage(props: {
                     <label className="field">
                         <span>创建方式</span>
                         <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
-                            <option value="clean">干净创建</option>
+                            <option value="clean">全新配置</option>
                             <option value="personality-skills">复制当前助手的人格和 skills</option>
                         </select>
                     </label>

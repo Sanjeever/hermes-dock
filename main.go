@@ -26,7 +26,7 @@ func main() {
 
 	// Create application with options
 	err = wails.Run(&options.App{
-		Title:  "Hermes Dock",
+		Title:  "企智盒",
 		Width:  1280,
 		Height: 820,
 		AssetServer: &assetserver.Options{

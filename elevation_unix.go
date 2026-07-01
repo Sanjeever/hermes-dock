@@ -37,7 +37,7 @@ func relaunchWithAppleScript(exe string, home string, args []string) (bool, erro
 	command := "env " + shellJoin("HOME="+home) + " nohup " + shellJoin(append([]string{exe}, args...)...) + " >/dev/null 2>&1 &"
 	script := fmt.Sprintf("do shell script %q with administrator privileges", command)
 	if err := exec.Command("osascript", "-e", script).Run(); err != nil {
-		return false, fmt.Errorf("需要管理员权限才能启动 Hermes Dock: %w", err)
+		return false, fmt.Errorf("需要管理员权限才能启动企智盒: %w", err)
 	}
 	return true, nil
 }

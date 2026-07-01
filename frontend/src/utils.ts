@@ -2,7 +2,7 @@ import {auxLabels, nav} from './constants';
 import type {EnvVar, ModelConfig, ModelOption, Page, ProviderConfig} from './types';
 
 export function titleFor(page: Page) {
-    return nav.find((item) => item.id === page)?.label || 'Hermes Dock';
+    return nav.find((item) => item.id === page)?.label || '企智盒';
 }
 
 export function containerStatusText(status?: string) {

@@ -58,7 +58,7 @@ func writeEnvFile(path string, vars []EnvVar) error {
 		return envOrder(vars[i].Key) < envOrder(vars[j].Key)
 	})
 	var b strings.Builder
-	b.WriteString("# 由 Hermes Dock 管理。通过界面编辑时，未知变量会保留。\n")
+	b.WriteString("# 由企智盒管理。通过界面编辑时，未知变量会保留。\n")
 	for _, item := range vars {
 		if strings.TrimSpace(item.Key) == "" {
 			continue

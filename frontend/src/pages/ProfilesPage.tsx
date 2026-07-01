@@ -105,7 +105,7 @@ export function ProfilesPage(props: {
                 <div className="section-head">
                     <div>
                         <p className="eyebrow">新建 Profile</p>
-                        <h2>干净创建</h2>
+                        <h2>全新配置</h2>
                     </div>
                 </div>
                 <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
@@ -113,7 +113,7 @@ export function ProfilesPage(props: {
                 <label className="field">
                     <span>创建方式</span>
                     <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
-                        <option value="clean">干净 profile</option>
+                        <option value="clean">全新配置</option>
                         <option value="personality-skills">复制当前 profile 的人格和 skills</option>
                     </select>
                 </label>
