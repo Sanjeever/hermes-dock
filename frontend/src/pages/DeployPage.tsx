@@ -7,32 +7,52 @@ export function DeployPage({compose, setCompose, busy, onSave}: { compose: Compo
     const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     return (
-        <section className="grid two">
-            <div className="panel">
-                <p className="eyebrow">镜像与端口</p>
-                <Field label="镜像" value={compose.image} onChange={(value) => update('image', value)}/>
-                <div className="field-grid">
-                    <Field label="网关监听地址" value={compose.gatewayHost} onChange={(value) => update('gatewayHost', value)}/>
-                    <Field label="网关端口" value={compose.gatewayPort} onChange={(value) => update('gatewayPort', value)}/>
-                    <Field label="控制台监听地址" value={compose.dashboardHost} onChange={(value) => update('dashboardHost', value)}/>
-                    <Field label="控制台端口" value={compose.dashboardPort} onChange={(value) => update('dashboardPort', value)}/>
+        <section className="deploy-stack">
+            <div className="panel deploy-summary">
+                <div>
+                    <p className="eyebrow">部署参数</p>
+                    <h2>容器启动参数</h2>
+                    <p className="setup-subtitle">这些设置保存后，需要应用并重建容器才会生效。</p>
                 </div>
+                <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid}><Save size={16}/>保存部署参数</button>
             </div>
-            <div className="panel">
-                <p className="eyebrow">资源限制与控制台</p>
-                <div className="field-grid">
-                    <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
-                    <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
-                    <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
+            <div className="deploy-grid">
+                <div className="panel">
+                    <p className="eyebrow">镜像</p>
+                    <h2>Hermes 版本</h2>
+                    <Field label="镜像" value={compose.image} onChange={(value) => update('image', value)}/>
+                </div>
+                <div className="panel">
+                    <p className="eyebrow">访问端口</p>
+                    <h2>本机入口</h2>
+                    <div className="field-grid">
+                        <Field label="网关监听地址" value={compose.gatewayHost} onChange={(value) => update('gatewayHost', value)}/>
+                        <Field label="网关端口" value={compose.gatewayPort} onChange={(value) => update('gatewayPort', value)}/>
+                        <Field label="控制台监听地址" value={compose.dashboardHost} onChange={(value) => update('dashboardHost', value)}/>
+                        <Field label="控制台端口" value={compose.dashboardPort} onChange={(value) => update('dashboardPort', value)}/>
+                    </div>
+                    {!portsValid && <div className="form-warning">端口必须是 1-65535 的数字</div>}
+                </div>
+                <div className="panel">
+                    <p className="eyebrow">资源限制</p>
+                    <h2>容器配额</h2>
+                    <div className="field-grid">
+                        <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
+                        <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
+                        <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
+                    </div>
+                </div>
+                <div className="panel">
+                    <p className="eyebrow">控制台</p>
+                    <h2>登录信息</h2>
                     <Field label="控制台用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
+                    <Field label="控制台密码" value={compose.dashboardPassword} secret onChange={(value) => update('dashboardPassword', value)}/>
+                    <div className="setting-note">控制台固定启用。</div>
                 </div>
-                <Field label="控制台密码" value={compose.dashboardPassword} secret onChange={(value) => update('dashboardPassword', value)}/>
-                <div className="setting-note">控制台默认启用</div>
-                {!portsValid && <div className="form-warning">端口必须是 1-65535 的数字</div>}
-                <button className="primary" onClick={onSave} disabled={busy || !portsValid}><Save size={16}/>保存部署配置</button>
             </div>
-            <div className="panel wide">
+            <div className="panel">
                 <p className="eyebrow">网关行为</p>
+                <h2>消息处理策略</h2>
                 <div className="field-grid">
                     <GatewaySelect
                         label="忙碌输入模式"
@@ -65,7 +85,7 @@ export function DeployPage({compose, setCompose, busy, onSave}: { compose: Compo
                         ]}
                     />
                 </div>
-                <div className="setting-note">同步到 <code>HERMES_GATEWAY_BUSY_INPUT_MODE</code>、<code>HERMES_GATEWAY_BUSY_ACK_ENABLED</code>、<code>HERMES_BACKGROUND_NOTIFICATIONS</code>；保存后需要应用并重建。</div>
+                <div className="setting-note">保存后需要回到运行控制页应用并重建。</div>
             </div>
         </section>
     );

@@ -1,0 +1,781 @@
+import {useState} from 'react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Plus, RefreshCcw, Save, SlidersHorizontal, Trash2} from 'lucide-react';
+import {Field, SecretField} from '../components/fields';
+import {auxLabels} from '../constants';
+import {PlatformsPage} from './PlatformsPage';
+import {SoulPage} from './SoulPage';
+import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, ProviderConfig, ProviderEntry, RuntimeProfileStatus, WizardStep} from '../types';
+import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, slugProfileID, statusClassName} from '../utils';
+
+export function AssistantsPage(props: {
+    state: AppState;
+    env: EnvVar[];
+    setEnv: (value: EnvVar[]) => void;
+    providers: ProviderConfig;
+    setProviders: (value: ProviderConfig) => void;
+    selectedProvider: string;
+    setSelectedProvider: (value: string) => void;
+    model: ModelConfig | null;
+    setModel: (value: ModelConfig) => void;
+    modelOptions: ModelOption[];
+    modelListStatus: string;
+    selectedAux: string;
+    setSelectedAux: (value: string) => void;
+    auxModelOptions: Record<string, ModelOption[]>;
+    auxModelListStatus: string;
+    busy: boolean;
+    showApiKey: boolean;
+    setShowApiKey: (value: boolean) => void;
+    newProfileID: string;
+    setNewProfileID: (value: string) => void;
+    newProfileName: string;
+    setNewProfileName: (value: string) => void;
+    newProfileCopyMode: string;
+    setNewProfileCopyMode: (value: string) => void;
+    newProfileEnabled: boolean;
+    setNewProfileEnabled: (value: boolean) => void;
+    wizardStep: WizardStep | null;
+    setWizardStep: (value: WizardStep | null) => void;
+    soulContent: string;
+    setSoulContent: (value: string) => void;
+    soulStatus: string;
+    soulDirty: boolean;
+    setSoulDirty: (value: boolean) => void;
+    qrData: string;
+    qrStatus: string;
+    needsRebuild: boolean;
+    hasPlatformBinding: boolean;
+    onSelect: (id: string) => void;
+    onCreate: () => Promise<boolean>;
+    onRename: (id: string, name: string) => void;
+    onEnabled: (id: string, enabled: boolean) => void;
+    onMove: (id: string, direction: string) => void;
+    onDelete: (id: string) => void;
+    onSaveModelService: () => Promise<boolean>;
+    onFetchModels: () => void;
+    onFetchAuxModels: (providerID: string) => void;
+    onTestModel: () => void;
+    onSaveSoul: () => Promise<boolean>;
+    onDiscardSoul: () => void;
+    onWeixinLogin: () => void;
+    onCancelWeixin: () => void;
+    onSaveWeCom: () => void;
+    onSaveFeishu: () => void;
+    onFinishSetup: (apply: boolean) => Promise<boolean>;
+    onRebuild: () => void;
+    onOpenOperations: (tab: OperationsTab) => void;
+}) {
+    const [showCreate, setShowCreate] = useState(false);
+    const [editingID, setEditingID] = useState('');
+    const [editingName, setEditingName] = useState('');
+    const [deleteID, setDeleteID] = useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [showAdvancedModels, setShowAdvancedModels] = useState(false);
+    const profiles = props.state.profiles?.profiles || [];
+    const activeProfile = profiles.find((profile) => profile.id === props.state.activeProfile) || profiles[0];
+    const activeIndex = activeProfile ? profiles.findIndex((profile) => profile.id === activeProfile.id) : -1;
+    const activeStatus = activeProfile ? props.state.profileStatus?.profiles?.[activeProfile.id] : undefined;
+    const activeSetupDone = !!activeProfile?.setupCompletedAt;
+    const activeWizardStep = activeSetupDone ? props.wizardStep : (props.wizardStep || 'model');
+    const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
+
+    const startCreate = () => {
+        setShowCreate(true);
+        props.setNewProfileID('');
+        props.setNewProfileName('');
+    };
+
+    const saveRename = (id: string) => {
+        props.onRename(id, editingName);
+        setEditingID('');
+        setEditingName('');
+    };
+
+    const startWizard = (step: WizardStep) => {
+        setShowAdvancedModels(false);
+        props.setWizardStep(step);
+    };
+
+    const selectAssistant = (id: string) => {
+        const target = profiles.find((profile) => profile.id === id);
+        setShowAdvancedModels(false);
+        props.onSelect(id);
+        props.setWizardStep(target?.setupCompletedAt ? null : 'model');
+    };
+
+    return (
+        <section className="assistant-layout">
+            {activeSetupDone && (
+                <div className="assistant-switcher">
+                    {activeProfile && (
+                        <div>
+                            <p className="eyebrow">当前助手</p>
+                            <h2>{activeProfile.name || activeProfile.id}</h2>
+                        </div>
+                    )}
+                    {activeProfile && <span className={`profile-status ${assistantStatusClass(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}`}>{assistantStatusLabel(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}</span>}
+                    <label className="assistant-select">
+                        <span>切换助手</span>
+                        <select value={activeProfile?.id || ''} onChange={(event) => selectAssistant(event.target.value)} disabled={props.busy}>
+                            {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name || profile.id}</option>)}
+                        </select>
+                    </label>
+                    <button className="ghost" onClick={startCreate} disabled={props.busy}><Plus size={16}/>新建助手</button>
+                    {activeProfile && (
+                        <details className="more-menu">
+                            <summary title="管理当前助手"><MoreHorizontal size={17}/></summary>
+                            <div className="more-menu-popover">
+                                <button onClick={() => {
+                                    setEditingID(activeProfile.id);
+                                    setEditingName(activeProfile.name || activeProfile.id);
+                                }} disabled={props.busy}>重命名</button>
+                                <button onClick={() => props.onEnabled(activeProfile.id, !activeProfile.enabled)} disabled={props.busy}>{activeProfile.enabled ? '停用助手' : '启用助手'}</button>
+                                <button onClick={() => props.onMove(activeProfile.id, 'up')} disabled={props.busy || activeIndex <= 0}>上移</button>
+                                <button onClick={() => props.onMove(activeProfile.id, 'down')} disabled={props.busy || activeIndex < 0 || activeIndex === profiles.length - 1}>下移</button>
+                                <button className="danger-inline" onClick={() => {
+                                    setDeleteID(activeProfile.id);
+                                    setDeleteConfirmText('');
+                                }} disabled={props.busy || activeProfile.id === 'default'}>删除</button>
+                            </div>
+                        </details>
+                    )}
+                </div>
+            )}
+            {activeSetupDone && activeProfile && editingID === activeProfile.id && (
+                <div className="assistant-inline-editor">
+                    <input value={editingName} onChange={(event) => setEditingName(event.target.value)} autoFocus disabled={props.busy}/>
+                    <button className="primary inline-primary" onClick={() => saveRename(activeProfile.id)} disabled={props.busy || editingName.trim() === ''}>保存</button>
+                    <button className="ghost" onClick={() => setEditingID('')} disabled={props.busy}>取消</button>
+                </div>
+            )}
+            {activeSetupDone && activeProfile && deleteID === activeProfile.id && (
+                <div className="assistant-inline-editor danger-confirm">
+                    <input value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} placeholder={`输入 ${activeProfile.id} 确认删除`} disabled={props.busy}/>
+                    <button className="danger-button compact" onClick={() => {
+                        props.onDelete(activeProfile.id);
+                        setDeleteID('');
+                    }} disabled={props.busy || deleteConfirmText !== activeProfile.id}><Trash2 size={16}/>确认删除</button>
+                    <button className="ghost" onClick={() => setDeleteID('')} disabled={props.busy}>取消</button>
+                </div>
+            )}
+            {activeSetupDone && showCreate && (
+                <div className="create-drawer">
+                    <p className="eyebrow">新建助手</p>
+                    <Field label="显示名" value={props.newProfileName} onChange={(value) => {
+                        props.setNewProfileName(value);
+                        if (!props.newProfileID) props.setNewProfileID(slugProfileID(value));
+                    }}/>
+                    <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
+                    <label className="field">
+                        <span>创建方式</span>
+                        <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
+                            <option value="clean">干净创建</option>
+                            <option value="personality-skills">复制当前助手的人格和 skills</option>
+                        </select>
+                    </label>
+                    <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后启用助手</label>
+                    {!canCreate && props.newProfileID && <div className="form-warning">Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。</div>}
+                    <div className="actions">
+                        <button className="primary no-margin" onClick={async () => {
+                            if (!(await props.onCreate())) return;
+                            setShowCreate(false);
+                            setShowAdvancedModels(false);
+                            props.setWizardStep('model');
+                        }} disabled={props.busy || !canCreate}><Save size={16}/>开始配置</button>
+                        <button className="ghost" onClick={() => setShowCreate(false)} disabled={props.busy}>取消</button>
+                    </div>
+                </div>
+            )}
+
+            <div className="assistant-detail">
+                {!activeProfile && <div className="panel">暂无助手。</div>}
+                {activeProfile && !activeWizardStep && !showAdvancedModels && (
+                    <AssistantSummary
+                        profileName={activeProfile.name || activeProfile.id}
+                        setupCompletedAt={activeProfile.setupCompletedAt || ''}
+                        enabled={activeProfile.enabled}
+                        status={activeStatus}
+                        model={props.model}
+                        providers={props.providers}
+                        hasPlatformBinding={props.hasPlatformBinding}
+                        needsRebuild={props.needsRebuild}
+                        onStep={startWizard}
+                        onAdvancedModels={() => setShowAdvancedModels(true)}
+                        onEnabled={(enabled) => props.onEnabled(activeProfile.id, enabled)}
+                        onRebuild={props.onRebuild}
+                        onOpenOperations={props.onOpenOperations}
+                    />
+                )}
+                {activeProfile && !activeWizardStep && showAdvancedModels && props.model && (
+                    <AuxiliaryModelsPanel
+                        model={props.model}
+                        setModel={props.setModel}
+                        providers={props.providers}
+                        selectedAux={props.selectedAux}
+                        setSelectedAux={props.setSelectedAux}
+                        modelOptions={props.modelOptions}
+                        auxModelOptions={props.auxModelOptions}
+                        auxModelListStatus={props.auxModelListStatus}
+                        busy={props.busy}
+                        onFetchAuxModels={props.onFetchAuxModels}
+                        onSave={props.onSaveModelService}
+                        onBack={() => setShowAdvancedModels(false)}
+                    />
+                )}
+                {activeProfile && activeWizardStep && (
+                    <AssistantWizard
+                        step={activeWizardStep}
+                        setupDone={activeSetupDone}
+                        profileID={activeProfile.id}
+                        profileName={activeProfile.name || activeProfile.id}
+                        env={props.env}
+                        providers={props.providers}
+                        setProviders={props.setProviders}
+                        selectedProvider={props.selectedProvider}
+                        setSelectedProvider={props.setSelectedProvider}
+                        model={props.model}
+                        setModel={props.setModel}
+                        modelOptions={props.modelOptions}
+                        modelListStatus={props.modelListStatus}
+                        busy={props.busy}
+                        showApiKey={props.showApiKey}
+                        setShowApiKey={props.setShowApiKey}
+                        soulContent={props.soulContent}
+                        setSoulContent={props.setSoulContent}
+                        soulStatus={props.soulStatus}
+                        soulDirty={props.soulDirty}
+                        setSoulDirty={props.setSoulDirty}
+                        qrData={props.qrData}
+                        qrStatus={props.qrStatus}
+                        setEnv={props.setEnv}
+                        hasPlatformBinding={props.hasPlatformBinding}
+                        onStep={props.setWizardStep}
+                        onSaveModelService={props.onSaveModelService}
+                        onFetchModels={props.onFetchModels}
+                        onTestModel={props.onTestModel}
+                        onSaveSoul={props.onSaveSoul}
+                        onDiscardSoul={props.onDiscardSoul}
+                        onWeixinLogin={props.onWeixinLogin}
+                        onCancelWeixin={props.onCancelWeixin}
+                        onSaveWeCom={props.onSaveWeCom}
+                        onSaveFeishu={props.onSaveFeishu}
+                        onFinishSetup={props.onFinishSetup}
+                    />
+                )}
+            </div>
+        </section>
+    );
+}
+
+function AssistantSummary(props: {
+    profileName: string;
+    setupCompletedAt: string;
+    enabled: boolean;
+    status?: RuntimeProfileStatus;
+    model: ModelConfig | null;
+    providers: ProviderConfig;
+    hasPlatformBinding: boolean;
+    needsRebuild: boolean;
+    onStep: (step: WizardStep) => void;
+    onAdvancedModels: () => void;
+    onEnabled: (enabled: boolean) => void;
+    onRebuild: () => void;
+    onOpenOperations: (tab: OperationsTab) => void;
+}) {
+    const provider = props.model ? props.providers.providers[props.model.provider] : undefined;
+    return (
+        <div className="assistant-summary">
+            <div className="setup-card">
+                <div>
+                    <p className="eyebrow">助手已就绪</p>
+                    <h2>{props.profileName}</h2>
+                    <p className="setup-subtitle">需要修改时，从配置助理重新走一遍即可。</p>
+                </div>
+                <div className="setup-status-list">
+                    <button onClick={() => props.onStep('model')}>
+                        <span>模型服务</span>
+                        <strong>{provider?.label || '未选择'} · {props.model?.default || '未选择模型'}</strong>
+                    </button>
+                    <button onClick={() => props.onStep('soul')}>
+                        <span>人格设定</span>
+                        <strong>{props.setupCompletedAt ? '已完成' : '未完成'}</strong>
+                    </button>
+                    <button onClick={() => props.onStep('platforms')}>
+                        <span>平台绑定</span>
+                        <strong>{props.hasPlatformBinding ? '已绑定' : '暂未绑定'}</strong>
+                    </button>
+                </div>
+                <div className="setup-actions">
+                    <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)}/>启用助手</label>
+                    <button className="ghost" onClick={props.onAdvancedModels}><SlidersHorizontal size={16}/>高级模型设置</button>
+                    <button className="ghost" onClick={() => props.onOpenOperations('status')}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
+                    <button className="primary no-margin" onClick={() => props.onStep('model')}>重新配置</button>
+                    {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild}><RefreshCcw size={16}/>应用并重建</button>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AuxiliaryModelsPanel(props: {
+    model: ModelConfig;
+    setModel: (value: ModelConfig) => void;
+    providers: ProviderConfig;
+    selectedAux: string;
+    setSelectedAux: (value: string) => void;
+    modelOptions: ModelOption[];
+    auxModelOptions: Record<string, ModelOption[]>;
+    auxModelListStatus: string;
+    busy: boolean;
+    onFetchAuxModels: (providerID: string) => void;
+    onSave: () => Promise<boolean>;
+    onBack: () => void;
+}) {
+    const enabledProviders = providerIDs(props.providers).filter((id) => !props.providers.providers[id].disabled);
+    const selectedProviderID = props.providers.providers[props.model.provider] ? props.model.provider : firstProviderID(props.providers);
+    const selectedProviderOptionsKey = modelOptionKey(selectedProviderID);
+    const aux = props.model.auxiliary?.[props.selectedAux] || {provider: 'auto', model: '', baseUrl: '', apiKey: '', timeout: 30, extraBody: {}};
+    const selectedAuxProviderID = aux.provider && aux.provider !== 'auto' && props.providers.providers[aux.provider] ? aux.provider : selectedProviderID;
+    const selectedAuxProvider = props.providers.providers[selectedAuxProviderID];
+    const auxProviderOptionsKey = modelOptionKey(selectedAuxProviderID);
+    const auxUsesMainProvider = auxProviderOptionsKey === selectedProviderOptionsKey;
+    const auxProviderOptions = props.auxModelOptions[auxProviderOptionsKey] || (auxUsesMainProvider ? props.modelOptions : []);
+    const auxCurrentModel = aux.model || selectedAuxProvider?.defaultModel || props.model.default;
+    const auxModelChoices = ensureCurrentModelOption(auxProviderOptions, auxCurrentModel);
+    const auxProviderReady = !!selectedAuxProvider && !selectedAuxProvider.disabled && selectedAuxProvider.apiKey.trim() !== '';
+    const customAuxiliary = props.model.auxiliaryMode === 'custom';
+
+    const setAux = (next: AuxModel) => {
+        props.setModel({...props.model, auxiliary: {...props.model.auxiliary, [props.selectedAux]: next}});
+    };
+
+    const setAuxiliaryMode = (mode: string) => {
+        if (mode !== 'custom') {
+            props.setModel({...props.model, auxiliaryMode: mode});
+            return;
+        }
+        const initialized = {...props.model.auxiliary};
+        for (const key of Object.keys(auxLabels)) {
+            const current = initialized[key] || {provider: '', model: '', baseUrl: '', apiKey: '', timeout: 30, extraBody: {}};
+            const useCurrentProvider = current.provider && current.provider !== 'auto';
+            const currentProviderID = useCurrentProvider && props.providers.providers[current.provider] ? current.provider : selectedProviderID;
+            initialized[key] = {
+                ...current,
+                provider: currentProviderID,
+                model: current.model || props.model.default,
+                baseUrl: '',
+                apiKey: '',
+                timeout: current.timeout || 30,
+                extraBody: current.extraBody || {},
+            };
+        }
+        props.setModel({...props.model, auxiliaryMode: mode, auxiliary: initialized});
+    };
+
+    const applyAuxProvider = (id: string) => {
+        const provider = props.providers.providers[id];
+        if (!provider) return;
+        setAux({
+            ...aux,
+            provider: id,
+            model: provider.defaultModel,
+            baseUrl: '',
+            apiKey: '',
+            timeout: aux.timeout || 30,
+            extraBody: aux.extraBody || {},
+        });
+    };
+
+    const setAuxModel = (value: string) => {
+        setAux({
+            ...aux,
+            provider: selectedAuxProviderID,
+            model: value,
+            baseUrl: '',
+            apiKey: '',
+            timeout: aux.timeout || 30,
+            extraBody: aux.extraBody || {},
+        });
+    };
+
+    return (
+        <div className="advanced-model-panel">
+            <div className="setup-card">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">高级模型设置</p>
+                        <h2>辅助模型</h2>
+                        <p className="setup-subtitle">默认保持自动。只有需要分用途指定模型时，再调整这里。</p>
+                    </div>
+                </div>
+                <div className="segmented">
+                    {[
+                        ['auto', '自动'],
+                        ['follow-main', '跟随主模型'],
+                        ['custom', '分别配置'],
+                    ].map(([mode, label]) => (
+                        <button key={mode} className={props.model.auxiliaryMode === mode ? 'selected' : ''} onClick={() => setAuxiliaryMode(mode)}>{label}</button>
+                    ))}
+                </div>
+                {!customAuxiliary && (
+                    <div className="mode-summary quiet">
+                        <strong>{props.model.auxiliaryMode === 'follow-main' ? '使用主模型' : '由 Hermes 自动选择'}</strong>
+                        <span>{props.model.auxiliaryMode === 'follow-main' ? props.model.default : '推荐给大多数助手使用'}</span>
+                    </div>
+                )}
+                {customAuxiliary && (
+                    <div className="aux-config-stack">
+                        <label className="field">
+                            <span>用途</span>
+                            <select value={props.selectedAux} onChange={(event) => props.setSelectedAux(event.target.value)}>
+                                {Object.keys(auxLabels).map((key) => <option key={key} value={key}>{auxLabels[key]}</option>)}
+                            </select>
+                        </label>
+                        <label className="field">
+                            <span>服务商</span>
+                            <select value={selectedAuxProviderID} onChange={(event) => applyAuxProvider(event.target.value)}>
+                                {enabledProviders.map((id) => {
+                                    const provider = props.providers.providers[id];
+                                    return <option key={id} value={id}>{provider.label}</option>;
+                                })}
+                            </select>
+                        </label>
+                        {selectedAuxProvider && selectedAuxProvider.apiKey.trim() === '' && <div className="form-warning">该供应商未配置 API 密钥。请先在基础模型服务里填写密钥。</div>}
+                        <label className="field">
+                            <span>模型</span>
+                            {auxProviderOptions.length > 0 ? (
+                                <select value={auxCurrentModel} onChange={(event) => setAuxModel(event.target.value)}>
+                                    {auxCurrentModel.trim() === '' && <option value="">请选择模型</option>}
+                                    {auxModelChoices.map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
+                                </select>
+                            ) : (
+                                <input value={aux.model || ''} onChange={(event) => setAuxModel(event.target.value)}/>
+                            )}
+                        </label>
+                        <div className="actions model-actions">
+                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderID)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>拉取模型列表</button>
+                            {props.auxModelListStatus && <span className="inline-status">{props.auxModelListStatus}</span>}
+                        </div>
+                    </div>
+                )}
+                <div className="wizard-actions">
+                    <button className="ghost" onClick={props.onBack} disabled={props.busy}><ChevronLeft size={16}/>返回摘要</button>
+                    <button className="primary no-margin" onClick={props.onSave} disabled={props.busy}><Save size={16}/>保存高级模型设置</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AssistantWizard(props: {
+    step: WizardStep;
+    setupDone: boolean;
+    profileID: string;
+    profileName: string;
+    env: EnvVar[];
+    providers: ProviderConfig;
+    setProviders: (value: ProviderConfig) => void;
+    selectedProvider: string;
+    setSelectedProvider: (value: string) => void;
+    model: ModelConfig | null;
+    setModel: (value: ModelConfig) => void;
+    modelOptions: ModelOption[];
+    modelListStatus: string;
+    busy: boolean;
+    showApiKey: boolean;
+    setShowApiKey: (value: boolean) => void;
+    soulContent: string;
+    setSoulContent: (value: string) => void;
+    soulStatus: string;
+    soulDirty: boolean;
+    setSoulDirty: (value: boolean) => void;
+    qrData: string;
+    qrStatus: string;
+    setEnv: (value: EnvVar[]) => void;
+    hasPlatformBinding: boolean;
+    onStep: (step: WizardStep | null) => void;
+    onSaveModelService: () => Promise<boolean>;
+    onFetchModels: () => void;
+    onTestModel: () => void;
+    onSaveSoul: () => Promise<boolean>;
+    onDiscardSoul: () => void;
+    onWeixinLogin: () => void;
+    onCancelWeixin: () => void;
+    onSaveWeCom: () => void;
+    onSaveFeishu: () => void;
+    onFinishSetup: (apply: boolean) => Promise<boolean>;
+}) {
+    const steps: Array<{ id: WizardStep; label: string }> = [
+        {id: 'model', label: '模型服务'},
+        {id: 'soul', label: '人格设定'},
+        {id: 'platforms', label: '平台绑定'},
+        {id: 'finish', label: '完成'},
+    ];
+    const index = steps.findIndex((item) => item.id === props.step);
+    const previous = index > 0 ? steps[index - 1].id : null;
+    const next = index < steps.length - 1 ? steps[index + 1].id : null;
+    const modelReady = !!props.model?.provider && !!props.model?.default?.trim();
+
+    return (
+        <div className="wizard-stack">
+            <div className="wizard-steps">
+                {steps.map((item, itemIndex) => (
+                    <button key={item.id} className={props.step === item.id ? 'active' : itemIndex < index ? 'done' : ''} onClick={() => props.setupDone && props.onStep(item.id)} title={item.label} aria-label={item.label} disabled={!props.setupDone}>
+                        <span>{itemIndex + 1}</span>
+                    </button>
+                ))}
+            </div>
+            {props.step === 'model' && props.model && (
+                <ModelServiceStep
+                    providers={props.providers}
+                    setProviders={props.setProviders}
+                    selectedProvider={props.selectedProvider}
+                    setSelectedProvider={props.setSelectedProvider}
+                    model={props.model}
+                    setModel={props.setModel}
+                    modelOptions={props.modelOptions}
+                    modelListStatus={props.modelListStatus}
+                    busy={props.busy}
+                    showApiKey={props.showApiKey}
+                    setShowApiKey={props.setShowApiKey}
+                    onFetchModels={props.onFetchModels}
+                    onTestModel={props.onTestModel}
+                    onSaveModelService={props.onSaveModelService}
+                    stepLabel={`第 ${index + 1} 步，共 ${steps.length} 步`}
+                    stepHelp={wizardStepHelp(props.step)}
+                    onNext={() => props.onStep('soul')}
+                />
+            )}
+            {props.step === 'soul' && (
+                <div className="wizard-panel">
+                    <SoulPage
+                        profileID={props.profileID}
+                        content={props.soulContent}
+                        setContent={(value) => {
+                            props.setSoulContent(value);
+                            props.setSoulDirty(true);
+                        }}
+                        status={props.soulStatus}
+                        dirty={props.soulDirty}
+                        busy={props.busy}
+                        onSave={props.onSaveSoul}
+                        onDiscard={props.onDiscardSoul}
+                    />
+                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={async () => {
+                        if (props.soulDirty && !(await props.onSaveSoul())) return;
+                        props.onStep('platforms');
+                    }} nextLabel="保存并下一步"/>
+                </div>
+            )}
+            {props.step === 'platforms' && (
+                <div className="wizard-panel">
+                    <PlatformsPage
+                        env={props.env}
+                        setEnv={props.setEnv}
+                        qrData={props.qrData}
+                        qrStatus={props.qrStatus}
+                        busy={props.busy}
+                        onWeixinLogin={props.onWeixinLogin}
+                        onCancelWeixin={props.onCancelWeixin}
+                        onSaveWeCom={props.onSaveWeCom}
+                        onSaveFeishu={props.onSaveFeishu}
+                    />
+                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={() => props.onStep('finish')} nextLabel={props.hasPlatformBinding ? '下一步' : '暂不绑定平台，下一步'}/>
+                </div>
+            )}
+            {props.step === 'finish' && (
+                <div className="panel finish-panel">
+                    <p className="eyebrow">完成配置</p>
+                    <h2>{props.profileName} 的基础配置</h2>
+                    <div className="finish-checks">
+                        <CheckItem ok={modelReady} label={modelReady ? '已选择模型服务和主模型' : '请先选择模型服务和主模型'}/>
+                        <CheckItem ok={true} label="人格设定已可使用"/>
+                        <CheckItem ok={props.hasPlatformBinding} label={props.hasPlatformBinding ? '已绑定至少一个平台' : '暂未绑定平台，此助手不会参与运行'}/>
+                    </div>
+                    <div className="actions">
+                        <button className="ghost" onClick={() => previous && props.onStep(previous)} disabled={props.busy}><ChevronLeft size={16}/>上一步</button>
+                        {props.hasPlatformBinding ? (
+                            <>
+                                <button className="ghost" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>仅完成，稍后应用</button>
+                                <button className="primary no-margin" onClick={() => props.onFinishSetup(true)} disabled={props.busy || !modelReady}><RefreshCcw size={16}/>完成并应用重建</button>
+                            </>
+                        ) : (
+                            <button className="primary no-margin" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>完成</button>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ModelServiceStep(props: {
+    providers: ProviderConfig;
+    setProviders: (value: ProviderConfig) => void;
+    selectedProvider: string;
+    setSelectedProvider: (value: string) => void;
+    model: ModelConfig;
+    setModel: (value: ModelConfig) => void;
+    modelOptions: ModelOption[];
+    modelListStatus: string;
+    busy: boolean;
+    showApiKey: boolean;
+    setShowApiKey: (value: boolean) => void;
+    onFetchModels: () => void;
+    onTestModel: () => void;
+    onSaveModelService: () => Promise<boolean>;
+    stepLabel: string;
+    stepHelp: string;
+    onNext: () => void;
+}) {
+    const ids = providerIDs(props.providers);
+    const selectedID = props.providers.providers[props.selectedProvider] ? props.selectedProvider : firstProviderID(props.providers);
+    const selected = props.providers.providers[selectedID];
+    const enabledProviders = ids.filter((id) => !props.providers.providers[id].disabled);
+    const modelChoices = ensureCurrentModelOption(props.modelOptions, props.model.default);
+    const modelReady = !!selected && props.model.default.trim() !== '';
+    const modelCanTest = modelReady && !selected.disabled && selected.apiKey.trim() !== '';
+
+    const updateProvider = (id: string, next: ProviderEntry) => {
+        props.setProviders({providers: {...props.providers.providers, [id]: next}});
+    };
+
+    const applyProvider = (id: string) => {
+        const provider = props.providers.providers[id];
+        if (!provider) return;
+        props.setSelectedProvider(id);
+        props.setModel({...props.model, provider: id, default: props.model.provider === id ? props.model.default : provider.defaultModel});
+    };
+
+    const addProvider = () => {
+        const id = nextProviderID(props.providers, '自定义供应商');
+        const entry = {
+            label: '自定义供应商',
+            provider: 'custom',
+            baseUrl: '',
+            apiMode: 'chat_completions',
+            apiKey: '',
+            modelListUrl: '',
+            defaultModel: '',
+            builtin: false,
+            disabled: false,
+        };
+        props.setProviders({
+            providers: {
+                ...props.providers.providers,
+                [id]: entry,
+            },
+        });
+        props.setSelectedProvider(id);
+        props.setModel({...props.model, provider: id, default: entry.defaultModel});
+    };
+
+    return (
+        <div className="wizard-panel">
+            <div className="setup-card">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">{props.stepLabel}</p>
+                        <h2>连接模型服务</h2>
+                        <p className="setup-subtitle">{props.stepHelp}</p>
+                    </div>
+                </div>
+                {selected && (
+                    <>
+                        <label className="field">
+                            <span>模型服务商</span>
+                            <select value={selectedID} onChange={(event) => applyProvider(event.target.value)}>
+                                {enabledProviders.map((id) => {
+                                    const provider = props.providers.providers[id];
+                                    return <option key={id} value={id}>{provider.label}</option>;
+                                })}
+                            </select>
+                        </label>
+                        <SecretField label="API 密钥" value={selected.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => updateProvider(selectedID, {...selected, apiKey: value})}/>
+                        <label className="field">
+                            <span>模型</span>
+                            {props.modelOptions.length > 0 ? (
+                                <select value={props.model.default} onChange={(event) => props.setModel({...props.model, default: event.target.value})}>
+                                    {props.model.default.trim() === '' && <option value="">请选择模型</option>}
+                                    {modelChoices.map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
+                                </select>
+                            ) : (
+                                <input value={props.model.default || ''} onChange={(event) => props.setModel({...props.model, default: event.target.value})}/>
+                            )}
+                        </label>
+                        {selected.apiKey.trim() === '' && <div className="form-warning">API 密钥为空时可以保存选择，但不能测试或正常调用。</div>}
+                        <div className="actions model-actions">
+                            <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
+                            <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>测试模型</button>
+                            {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
+                        </div>
+                        <details className="wizard-details">
+                            <summary>其他选项</summary>
+                            <button className="ghost detail-toggle" onClick={addProvider}>添加自定义服务</button>
+                            <div className="field-grid">
+                                <Field label="显示名称" value={selected.label} onChange={(value) => updateProvider(selectedID, {...selected, label: value})}/>
+                                <Field label="推荐默认模型" value={selected.defaultModel} onChange={(value) => updateProvider(selectedID, {...selected, defaultModel: value})}/>
+                            </div>
+                            <Field label="接口地址" value={selected.baseUrl} onChange={(value) => updateProvider(selectedID, {...selected, baseUrl: value})}/>
+                            <label className="field">
+                                <span>API 模式</span>
+                                <select value={selected.apiMode || 'chat_completions'} onChange={(event) => updateProvider(selectedID, {...selected, apiMode: event.target.value})}>
+                                    <option value="chat_completions">OpenAI Chat Completions</option>
+                                    <option value="anthropic_messages">Anthropic Messages</option>
+                                </select>
+                            </label>
+                            <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateProvider(selectedID, {...selected, modelListUrl: value})}/>
+                        </details>
+                        <div className="setting-note">辅助模型保持自动策略，适合大多数新手场景；需要细调时再放到后续高级配置里处理。</div>
+                    </>
+                )}
+                <div className="wizard-actions">
+                    <button className="primary no-margin" onClick={async () => {
+                        if (!(await props.onSaveModelService())) return;
+                        props.onNext();
+                    }} disabled={props.busy || !modelReady}>保存并下一步<ChevronRight size={16}/></button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function WizardNav(props: { previous: WizardStep | null; next: WizardStep | null; busy: boolean; onPrevious: (step: WizardStep | null) => void; onNext: () => void | Promise<void>; nextLabel?: string }) {
+    return (
+        <div className="wizard-actions">
+            <button className="ghost" onClick={() => props.onPrevious(props.previous)} disabled={props.busy || !props.previous}><ChevronLeft size={16}/>上一步</button>
+            <button className="primary no-margin" onClick={props.onNext} disabled={props.busy || !props.next}>{props.nextLabel || '下一步'}<ChevronRight size={16}/></button>
+        </div>
+    );
+}
+
+function CheckItem(props: { ok: boolean; label: string }) {
+    return <div className={`check-item ${props.ok ? 'ok-status' : 'warn-status'}`}>{props.ok ? <CheckCircle2 size={16}/> : <RefreshCcw size={16}/>}<span>{props.label}</span></div>;
+}
+
+function assistantStatusLabel(setupCompletedAt?: string, status?: RuntimeProfileStatus, enabled = true, needsRebuild = false) {
+    if (!setupCompletedAt) return '配置未完成';
+    if (!enabled) return '已停用';
+    if (needsRebuild) return '待应用';
+    return profileStatusText(status?.state, enabled);
+}
+
+function assistantStatusClass(setupCompletedAt?: string, status?: RuntimeProfileStatus, enabled = true, needsRebuild = false) {
+    if (!setupCompletedAt || needsRebuild) return 'warn-status';
+    return statusClassName(status?.state, enabled);
+}
+
+function wizardStepHelp(step: WizardStep) {
+    switch (step) {
+        case 'model':
+            return '先选服务商、填密钥、确认主模型。';
+        case 'soul':
+            return '可以直接使用默认人格，也可以改成自己的助手说明。';
+        case 'platforms':
+            return '选择一个平台绑定；没有账号时可以暂不绑定。';
+        case 'finish':
+            return '确认配置结果，决定是否立即应用并重建。';
+        default:
+            return '';
+    }
+}

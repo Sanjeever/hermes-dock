@@ -65,6 +65,7 @@ type ProfileEntry struct {
 	CreatedAt          string `json:"createdAt"`
 	UpdatedAt          string `json:"updatedAt"`
 	ModelAuxiliaryMode string `json:"modelAuxiliaryMode"`
+	SetupCompletedAt   string `json:"setupCompletedAt,omitempty"`
 }
 
 type CreateProfileRequest struct {

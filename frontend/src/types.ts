@@ -1,4 +1,6 @@
-export type Page = 'dashboard' | 'profiles' | 'deploy' | 'providers' | 'models' | 'platforms' | 'channels' | 'soul' | 'advanced';
+export type Page = 'assistants' | 'operations';
+export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
+export type OperationsTab = 'status' | 'deploy' | 'channels' | 'advanced';
 
 export type EnvVar = { key: string; value: string; secret: boolean };
 export type ComposeSettings = {
@@ -53,7 +55,7 @@ export type ModelListRequest = { providerId: string; providerKey: string; apiKey
 export type ModelOption = { id: string; ownedBy: string };
 export type ChannelSummary = { id: string; name: string; type: string; thread_id?: string };
 export type ChannelFile = { updated_at: string; platforms: Record<string, ChannelSummary[]> };
-export type ProfileEntry = { id: string; name: string; enabled: boolean; createdAt: string; updatedAt: string; modelAuxiliaryMode: string };
+export type ProfileEntry = { id: string; name: string; enabled: boolean; createdAt: string; updatedAt: string; modelAuxiliaryMode: string; setupCompletedAt?: string };
 export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
 export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
 export type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };

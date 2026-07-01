@@ -1,12 +1,13 @@
 import {useState} from 'react';
 import {gotoLine, openSearchPanel} from '@codemirror/search';
 import {EditorView} from '@codemirror/view';
-import {CornerDownRight, Save, Search, Trash2} from 'lucide-react';
+import {CornerDownRight, FileCode2, Save, Search, Trash2} from 'lucide-react';
 import {CodeEditor} from '../components/CodeEditor';
 
 export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
+    const [editorOpen, setEditorOpen] = useState(false);
     const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
     const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
 
@@ -21,27 +22,46 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
             <div className="panel">
                 <div className="section-head">
                     <div>
-                        <p className="eyebrow">原始文件编辑器</p>
-                        <h2>{props.path}</h2>
+                        <p className="eyebrow">高级编辑</p>
+                        <h2>{editorOpen ? props.path : '选择要编辑的文件'}</h2>
+                        {!editorOpen && <p className="setup-subtitle">直接修改原始配置文件。保存后通常需要应用并重建才会生效。</p>}
                     </div>
-                    <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>
+                    {editorOpen && <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>}
                 </div>
-                <div className="advanced-toolbar">
-                    <select value={props.path} onChange={(event) => props.setPath(event.target.value)}>
-                        {props.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                    <div className="editor-actions">
-                        <span className="language-badge">{languageLabel}</span>
-                        <button type="button" className="ghost" onClick={() => editorView && openSearchPanel(editorView)} disabled={!editorView} title="搜索">
-                            <Search size={16}/>搜索
-                        </button>
-                        <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
-                            <CornerDownRight size={16}/>跳行
-                        </button>
-                        <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
+                {!editorOpen ? (
+                    <div className="advanced-file-grid">
+                        {props.options.map((option) => (
+                            <button key={option.value} className="advanced-file-card" onClick={() => {
+                                props.setPath(option.value);
+                                setEditorOpen(true);
+                            }}>
+                                <FileCode2 size={20}/>
+                                <strong>{option.label}</strong>
+                                <span>{advancedFileHint(option.value)}</span>
+                            </button>
+                        ))}
                     </div>
-                </div>
-                <CodeEditor path={props.path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
+                ) : (
+                    <>
+                        <div className="advanced-toolbar">
+                            <select value={props.path} onChange={(event) => props.setPath(event.target.value)}>
+                                {props.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                            <div className="editor-actions">
+                                <span className="language-badge">{languageLabel}</span>
+                                <button type="button" className="ghost" onClick={() => editorView && openSearchPanel(editorView)} disabled={!editorView} title="搜索">
+                                    <Search size={16}/>搜索
+                                </button>
+                                <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
+                                    <CornerDownRight size={16}/>跳行
+                                </button>
+                                <button type="button" className="ghost" onClick={() => setEditorOpen(false)} disabled={props.busy || props.dirty}>返回文件选择</button>
+                                <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
+                            </div>
+                        </div>
+                        <CodeEditor path={props.path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
+                    </>
+                )}
             </div>
             <div className="panel danger-panel">
                 <div className="section-head">
@@ -59,4 +79,10 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
             </div>
         </section>
     );
+}
+
+function advancedFileHint(path: string) {
+    if (path.endsWith('.env')) return '密钥、平台变量和运行环境';
+    if (path.includes('override')) return '全局 Docker Compose 覆盖';
+    return '当前助手的模型、终端和 Hermes 配置';
 }

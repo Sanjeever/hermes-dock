@@ -63,7 +63,7 @@ func (a *App) GetAppState() (AppState, error) {
 		State:            state,
 		Profiles:         profiles,
 		ActiveProfile:    a.currentProfileID(),
-		ProfileStatus:    a.readRuntimeStatus(),
+		ProfileStatus:    a.readRuntimeStatus(containerStatus),
 		Compose:          compose,
 		Environment:      env,
 		Model:            model,

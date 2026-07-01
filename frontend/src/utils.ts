@@ -31,6 +31,8 @@ export function profileStatusText(state?: string, enabled = true) {
             return '未绑定平台';
         case 'exited':
             return '已退出';
+        case 'stopped':
+            return '已停止';
         case 'disabled':
             return '已停用';
         case 'starting':
@@ -44,6 +46,7 @@ export function statusClassName(state?: string, enabled = true) {
     if (!enabled || state === 'disabled') return 'muted-status';
     if (state === 'running') return 'ok-status';
     if (state === 'failed') return 'bad-status';
+    if (state === 'stopped') return 'muted-status';
     return 'warn-status';
 }
 

@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function CancelWeixinLogin():Promise<void>;
 
+export function CompleteProfileSetup(arg1:string):Promise<void>;
+
 export function CreateProfile(arg1:main.CreateProfileRequest):Promise<void>;
 
 export function DeleteProfile(arg1:string):Promise<void>;

@@ -80,9 +80,13 @@ func main() {
 	for _, profile := range manifest.Profiles {
 		state := "disabled"
 		message := ""
-		if profile.Enabled && !profile.Runnable {
-			state = "not_configured"
-			message = profile.Reason
+		if profile.Enabled {
+			if profile.Runnable {
+				state = "starting"
+			} else {
+				state = "not_configured"
+				message = profile.Reason
+			}
 		}
 		s.status.Profiles[profile.ID] = RuntimeProfileStatus{
 			Enabled: profile.Enabled,

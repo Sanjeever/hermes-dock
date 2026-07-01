@@ -3,10 +3,10 @@ import {CheckCircle2, CircleAlert, RotateCcw} from 'lucide-react';
 import './App.css';
 import {
     CancelWeixinLogin,
+    CompleteProfileSetup,
     CreateProfile,
     DeleteProfile,
     FactoryResetInstance,
-    FetchModelList,
     FetchProviderConfigModelList,
     GetAppState,
     OpenEndpoint,
@@ -32,21 +32,16 @@ import {
     UpdateProfileName,
 } from '../wailsjs/go/main/App';
 import {EventsOn} from '../wailsjs/runtime/runtime';
-import {AdvancedPage} from './pages/AdvancedPage';
-import {ChannelsPage} from './pages/ChannelsPage';
-import {Dashboard} from './pages/DashboardPage';
-import {DeployPage} from './pages/DeployPage';
-import {ModelsPage} from './pages/ModelsPage';
-import {PlatformsPage} from './pages/PlatformsPage';
-import {ProfilesPage} from './pages/ProfilesPage';
-import {ProvidersPage} from './pages/ProvidersPage';
-import {SoulPage} from './pages/SoulPage';
+import {AssistantsPage} from './pages/AssistantsPage';
+import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelListRequest, ModelOption, Notice, Page, ProviderConfig, ProviderEntry, RunOptions} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, ProviderConfig, RunOptions, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
-    const [page, setPage] = useState<Page>('dashboard');
+    const [page, setPage] = useState<Page>('assistants');
+    const [operationsTab, setOperationsTab] = useState<OperationsTab>('status');
+    const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
     const activeProfileRef = useRef('default');
     const [env, setEnv] = useState<EnvVar[]>([]);
@@ -66,7 +61,6 @@ function App() {
     const [soulContent, setSoulContent] = useState('');
     const [soulStatus, setSoulStatus] = useState('');
     const [soulDirty, setSoulDirty] = useState(false);
-    const [selectedAux, setSelectedAux] = useState('vision');
     const [showApiKey, setShowApiKey] = useState(false);
     const [autoScrollLogs, setAutoScrollLogs] = useState(true);
     const [providers, setProviders] = useState<ProviderConfig>(fallbackProviderConfig);
@@ -74,10 +68,9 @@ function App() {
     const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
     const [modelOptionsKey, setModelOptionsKey] = useState('');
     const [modelListStatus, setModelListStatus] = useState('');
+    const [selectedAux, setSelectedAux] = useState('vision');
     const [auxModelOptions, setAuxModelOptions] = useState<Record<string, ModelOption[]>>({});
     const [auxModelListStatus, setAuxModelListStatus] = useState('');
-    const [providerModelOptions, setProviderModelOptions] = useState<ModelOption[]>([]);
-    const [providerModelListStatus, setProviderModelListStatus] = useState('');
     const [newProfileID, setNewProfileID] = useState('');
     const [newProfileName, setNewProfileName] = useState('');
     const [newProfileCopyMode, setNewProfileCopyMode] = useState('clean');
@@ -128,16 +121,16 @@ function App() {
     }, []);
 
     useEffect(() => {
-        if (page !== 'advanced') return;
+        if (page !== 'operations' || operationsTab !== 'advanced') return;
         if (advancedDirty) return;
         loadAdvancedFile(advancedPath);
-    }, [page, advancedPath]);
+    }, [page, operationsTab, advancedPath]);
 
     useEffect(() => {
-        if (page !== 'soul') return;
+        if (page !== 'assistants' || wizardStep !== 'soul') return;
         if (soulDirty) return;
         loadSoulFile(state?.activeProfile || 'default');
-    }, [page, state?.activeProfile]);
+    }, [page, wizardStep, state?.activeProfile]);
 
     useEffect(() => {
         if (!autoScrollLogs || !logRef.current) return;
@@ -155,6 +148,24 @@ function App() {
         setQrStatus('');
     }, [state?.activeProfile]);
 
+    useEffect(() => {
+        const profile = state?.profiles?.profiles?.find((item) => item.id === state.activeProfile);
+        if (!profile) return;
+        if (!profile.setupCompletedAt && !wizardStep) {
+            setWizardStep('model');
+        }
+    }, [state?.activeProfile, state?.profiles?.profiles, wizardStep]);
+
+    useEffect(() => {
+        if (!state || busy || state.containerStatus !== 'running') return;
+        const hasStartingProfile = Object.values(state.profileStatus?.profiles || {}).some((status) => status.state === 'starting');
+        if (!hasStartingProfile) return;
+        const timer = window.setTimeout(() => {
+            refresh();
+        }, 1500);
+        return () => window.clearTimeout(timer);
+    }, [state, busy]);
+
     async function refresh() {
         const next = await GetAppState();
         const nextState = next as AppState;
@@ -165,7 +176,7 @@ function App() {
         setModel(nextState.model);
         const nextProviders = nextState.providers || fallbackProviderConfig;
         setProviders(nextProviders);
-        setSelectedProvider((current) => nextProviders.providers[current] ? current : firstProviderID(nextProviders));
+        setSelectedProvider(nextState.model?.provider && nextProviders.providers[nextState.model.provider] ? nextState.model.provider : firstProviderID(nextProviders));
     }
 
     async function selectProfile(id: string) {
@@ -174,18 +185,20 @@ function App() {
             setNotice({type: 'error', message: '当前有未保存修改，请先保存或放弃修改后再切换 profile'});
             return;
         }
+        const target = state?.profiles?.profiles?.find((profile) => profile.id === id);
         await run('正在切换 Profile', () => SelectProfile(id), {
             afterSuccess: () => {
                 setAdvancedDirty(false);
                 setAdvancedPath(defaultAdvancedPath(id));
                 setSoulDirty(false);
                 setSoulContent('');
+                setWizardStep(target?.setupCompletedAt ? null : 'model');
             },
         });
     }
 
     async function createProfile() {
-        await run('正在创建 Profile', () => CreateProfile({
+        return await run('正在创建 Profile', () => CreateProfile({
             id: newProfileID,
             name: newProfileName,
             enabled: newProfileEnabled,
@@ -197,7 +210,8 @@ function App() {
                 setNewProfileName('');
                 setNewProfileCopyMode('clean');
                 setNewProfileEnabled(true);
-                setPage('profiles');
+                setPage('assistants');
+                setWizardStep('model');
             },
         });
     }
@@ -212,12 +226,13 @@ function App() {
 
     async function fetchModels() {
         if (!model) return;
-        const providerID = model.provider || firstProviderID(providers);
+        const providerID = model.provider || selectedProvider || firstProviderID(providers);
+        const provider = providers.providers[providerID];
+        if (!provider) return;
         const optionsKey = modelOptionKey(providerID);
         setModelListStatus('正在拉取模型列表');
         try {
-            const req: ModelListRequest = {providerId: providerID, providerKey: providerID, apiKey: '', baseUrl: ''};
-            const items = await FetchModelList(req);
+            const items = await FetchProviderConfigModelList(provider);
             setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
             setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
@@ -230,39 +245,24 @@ function App() {
     }
 
     async function fetchAuxModels(providerID: string) {
-        if (!model) return;
-        const auxOptionKey = modelOptionKey(providerID);
         const provider = providers.providers[providerID];
         if (!provider || provider.disabled) {
             setAuxModelListStatus('供应商不可用');
             return;
         }
         if (provider.apiKey.trim() === '') {
-            setAuxModelListStatus('请先在供应商页填写 API 密钥');
+            setAuxModelListStatus('请先在基础模型服务里填写 API 密钥');
             return;
         }
+        const optionsKey = modelOptionKey(providerID);
         setAuxModelListStatus('正在拉取模型列表');
         try {
-            const req: ModelListRequest = {providerId: providerID, providerKey: providerID, apiKey: '', baseUrl: ''};
-            const items = await FetchModelList(req);
-            setAuxModelOptions((current) => ({...current, [auxOptionKey]: items as ModelOption[]}));
+            const items = await FetchProviderConfigModelList(provider);
+            setAuxModelOptions((current) => ({...current, [optionsKey]: items as ModelOption[]}));
             setAuxModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
-            setAuxModelOptions((current) => ({...current, [auxOptionKey]: []}));
+            setAuxModelOptions((current) => ({...current, [optionsKey]: []}));
             setAuxModelListStatus(String(error));
-            appendLog(String(error));
-        }
-    }
-
-    async function fetchProviderModels(provider: ProviderEntry) {
-        setProviderModelListStatus('正在拉取模型列表');
-        try {
-            const items = await FetchProviderConfigModelList(provider);
-            setProviderModelOptions(items as ModelOption[]);
-            setProviderModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
-        } catch (error) {
-            setProviderModelOptions([]);
-            setProviderModelListStatus(String(error));
             appendLog(String(error));
         }
     }
@@ -278,10 +278,12 @@ function App() {
             }
             options.afterSuccess?.();
             setNotice({type: 'ok', message: doneLabel(label)});
+            return true;
         } catch (error) {
             const message = String(error);
             appendLog(message);
             setNotice({type: 'error', message});
+            return false;
         } finally {
             setBusy('');
         }
@@ -347,14 +349,44 @@ function App() {
             setNeedsRebuild(true);
             setSoulStatus(`已保存 ${path}`);
             setNotice({type: 'ok', message: '已保存人格文件'});
+            return true;
         } catch (error) {
             const message = String(error);
             appendLog(message);
             setSoulStatus(message);
             setNotice({type: 'error', message});
+            return false;
         } finally {
             setBusy('');
         }
+    }
+
+    async function saveModelService() {
+        if (!model) return false;
+        return await run('正在保存模型服务', async () => {
+            await SaveProviderConfig(toPlainProviderConfig(providers));
+            await SaveModelConfig(toPlainModelConfig(model));
+        }, {rebuildRequired: true});
+    }
+
+    async function finishProfileSetup(apply: boolean) {
+        const profileID = state?.activeProfile || 'default';
+        return await run(apply ? '正在完成并重建' : '正在完成配置', async () => {
+            await CompleteProfileSetup(profileID);
+            if (apply) {
+                await RebuildHermes();
+            }
+        }, {
+            afterSuccess: () => {
+                if (apply) setNeedsRebuild(false);
+                setWizardStep(null);
+            },
+        });
+    }
+
+    function openOperations(tab: OperationsTab) {
+        setOperationsTab(tab);
+        setPage('operations');
     }
 
     async function factoryReset() {
@@ -363,7 +395,8 @@ function App() {
                 setLogs([]);
                 setNeedsRebuild(false);
                 setAdvancedDirty(false);
-                setPage('providers');
+                setWizardStep('model');
+                setPage('assistants');
             },
         });
     }
@@ -418,6 +451,10 @@ function App() {
     const currentProviderKey = model ? model.provider : '';
     const currentModelOptionsKey = model ? modelOptionKey(currentProviderKey) : '';
     const visibleModelOptions = currentModelOptionsKey === modelOptionsKey ? modelOptions : [];
+    const activeProfile = state?.profiles?.profiles?.find((profile) => profile.id === state.activeProfile);
+    const activeSetupDone = !!activeProfile?.setupCompletedAt;
+    const showContainerStatus = page !== 'assistants' || activeSetupDone;
+    const showRebuildBanner = needsRebuild && (page !== 'assistants' || activeSetupDone);
 
     return (
         <div className="shell">
@@ -453,7 +490,7 @@ function App() {
                         <h1>{titleFor(page)}</h1>
                     </div>
                     <div className="topbar-actions">
-                        {state?.profiles?.profiles && (
+                        {page === 'operations' && state?.profiles?.profiles && (
                             <label className="profile-picker">
                                 <span>当前 Profile</span>
                                 <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!busy}>
@@ -461,14 +498,16 @@ function App() {
                                 </select>
                             </label>
                         )}
-                        <div className={`status-pill ${statusClass}`}>
-                            {state?.containerStatus === 'running' ? <CheckCircle2 size={16}/> : <CircleAlert size={16}/>}
-                            {containerStatusText(state?.containerStatus)}
-                        </div>
+                        {showContainerStatus && (
+                            <div className={`status-pill ${statusClass}`}>
+                                {state?.containerStatus === 'running' ? <CheckCircle2 size={16}/> : <CircleAlert size={16}/>}
+                                {containerStatusText(state?.containerStatus)}
+                            </div>
+                        )}
                     </div>
                 </header>
                 {notice && <div className={`notice ${notice.type}`}>{notice.message}</div>}
-                {needsRebuild && (
+                {showRebuildBanner && (
                     <div className="rebuild-banner">
                         <span>配置已保存，重建后生效。</span>
                         <button onClick={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
@@ -477,38 +516,26 @@ function App() {
                     </div>
                 )}
 
-                {page === 'dashboard' && state && compose && (
-                    <Dashboard
+                {page === 'assistants' && state && (
+                    <AssistantsPage
                         state={state}
-                        compose={compose}
-                        busy={busy}
-                        logs={logs}
-                        weixinBound={!!weixinBound}
-                        wecomBound={!!wecomBound}
-                        feishuBound={!!feishuBound}
-                        onStart={() => run('正在启动', StartHermes)}
-                        onStop={() => run('正在停止', StopHermes)}
-                        onRestart={() => run('正在重启', RestartHermes)}
-                        onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
-                        onLogs={tailLogs}
-                        onClearLogs={() => setLogs([])}
-                        onCopyLogs={copyLogs}
-                        autoScrollLogs={autoScrollLogs}
-                        setAutoScrollLogs={setAutoScrollLogs}
-                        logRef={logRef}
-                        onOpenEndpoint={openEndpoint}
-                        onOpenDeploy={() => setPage('deploy')}
-                        onOpenPlatforms={() => setPage('platforms')}
-                        onOpenProfiles={() => setPage('profiles')}
-                    />
-                )}
-
-                {page === 'profiles' && state && (
-                    <ProfilesPage
-                        registry={state.profiles}
-                        activeProfile={state.activeProfile}
-                        status={state.profileStatus}
+                        env={env}
+                        setEnv={setEnv}
+                        providers={providers}
+                        setProviders={setProviders}
+                        selectedProvider={selectedProvider}
+                        setSelectedProvider={setSelectedProvider}
+                        model={model}
+                        setModel={setModel}
+                        modelOptions={visibleModelOptions}
+                        modelListStatus={modelListStatus}
+                        selectedAux={selectedAux}
+                        setSelectedAux={setSelectedAux}
+                        auxModelOptions={auxModelOptions}
+                        auxModelListStatus={auxModelListStatus}
                         busy={!!busy}
+                        showApiKey={showApiKey}
+                        setShowApiKey={setShowApiKey}
                         newProfileID={newProfileID}
                         setNewProfileID={setNewProfileID}
                         newProfileName={newProfileName}
@@ -517,62 +544,29 @@ function App() {
                         setNewProfileCopyMode={setNewProfileCopyMode}
                         newProfileEnabled={newProfileEnabled}
                         setNewProfileEnabled={setNewProfileEnabled}
-                        onSelect={selectProfile}
-                        onCreate={createProfile}
-                        onRename={(id, name) => run('正在更新 Profile', () => UpdateProfileName(id, name))}
-                        onEnabled={(id, enabled) => run(enabled ? '正在启用 Profile' : '正在停用 Profile', () => SetProfileEnabled(id, enabled), {rebuildRequired: true})}
-                        onMove={(id, direction) => run('正在调整顺序', () => MoveProfile(id, direction))}
-                        onDelete={deleteProfile}
-                    />
-                )}
-
-                {page === 'deploy' && compose && (
-                    <DeployPage compose={compose} setCompose={setCompose} busy={!!busy} onSave={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true})}/>
-                )}
-
-                {page === 'providers' && (
-                    <ProvidersPage
-                        providers={providers}
-                        setProviders={setProviders}
-                        selectedProvider={selectedProvider}
-                        setSelectedProvider={setSelectedProvider}
-                        model={model}
-                        busy={!!busy}
-                        showApiKey={showApiKey}
-                        setShowApiKey={setShowApiKey}
-                        modelOptions={providerModelOptions}
-                        modelListStatus={providerModelListStatus}
-                        onFetchModels={fetchProviderModels}
-                        onSave={() => run('正在保存供应商配置', () => SaveProviderConfig(toPlainProviderConfig(providers)), {rebuildRequired: true})}
-                    />
-                )}
-
-                {page === 'models' && model && (
-                    <ModelsPage
-                        model={model}
-                        setModel={setModel}
-                        selectedAux={selectedAux}
-                        setSelectedAux={setSelectedAux}
-                        providers={providers}
-                        modelOptions={visibleModelOptions}
-                        modelListStatus={modelListStatus}
-                        auxModelOptions={auxModelOptions}
-                        auxModelListStatus={auxModelListStatus}
-                        busy={!!busy}
-                        onFetchModels={fetchModels}
-                        onFetchAuxModels={fetchAuxModels}
-                        onSave={() => run('正在保存模型配置', () => SaveModelConfig(toPlainModelConfig(model)), {rebuildRequired: true})}
-                        onTest={() => run('正在测试模型', TestModel)}
-                    />
-                )}
-
-                {page === 'platforms' && (
-                    <PlatformsPage
-                        env={env}
-                        setEnv={setEnv}
+                        wizardStep={wizardStep}
+                        setWizardStep={setWizardStep}
+                        soulContent={soulContent}
+                        setSoulContent={setSoulContent}
+                        soulStatus={soulStatus}
+                        soulDirty={soulDirty}
+                        setSoulDirty={setSoulDirty}
                         qrData={qrData}
                         qrStatus={qrStatus}
-                        busy={!!busy}
+                        needsRebuild={needsRebuild}
+                        hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound}
+                        onSelect={selectProfile}
+                        onCreate={createProfile}
+                        onRename={(id, name) => run('正在更新助手', () => UpdateProfileName(id, name))}
+                        onEnabled={(id, enabled) => run(enabled ? '正在启用助手' : '正在停用助手', () => SetProfileEnabled(id, enabled), {rebuildRequired: true})}
+                        onMove={(id, direction) => run('正在调整顺序', () => MoveProfile(id, direction))}
+                        onDelete={deleteProfile}
+                        onSaveModelService={saveModelService}
+                        onFetchModels={fetchModels}
+                        onFetchAuxModels={fetchAuxModels}
+                        onTestModel={() => run('正在测试模型', TestModel)}
+                        onSaveSoul={saveSoulFile}
+                        onDiscardSoul={() => loadSoulFile(state?.activeProfile || 'default')}
                         onWeixinLogin={() => run('正在启动微信扫码登录', StartWeixinLogin)}
                         onCancelWeixin={() => CancelWeixinLogin()}
                         onSaveWeCom={() => run('正在保存企业微信配置', () => SaveWeComConfig({
@@ -591,45 +585,57 @@ function App() {
                             allowedUsers: '',
                             groupPolicy: disabledPolicyValue(envValue(env, 'FEISHU_GROUP_POLICY')),
                         }), {rebuildRequired: true})}
+                        onFinishSetup={finishProfileSetup}
+                        onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onOpenOperations={openOperations}
                     />
                 )}
 
-                {page === 'channels' && state && (
-                    <ChannelsPage channels={state.channels} weixinHomeChannel={weixinHomeChannel} busy={!!busy} onRefresh={() => run('正在刷新通道', refresh)}
-                                  onHome={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
-                                  onTest={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, 'Hermes Dock 测试消息'))}/>
-                )}
-
-                {page === 'soul' && (
-                    <SoulPage
-                        profileID={state?.activeProfile || 'default'}
-                        content={soulContent}
-                        setContent={(value) => {
-                            setSoulContent(value);
-                            setSoulDirty(true);
-                        }}
-                        status={soulStatus}
-                        dirty={soulDirty}
-                        busy={!!busy}
-                        onSave={saveSoulFile}
-                        onDiscard={() => loadSoulFile(state?.activeProfile || 'default')}
-                    />
-                )}
-
-                {page === 'advanced' && (
-                    <AdvancedPage
-                        options={advancedFileOptions(state?.activeProfile || 'default')}
-                        path={advancedPath}
-                        setPath={changeAdvancedPath}
-                        content={advancedContent}
-                        setContent={(value) => {
+                {page === 'operations' && state && compose && (
+                    <OperationsPage
+                        tab={operationsTab}
+                        setTab={setOperationsTab}
+                        state={state}
+                        compose={compose}
+                        setCompose={setCompose}
+                        needsRebuild={needsRebuild}
+                        busy={busy}
+                        logs={logs}
+                        activeProfileName={state.profiles?.profiles?.find((profile) => profile.id === state.activeProfile)?.name || state.activeProfile || 'default'}
+                        weixinBound={!!weixinBound}
+                        wecomBound={!!wecomBound}
+                        feishuBound={!!feishuBound}
+                        weixinHomeChannel={weixinHomeChannel}
+                        advancedOptions={advancedFileOptions(state.activeProfile || 'default')}
+                        advancedPath={advancedPath}
+                        setAdvancedPath={changeAdvancedPath}
+                        advancedContent={advancedContent}
+                        setAdvancedContent={(value) => {
                             setAdvancedContent(value);
                             setAdvancedDirty(true);
                         }}
-                        status={advancedStatus}
-                        dirty={advancedDirty}
-                        busy={!!busy}
-                        onSave={saveAdvancedFile}
+                        advancedStatus={advancedStatus}
+                        advancedDirty={advancedDirty}
+                        autoScrollLogs={autoScrollLogs}
+                        setAutoScrollLogs={setAutoScrollLogs}
+                        logRef={logRef}
+                        onStart={() => run('正在启动', StartHermes)}
+                        onStop={() => run('正在停止', StopHermes)}
+                        onRestart={() => run('正在重启', RestartHermes)}
+                        onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onLogs={tailLogs}
+                        onClearLogs={() => setLogs([])}
+                        onCopyLogs={copyLogs}
+                        onOpenEndpoint={openEndpoint}
+                        onOpenAssistantPlatforms={() => {
+                            setPage('assistants');
+                            setWizardStep('platforms');
+                        }}
+                        onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true})}
+                        onRefreshChannels={() => run('正在刷新通道', refresh)}
+                        onHomeChannel={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
+                        onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, 'Hermes Dock 测试消息'))}
+                        onSaveAdvanced={saveAdvancedFile}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
                     />

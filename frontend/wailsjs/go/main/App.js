@@ -6,6 +6,10 @@ export function CancelWeixinLogin() {
   return window['go']['main']['App']['CancelWeixinLogin']();
 }
 
+export function CompleteProfileSetup(arg1) {
+  return window['go']['main']['App']['CompleteProfileSetup'](arg1);
+}
+
 export function CreateProfile(arg1) {
   return window['go']['main']['App']['CreateProfile'](arg1);
 }

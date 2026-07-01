@@ -262,6 +262,21 @@ func (a *App) CreateProfile(req CreateProfileRequest) error {
 	return a.SelectProfile(id)
 }
 
+func (a *App) CompleteProfileSetup(id string) error {
+	registry, err := a.readProfileRegistry()
+	if err != nil {
+		return err
+	}
+	idx := profileIndex(registry, id)
+	if idx < 0 {
+		return fmt.Errorf("profile 不存在：%s", id)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	registry.Profiles[idx].SetupCompletedAt = now
+	registry.Profiles[idx].UpdatedAt = now
+	return a.writeProfileRegistry(registry)
+}
+
 func (a *App) UpdateProfileName(id string, name string) error {
 	registry, err := a.readProfileRegistry()
 	if err != nil {
@@ -574,19 +589,98 @@ func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) 
 	}, nil
 }
 
-func (a *App) readRuntimeStatus() RuntimeStatus {
+func (a *App) readRuntimeStatus(containerStatus string) RuntimeStatus {
 	out := RuntimeStatus{Profiles: map[string]RuntimeProfileStatus{}}
 	data, err := os.ReadFile(a.runtimeStatusPath())
-	if err != nil {
-		return out
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return RuntimeStatus{Profiles: map[string]RuntimeProfileStatus{}}
+	if err == nil {
+		if err := json.Unmarshal(data, &out); err != nil {
+			out = RuntimeStatus{Profiles: map[string]RuntimeProfileStatus{}}
+		}
 	}
 	if out.Profiles == nil {
 		out.Profiles = map[string]RuntimeProfileStatus{}
 	}
+	statusOutdated := a.runtimeStatusOutdated(out)
+	registry, err := a.readProfileRegistry()
+	if err != nil {
+		return out
+	}
+	for _, profile := range registry.Profiles {
+		status, ok := out.Profiles[profile.ID]
+		if !ok || statusOutdated {
+			out.Profiles[profile.ID] = a.derivedRuntimeProfileStatus(profile, containerStatus)
+			continue
+		}
+		status.Enabled = profile.Enabled
+		if profile.Enabled && (status.State == "" || status.State == "disabled") {
+			out.Profiles[profile.ID] = a.derivedRuntimeProfileStatus(profile, containerStatus)
+			continue
+		}
+		if !profile.Enabled {
+			status.State = "disabled"
+			status.PID = 0
+		} else if containerStatus != "running" && (status.State == "running" || status.State == "starting") {
+			status.State = "stopped"
+			status.PID = 0
+			status.Message = "容器未运行"
+		}
+		out.Profiles[profile.ID] = status
+	}
 	return out
+}
+
+func (a *App) runtimeStatusOutdated(status RuntimeStatus) bool {
+	if status.UpdatedAt == "" {
+		return true
+	}
+	var manifest RuntimeManifest
+	data, err := os.ReadFile(a.runtimeManifestPath())
+	if err != nil {
+		return false
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return false
+	}
+	if manifest.GeneratedAt == "" {
+		return false
+	}
+	statusUpdatedAt, err := time.Parse(time.RFC3339, status.UpdatedAt)
+	if err != nil {
+		return true
+	}
+	manifestGeneratedAt, err := time.Parse(time.RFC3339, manifest.GeneratedAt)
+	if err != nil {
+		return false
+	}
+	return statusUpdatedAt.Before(manifestGeneratedAt)
+}
+
+func (a *App) derivedRuntimeProfileStatus(profile ProfileEntry, containerStatus string) RuntimeProfileStatus {
+	status := RuntimeProfileStatus{Enabled: profile.Enabled}
+	if !profile.Enabled {
+		status.State = "disabled"
+		status.Message = "profile disabled"
+		return status
+	}
+	binding, err := a.profilePlatformBinding(profile.ID)
+	if err != nil {
+		status.State = "failed"
+		status.Message = err.Error()
+		return status
+	}
+	if !binding.runnable {
+		status.State = "not_configured"
+		status.Message = "not_configured"
+		return status
+	}
+	if containerStatus == "running" {
+		status.State = "starting"
+		status.Message = "等待 runner 上报状态"
+		return status
+	}
+	status.State = "stopped"
+	status.Message = "容器未运行"
+	return status
 }
 
 func (a *App) backupDirectory(path string, reason string) error {

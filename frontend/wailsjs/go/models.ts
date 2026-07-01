@@ -237,6 +237,7 @@ export namespace main {
 	    createdAt: string;
 	    updatedAt: string;
 	    modelAuxiliaryMode: string;
+	    setupCompletedAt?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProfileEntry(source);
@@ -250,6 +251,7 @@ export namespace main {
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.modelAuxiliaryMode = source["modelAuxiliaryMode"];
+	        this.setupCompletedAt = source["setupCompletedAt"];
 	    }
 	}
 	export class ProfileRegistry {
