@@ -198,10 +198,17 @@ func renderCompose(settings ComposeSettings) string {
     image: %s
     container_name: %s
     restart: unless-stopped
+    init: true
+    stop_grace_period: 120s
     command: /opt/hermes-dock/hermes-profile-runner
     depends_on:
       init-permissions:
         condition: service_completed_successfully
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     dns:
       - 223.5.5.5
       - 119.29.29.29

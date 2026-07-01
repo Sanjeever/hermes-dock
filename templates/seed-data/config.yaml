@@ -40,24 +40,24 @@ toolsets:
   - hermes-cli
   - messaging
 agent:
-  max_turns: 150
-  gateway_timeout: 1800
-  restart_drain_timeout: 180
-  api_max_retries: 3
+  max_turns: 100
+  gateway_timeout: 1200
+  restart_drain_timeout: 120
+  api_max_retries: 2
   reasoning_effort: medium
 terminal:
   backend: local
   cwd: /opt/data
-  timeout: 180
+  timeout: 120
   home_mode: auto
   docker_image: nikolaik/python-nodejs:python3.11-nodejs20
   persistent_shell: true
-  lifetime_seconds: 86400
+  lifetime_seconds: 43200
 web:
   backend: ddgs
 browser:
-  inactivity_timeout: 120
-  command_timeout: 30
+  inactivity_timeout: 90
+  command_timeout: 45
 checkpoints:
   enabled: true
   max_snapshots: 20
