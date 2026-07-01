@@ -198,7 +198,7 @@ func renderCompose(settings ComposeSettings) string {
     image: %s
     container_name: %s
     restart: unless-stopped
-    init: true
+    init: false
     stop_grace_period: 120s
     command: /opt/hermes-dock/hermes-profile-runner
     depends_on:
