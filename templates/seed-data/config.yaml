@@ -176,6 +176,14 @@ approvals:
 command_allowlist: []
 quick_commands: {}
 platform_hints: {}
+weixin:
+  gateway_restart_notification: false
+wecom:
+  gateway_restart_notification: false
+wecom_callback:
+  gateway_restart_notification: false
+feishu:
+  gateway_restart_notification: false
 hooks: {}
 security:
   allow_private_urls: false

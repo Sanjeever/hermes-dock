@@ -66,7 +66,7 @@ export function DeployPage({compose, setCompose, busy, onSave}: { compose: Compo
                     />
                     <GatewaySelect
                         label="忙碌确认回复"
-                        value={compose.gatewayBusyAckEnabled || 'true'}
+                        value={compose.gatewayBusyAckEnabled || 'false'}
                         onChange={(value) => update('gatewayBusyAckEnabled', value)}
                         options={[
                             {value: 'true', label: '启用'},
