@@ -76,8 +76,8 @@ function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) =>
     return (
         <div className="panel">
             <p className="eyebrow">企业微信 AI Bot WebSocket</p>
-            <Field label="机器人 ID" value={envValue(props.env, 'WECOM_BOT_ID')} onChange={(value) => props.set('WECOM_BOT_ID', value)}/>
-            <Field label="密钥" value={envValue(props.env, 'WECOM_SECRET')} secret onChange={(value) => props.set('WECOM_SECRET', value)}/>
+            <Field label="Bot ID" value={envValue(props.env, 'WECOM_BOT_ID')} onChange={(value) => props.set('WECOM_BOT_ID', value)}/>
+            <Field label="Secret" value={envValue(props.env, 'WECOM_SECRET')} secret onChange={(value) => props.set('WECOM_SECRET', value)}/>
             <Field label="WebSocket 地址" value={envValue(props.env, 'WECOM_WEBSOCKET_URL') || 'wss://openws.work.weixin.qq.com'} onChange={(value) => props.set('WECOM_WEBSOCKET_URL', value)}/>
             <div className="field-grid">
                 <PolicySelect label="私聊策略" value={dmPolicy} onChange={(value) => props.set('WECOM_DM_POLICY', value)}/>
