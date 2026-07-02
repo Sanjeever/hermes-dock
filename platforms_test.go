@@ -42,6 +42,30 @@ func TestSaveWeComConfigNormalizesPoliciesAndClearsAllowlists(t *testing.T) {
 	}
 }
 
+func TestSaveWeComConfigPreservesExistingSecretWhenRequestIsMasked(t *testing.T) {
+	app := newTestAppWithDefaultEnv(t, []EnvVar{
+		{Key: "WECOM_BOT_ID", Value: "bot-id"},
+		{Key: "WECOM_SECRET", Value: "real-secret"},
+	})
+
+	if err := app.SaveWeComConfig(WeComConfig{
+		BotID:       "bot-id",
+		Secret:      "******",
+		DMPolicy:    "open",
+		GroupPolicy: "open",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := readEnvFile(app.envPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := envValue(env, "WECOM_SECRET"); got != "real-secret" {
+		t.Fatalf("WECOM_SECRET = %q, want real-secret", got)
+	}
+}
+
 func TestSaveFeishuConfigNormalizesPolicyAndClearsAllowlist(t *testing.T) {
 	app := newTestAppWithDefaultEnv(t, []EnvVar{
 		{Key: "FEISHU_GROUP_POLICY", Value: "allowlist"},
@@ -67,6 +91,30 @@ func TestSaveFeishuConfigNormalizesPolicyAndClearsAllowlist(t *testing.T) {
 	}
 	if got := envValue(env, "FEISHU_ALLOWED_USERS"); got != "" {
 		t.Fatalf("FEISHU_ALLOWED_USERS = %q, want empty", got)
+	}
+}
+
+func TestSaveFeishuConfigPreservesExistingSecretWhenRequestIsRedacted(t *testing.T) {
+	app := newTestAppWithDefaultEnv(t, []EnvVar{
+		{Key: "FEISHU_APP_ID", Value: "app-id"},
+		{Key: "FEISHU_APP_SECRET", Value: "real-secret"},
+	})
+
+	if err := app.SaveFeishuConfig(FeishuConfig{
+		AppID:       "app-id",
+		AppSecret:   "<redacted>",
+		Domain:      "feishu",
+		GroupPolicy: "open",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := readEnvFile(app.envPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := envValue(env, "FEISHU_APP_SECRET"); got != "real-secret" {
+		t.Fatalf("FEISHU_APP_SECRET = %q, want real-secret", got)
 	}
 }
 

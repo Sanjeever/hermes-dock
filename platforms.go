@@ -20,7 +20,7 @@ func (a *App) SaveWeComConfig(config WeComConfig) error {
 	env, _ := readEnvFile(a.envPath())
 	updates := []EnvVar{
 		{Key: "WECOM_BOT_ID", Value: config.BotID},
-		{Key: "WECOM_SECRET", Value: config.Secret},
+		{Key: "WECOM_SECRET", Value: keepExistingIfMaskedSecret(env, "WECOM_SECRET", config.Secret)},
 		{Key: "WECOM_WEBSOCKET_URL", Value: firstNonEmpty(config.WebSocketURL, "wss://openws.work.weixin.qq.com")},
 		{Key: "WECOM_DM_POLICY", Value: dmPolicy},
 		{Key: "WECOM_ALLOWED_USERS", Value: ""},
@@ -42,13 +42,43 @@ func (a *App) SaveFeishuConfig(config FeishuConfig) error {
 	env, _ := readEnvFile(a.envPath())
 	updates := []EnvVar{
 		{Key: "FEISHU_APP_ID", Value: strings.TrimSpace(config.AppID)},
-		{Key: "FEISHU_APP_SECRET", Value: strings.TrimSpace(config.AppSecret)},
+		{Key: "FEISHU_APP_SECRET", Value: keepExistingIfMaskedSecret(env, "FEISHU_APP_SECRET", config.AppSecret)},
 		{Key: "FEISHU_DOMAIN", Value: domain},
 		{Key: "FEISHU_CONNECTION_MODE", Value: "websocket"},
 		{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 		{Key: "FEISHU_GROUP_POLICY", Value: groupPolicy},
 	}
 	return a.SaveEnvironment(mergeEnv(env, updates))
+}
+
+func keepExistingIfMaskedSecret(existing []EnvVar, key string, value string) string {
+	value = strings.TrimSpace(value)
+	if isMaskedSecretPlaceholder(value) {
+		return envValue(existing, key)
+	}
+	return value
+}
+
+func isMaskedSecretPlaceholder(value string) bool {
+	if value == "" {
+		return false
+	}
+	lower := strings.ToLower(value)
+	if lower == "<redacted>" || lower == "redacted" || lower == "[redacted]" {
+		return true
+	}
+	hasMask := false
+	for _, ch := range value {
+		switch ch {
+		case '*', '•', '●', '·':
+			hasMask = true
+		default:
+			if ch != ' ' {
+				return false
+			}
+		}
+	}
+	return hasMask
 }
 
 func normalizeOpenClosedPolicy(value string, closeValue string, legacyCloseValues ...string) (string, error) {

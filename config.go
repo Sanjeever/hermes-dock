@@ -278,6 +278,7 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 		return err
 	}
 	existing := normalizeProviderConfig(readProviderConfigFromMap(cfg))
+	normalized = preserveExistingMaskedProviderSecrets(existing, normalized)
 	for id := range existing.Providers {
 		if _, ok := normalized.Providers[id]; ok {
 			continue
@@ -304,6 +305,19 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 	state, _ := a.readState()
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
+}
+
+func preserveExistingMaskedProviderSecrets(existing ProviderConfig, next ProviderConfig) ProviderConfig {
+	for id, entry := range next.Providers {
+		if !isMaskedSecretPlaceholder(entry.APIKey) {
+			continue
+		}
+		if existingEntry, ok := existing.Providers[id]; ok {
+			entry.APIKey = existingEntry.APIKey
+			next.Providers[id] = entry
+		}
+	}
+	return next
 }
 
 func (a *App) DeleteProvider(id string) error {
