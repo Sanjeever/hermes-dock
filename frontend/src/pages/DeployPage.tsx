@@ -1,9 +1,9 @@
-import {Save} from 'lucide-react';
+import {RotateCcw, Save} from 'lucide-react';
 import {Field} from '../components/fields';
 import type {ComposeSettings} from '../types';
 import {isPortValue} from '../utils';
 
-export function DeployPage({compose, setCompose, busy, onSave}: { compose: ComposeSettings; setCompose: (value: ComposeSettings) => void; busy: boolean; onSave: () => void }) {
+export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}: { compose: ComposeSettings; setCompose: (value: ComposeSettings) => void; dirty: boolean; busy: boolean; onSave: () => void; onDiscard: () => void }) {
     const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     return (
@@ -14,7 +14,10 @@ export function DeployPage({compose, setCompose, busy, onSave}: { compose: Compo
                     <h2>容器启动参数</h2>
                     <p className="setup-subtitle">这些设置保存后，需要应用并重建容器才会生效。</p>
                 </div>
-                <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid}><Save size={16}/>保存部署参数</button>
+                <div className="actions compact">
+                    <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
+                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid}><Save size={16}/>保存部署参数</button>
+                </div>
             </div>
             <div className="deploy-grid">
                 <div className="panel">

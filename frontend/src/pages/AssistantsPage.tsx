@@ -50,10 +50,10 @@ export function AssistantsPage(props: {
     hasPlatformBinding: boolean;
     onSelect: (id: string) => Promise<boolean>;
     onCreate: () => Promise<boolean>;
-    onRename: (id: string, name: string) => void;
+    onRename: (id: string, name: string) => Promise<boolean>;
     onEnabled: (id: string, enabled: boolean) => void;
     onMove: (id: string, direction: string) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: string) => Promise<boolean>;
     onSaveModelService: () => Promise<boolean>;
     onFetchModels: () => void;
     onFetchAuxModels: (providerID: string) => void;
@@ -89,8 +89,8 @@ export function AssistantsPage(props: {
         props.setNewProfileName('');
     };
 
-    const saveRename = (id: string) => {
-        props.onRename(id, editingName);
+    const saveRename = async (id: string) => {
+        if (!(await props.onRename(id, editingName))) return;
         setEditingID('');
         setEditingName('');
     };
@@ -155,8 +155,8 @@ export function AssistantsPage(props: {
             {activeSetupDone && activeProfile && deleteID === activeProfile.id && (
                 <div className="assistant-inline-editor danger-confirm">
                     <input value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} placeholder={`输入 ${activeProfile.id} 确认删除`} disabled={props.busy}/>
-                    <button className="danger-button compact" onClick={() => {
-                        props.onDelete(activeProfile.id);
+                    <button className="danger-button compact" onClick={async () => {
+                        if (!(await props.onDelete(activeProfile.id))) return;
                         setDeleteID('');
                     }} disabled={props.busy || deleteConfirmText !== activeProfile.id}><Trash2 size={16}/>确认删除</button>
                     <button className="ghost" onClick={() => setDeleteID('')} disabled={props.busy}>取消</button>
@@ -167,7 +167,7 @@ export function AssistantsPage(props: {
                     <p className="eyebrow">新建助手</p>
                     <Field label="显示名" value={props.newProfileName} onChange={(value) => {
                         props.setNewProfileName(value);
-                        if (!props.newProfileID) props.setNewProfileID(slugProfileID(value));
+                        if (!props.newProfileID) props.setNewProfileID(suggestProfileID(profiles, value));
                     }}/>
                     <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
                     <label className="field">
@@ -178,7 +178,7 @@ export function AssistantsPage(props: {
                         </select>
                     </label>
                     <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后启用助手</label>
-                    {!canCreate && props.newProfileID && <div className="form-warning">Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。</div>}
+                    {!canCreate && (props.newProfileID || props.newProfileName) && <div className="form-warning">Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。</div>}
                     <div className="actions">
                         <button className="primary no-margin" onClick={async () => {
                             if (!(await props.onCreate())) return;
@@ -795,4 +795,17 @@ function wizardStepHelp(step: WizardStep) {
         default:
             return '';
     }
+}
+
+function suggestProfileID(profiles: Array<{ id: string }>, name: string) {
+    const base = slugProfileID(name).replace(/-+$/, '') || 'assistant';
+    const used = new Set(profiles.map((profile) => profile.id));
+    let id = base;
+    let index = 2;
+    while (used.has(id) || id === 'default') {
+        const suffix = `-${index}`;
+        id = `${base.slice(0, 40 - suffix.length).replace(/-+$/, '')}${suffix}`;
+        index += 1;
+    }
+    return id;
 }

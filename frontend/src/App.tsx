@@ -278,7 +278,7 @@ function App() {
     }
 
     async function deleteProfile(id: string) {
-        await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
+        return await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
     }
 
     function appendLog(line: string) {
@@ -523,6 +523,13 @@ function App() {
         setSelectedPlatform(value);
     }
 
+    function discardDeployChanges() {
+        if (!state) return;
+        setCompose(state.compose);
+        markDeployDirty(false);
+        setNotice({type: 'ok', message: '已放弃部署参数修改'});
+    }
+
     function openOperations(tab: OperationsTab) {
         setOperationsTab(tab);
         setPage('operations');
@@ -740,6 +747,7 @@ function App() {
                             setCompose(value);
                             markDeployDirty(true);
                         }}
+                        deployDirty={deployDirty}
                         needsRebuild={needsRebuild}
                         busy={busy}
                         logs={logs}
@@ -774,6 +782,7 @@ function App() {
                             setWizardStep('platforms');
                         }}
                         onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)})}
+                        onDiscardDeploy={discardDeployChanges}
                         onRefreshChannels={() => run('正在刷新通道', refresh)}
                         onHomeChannel={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
                         onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'))}

@@ -429,6 +429,10 @@ button:disabled {
     cursor: default;
 }
 
+.profile-row.static-row {
+    cursor: default;
+}
+
 .profile-main {
     width: 100%;
     min-width: 0;
@@ -1089,11 +1093,14 @@ button:disabled {
     border-radius: 8px;
     background: #f0eadc;
     font: inherit;
-    cursor: pointer;
     text-align: left;
 }
 
-.health:hover {
+.health.clickable {
+    cursor: pointer;
+}
+
+.health.clickable:hover {
     background: #e5dfd1;
 }
 

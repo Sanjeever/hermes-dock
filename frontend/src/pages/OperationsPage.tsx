@@ -13,6 +13,7 @@ export function OperationsPage(props: {
     state: AppState;
     compose: ComposeSettings;
     setCompose: (value: ComposeSettings) => void;
+    deployDirty: boolean;
     needsRebuild: boolean;
     busy: string;
     logs: string[];
@@ -41,6 +42,7 @@ export function OperationsPage(props: {
     onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
     onOpenAssistantPlatforms: () => void;
     onSaveDeploy: () => void;
+    onDiscardDeploy: () => void;
     onRefreshChannels: () => void;
     onHomeChannel: (platform: string, id: string) => void;
     onTestChannel: (platform: string, id: string) => void;
@@ -82,7 +84,7 @@ export function OperationsPage(props: {
                     onOpenEndpoint={props.onOpenEndpoint}
                 />
             )}
-            {props.tab === 'deploy' && <DeployPage compose={props.compose} setCompose={props.setCompose} busy={!!props.busy} onSave={props.onSaveDeploy}/>}
+            {props.tab === 'deploy' && <DeployPage compose={props.compose} setCompose={props.setCompose} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>}
             {props.tab === 'channels' && (
                 <div className="operations-context">
                     <ChannelsPage
@@ -214,7 +216,7 @@ function StatusAndLogs(props: {
                     {profiles.map((profile) => {
                         const status = props.state.profileStatus?.profiles?.[profile.id];
                         return (
-                            <div key={profile.id} className={`profile-row ${props.state.activeProfile === profile.id ? 'selected' : ''}`}>
+                            <div key={profile.id} className={`profile-row static-row ${props.state.activeProfile === profile.id ? 'selected' : ''}`}>
                                 <div>
                                     <strong>{profile.name || profile.id}</strong>
                                     <code>{profile.id}</code>
