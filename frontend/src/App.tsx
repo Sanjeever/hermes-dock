@@ -355,6 +355,7 @@ function App() {
 
     async function loadAdvancedFile(path: string) {
         setAdvancedStatus('正在读取文件');
+        setAdvancedContent('');
         try {
             setAdvancedContent(await ReadTextFile(path));
             setAdvancedStatus(`已加载 ${path}`);
@@ -666,8 +667,8 @@ function App() {
                 {showRebuildBanner && (
                     <div className="rebuild-banner">
                         <span>配置已保存，重建后生效。</span>
-                        <button onClick={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
-                            <RotateCcw size={16}/>重建
+                        <button onClick={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
+                            <RotateCcw size={16}/>应用并重建
                         </button>
                     </div>
                 )}
@@ -686,7 +687,10 @@ function App() {
                             markModelDirty(true);
                         }}
                         selectedProvider={selectedProvider}
-                        setSelectedProvider={setSelectedProvider}
+                        setSelectedProvider={(value) => {
+                            setSelectedProvider(value);
+                            setModelListStatus('');
+                        }}
                         model={model}
                         setModel={(value) => {
                             setModel(value);
@@ -741,7 +745,7 @@ function App() {
                         onSaveFeishu={saveFeishuConfig}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
-                        onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
                     />
                 )}
@@ -782,7 +786,7 @@ function App() {
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
-                        onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onLogs={tailLogs}
                         onClearLogs={() => setLogs([])}
                         onCopyLogs={copyLogs}

@@ -52,6 +52,7 @@ export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}
                     <h2>登录信息</h2>
                     <Field label="控制台用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
                     <SecretField label="控制台密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
+                    {compose.dashboardPassword === '123456' && <div className="form-warning">当前仍使用默认控制台密码，建议修改后保存并应用。</div>}
                     <div className="setting-note">控制台固定启用。</div>
                 </div>
             </div>

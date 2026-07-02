@@ -773,7 +773,7 @@ function CheckItem(props: { ok: boolean; label: string }) {
 function assistantStatusLabel(setupCompletedAt?: string, status?: RuntimeProfileStatus, enabled = true, needsRebuild = false) {
     if (!setupCompletedAt) return '配置未完成';
     if (!enabled) return '已停用';
-    if (needsRebuild) return '待应用';
+    if (needsRebuild) return '有未应用配置';
     return profileStatusText(status?.state, enabled);
 }
 

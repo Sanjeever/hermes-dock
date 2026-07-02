@@ -170,13 +170,13 @@ function StatusAndLogs(props: {
                 </div>
                 <div className="operation-primary-actions">
                     {props.needsRebuild ? (
-                        <button className="primary no-margin" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用配置并重建容器</button>
+                        <button className="primary no-margin" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用并重建</button>
                     ) : props.state.containerStatus === 'running' ? (
                         <button className="ghost" onClick={props.onRestart} disabled={actionBusy}><RefreshCcw size={16}/>重启容器</button>
                     ) : (
                         <button className="primary no-margin" onClick={props.onStart} disabled={actionBusy}><Play size={16}/>启动容器</button>
                     )}
-                    <button className="ghost" onClick={props.onRebuild} disabled={actionBusy || props.needsRebuild}><RotateCcw size={16}/>重建</button>
+                    <button className="ghost" onClick={props.onRebuild} disabled={actionBusy || props.needsRebuild}><RotateCcw size={16}/>应用并重建</button>
                     <button className="ghost" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}
@@ -267,7 +267,7 @@ function StatusAndLogs(props: {
 
 function operationSummary(containerStatus: string, needsRebuild: boolean, runningProfiles: number, startingProfiles: number, failedProfiles: number, notConfiguredProfiles: number) {
     if (needsRebuild) {
-        return {title: '配置已保存，等待应用', detail: '点击“应用配置并重建容器”后，新配置才会进入运行态。'};
+        return {title: '配置已保存，等待应用', detail: '点击“应用并重建”后，新配置才会进入运行态。'};
     }
     if (containerStatus !== 'running') {
         return {title: 'Hermes 容器未运行', detail: '启动容器后，已绑定平台的助手才会开始接收消息。'};
