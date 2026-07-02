@@ -723,7 +723,7 @@ button:disabled {
     cursor: pointer;
 }
 
-.operation-mini-card.clickable:hover {
+.operation-mini-card.clickable:hover:not(:disabled) {
     background: #f6f0e3;
 }
 
@@ -1405,7 +1405,17 @@ textarea:focus {
     background: #f0eadc;
 }
 
+.table-head {
+    min-height: 34px;
+    background: transparent;
+    color: #596056;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.table-row code,
 .table-row span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1598,6 +1608,25 @@ textarea:focus {
     .table-row {
         grid-template-columns: 1fr;
         padding: 12px;
+    }
+
+    .table-head {
+        display: none;
+    }
+
+    .table-row > [data-label] {
+        display: grid;
+        grid-template-columns: 86px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .table-row > [data-label]::before {
+        content: attr(data-label);
+        color: #596056;
+        font-size: 12px;
+        font-weight: 800;
     }
 
     .profile-rename {

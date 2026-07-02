@@ -1,6 +1,7 @@
+import {useState} from 'react';
 import {CheckCircle2, MessageSquare, QrCode, Save, Square} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
-import {FeishuGroupPolicySelect, Field, PolicySelect} from '../components/fields';
+import {FeishuGroupPolicySelect, Field, PolicySelect, SecretField} from '../components/fields';
 import {IconButton} from '../components/primitives';
 import type {EnvVar, PlatformKey} from '../types';
 import {enumValue, envValue, setEnvValue} from '../utils';
@@ -70,11 +71,12 @@ function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; b
 function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
     const dmPolicy = closedPolicyValue(envValue(props.env, 'WECOM_DM_POLICY'));
     const groupPolicy = closedPolicyValue(envValue(props.env, 'WECOM_GROUP_POLICY'));
+    const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
             <p className="eyebrow">企业微信 AI Bot WebSocket</p>
             <Field label="Bot ID" value={envValue(props.env, 'WECOM_BOT_ID')} onChange={(value) => props.set('WECOM_BOT_ID', value)}/>
-            <Field label="Secret" value={envValue(props.env, 'WECOM_SECRET')} secret onChange={(value) => props.set('WECOM_SECRET', value)}/>
+            <SecretField label="Secret" value={envValue(props.env, 'WECOM_SECRET')} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('WECOM_SECRET', value)}/>
             <Field label="WebSocket 地址" value={envValue(props.env, 'WECOM_WEBSOCKET_URL') || 'wss://openws.work.weixin.qq.com'} onChange={(value) => props.set('WECOM_WEBSOCKET_URL', value)}/>
             <div className="field-grid">
                 <PolicySelect label="私聊策略" value={dmPolicy} onChange={(value) => props.set('WECOM_DM_POLICY', value)}/>
@@ -88,6 +90,7 @@ function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) =>
 function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
     const domain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
     const groupPolicy = disabledPolicyValue(envValue(props.env, 'FEISHU_GROUP_POLICY'));
+    const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
             <p className="eyebrow">飞书 / Lark WebSocket</p>
@@ -100,7 +103,7 @@ function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) =
                     </select>
                 </label>
                 <Field label="App ID" value={envValue(props.env, 'FEISHU_APP_ID')} onChange={(value) => props.set('FEISHU_APP_ID', value)}/>
-                <Field label="App Secret" value={envValue(props.env, 'FEISHU_APP_SECRET')} secret onChange={(value) => props.set('FEISHU_APP_SECRET', value)}/>
+                <SecretField label="App Secret" value={envValue(props.env, 'FEISHU_APP_SECRET')} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('FEISHU_APP_SECRET', value)}/>
                 <FeishuGroupPolicySelect label="群聊策略" value={groupPolicy} onChange={(value) => props.set('FEISHU_GROUP_POLICY', value)}/>
             </div>
             <div className="setting-note">使用 WebSocket 模式连接飞书开放平台；群聊策略只保留开放和关闭。</div>

@@ -27,6 +27,7 @@ import {
     StartHermes,
     StartWeixinLogin,
     StopHermes,
+    StopTailLogs,
     TailLogs,
     TestModel,
     MoveProfile,
@@ -51,6 +52,7 @@ function App() {
     const [model, setModel] = useState<ModelConfig | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const logRef = useRef<HTMLPreElement>(null!);
+    const [logsFollowing, setLogsFollowing] = useState(false);
     const [busy, setBusy] = useState('');
     const [notice, setNotice] = useState<Notice | null>(null);
     const [needsRebuild, setNeedsRebuild] = useState(false);
@@ -568,9 +570,16 @@ function App() {
     }
 
     async function tailLogs() {
-        setNotice({type: 'info', message: '正在读取日志'});
+        if (logsFollowing) {
+            await StopTailLogs();
+            setLogsFollowing(false);
+            setNotice({type: 'ok', message: '已停止跟随日志'});
+            return;
+        }
+        setNotice({type: 'info', message: '正在跟随日志'});
         try {
             await TailLogs();
+            setLogsFollowing(true);
         } catch (error) {
             const message = String(error);
             appendLog(message);
@@ -769,6 +778,7 @@ function App() {
                         autoScrollLogs={autoScrollLogs}
                         setAutoScrollLogs={setAutoScrollLogs}
                         logRef={logRef}
+                        logsFollowing={logsFollowing}
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}

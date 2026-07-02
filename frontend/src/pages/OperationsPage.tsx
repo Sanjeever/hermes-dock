@@ -5,7 +5,7 @@ import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
 import {Health} from '../components/primitives';
 import type {AppState, ComposeSettings, OperationsTab} from '../types';
-import {containerStatusText, endpointURL, profileStatusText, statusClassName} from '../utils';
+import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
     tab: OperationsTab;
@@ -32,6 +32,7 @@ export function OperationsPage(props: {
     autoScrollLogs: boolean;
     setAutoScrollLogs: (value: boolean) => void;
     logRef: RefObject<HTMLPreElement>;
+    logsFollowing: boolean;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -74,6 +75,7 @@ export function OperationsPage(props: {
                     autoScrollLogs={props.autoScrollLogs}
                     setAutoScrollLogs={props.setAutoScrollLogs}
                     logRef={props.logRef}
+                    logsFollowing={props.logsFollowing}
                     onStart={props.onStart}
                     onStop={props.onStop}
                     onRestart={props.onRestart}
@@ -134,6 +136,7 @@ function StatusAndLogs(props: {
     autoScrollLogs: boolean;
     setAutoScrollLogs: (value: boolean) => void;
     logRef: RefObject<HTMLPreElement>;
+    logsFollowing: boolean;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -146,6 +149,9 @@ function StatusAndLogs(props: {
     const actionBusy = props.busy !== '';
     const dashboardURL = endpointURL(props.compose.dashboardHost, props.compose.dashboardPort);
     const gatewayURL = endpointURL(props.compose.gatewayHost, props.compose.gatewayPort);
+    const endpointsReady = props.state.containerStatus === 'running';
+    const dashboardReady = endpointsReady && isPortValue(props.compose.dashboardPort);
+    const gatewayReady = endpointsReady && isPortValue(props.compose.gatewayPort);
     const profiles = props.state.profiles?.profiles || [];
     const profileStatuses = props.state.profileStatus?.profiles || {};
     const runningProfiles = profiles.filter((profile) => profileStatuses[profile.id]?.state === 'running').length;
@@ -185,12 +191,12 @@ function StatusAndLogs(props: {
                     <span>助手</span>
                     <strong>{runningProfiles}/{profiles.length} 运行中</strong>
                 </div>
-                <button className="operation-mini-card clickable" onClick={() => props.onOpenEndpoint('dashboard')}>
+                <button className="operation-mini-card clickable" onClick={() => props.onOpenEndpoint('dashboard')} disabled={!dashboardReady} title={dashboardReady ? '打开控制台' : '容器运行且端口有效后可打开'}>
                     <span>控制台</span>
                     <strong>{dashboardURL}</strong>
                     <ExternalLink size={15}/>
                 </button>
-                <button className="operation-mini-card clickable" onClick={() => props.onOpenEndpoint('gateway')}>
+                <button className="operation-mini-card clickable" onClick={() => props.onOpenEndpoint('gateway')} disabled={!gatewayReady} title={gatewayReady ? '打开网关' : '容器运行且端口有效后可打开'}>
                     <span>网关</span>
                     <strong>{gatewayURL}</strong>
                     <ExternalLink size={15}/>
@@ -237,7 +243,7 @@ function StatusAndLogs(props: {
                         {latestLogs.length === 0 && <p className="muted">暂无命令输出。</p>}
                     </div>
                     <div className="actions compact">
-                        <button className="ghost" onClick={props.onLogs}><TerminalSquare size={16}/>刷新日志</button>
+                        <button className="ghost" onClick={props.onLogs}><TerminalSquare size={16}/>{props.logsFollowing ? '停止跟随' : '跟随日志'}</button>
                     </div>
                 </div>
                 {latestLogs.length > 0 && (

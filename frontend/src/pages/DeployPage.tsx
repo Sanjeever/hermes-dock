@@ -1,9 +1,11 @@
+import {useState} from 'react';
 import {RotateCcw, Save} from 'lucide-react';
-import {Field} from '../components/fields';
+import {Field, SecretField} from '../components/fields';
 import type {ComposeSettings} from '../types';
 import {isPortValue} from '../utils';
 
 export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}: { compose: ComposeSettings; setCompose: (value: ComposeSettings) => void; dirty: boolean; busy: boolean; onSave: () => void; onDiscard: () => void }) {
+    const [passwordVisible, setPasswordVisible] = useState(false);
     const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     return (
@@ -49,7 +51,7 @@ export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}
                     <p className="eyebrow">控制台</p>
                     <h2>登录信息</h2>
                     <Field label="控制台用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
-                    <Field label="控制台密码" value={compose.dashboardPassword} secret onChange={(value) => update('dashboardPassword', value)}/>
+                    <SecretField label="控制台密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
                     <div className="setting-note">控制台固定启用。</div>
                 </div>
             </div>

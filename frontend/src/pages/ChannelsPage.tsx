@@ -44,15 +44,22 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
                         </div>
                     </div>
                     <div className="table">
+                        <div className="table-row table-head">
+                            <span>平台</span>
+                            <span>通道</span>
+                            <span>类型</span>
+                            <span>默认通道</span>
+                            <span>操作</span>
+                        </div>
                         {rows.map((row) => (
                             <div className="table-row" key={`${row.platform}-${row.id}`}>
-                                <code>{row.platform}</code>
-                                <span>{row.name || row.id}{row.platform === 'weixin' && row.id === weixinHomeChannel && <b className="home-badge">默认</b>}</span>
-                                <span>{row.type}</span>
+                                <code data-label="平台">{row.platform}</code>
+                                <span data-label="通道">{row.name || row.id}{row.platform === 'weixin' && row.id === weixinHomeChannel && <b className="home-badge">默认</b>}</span>
+                                <span data-label="类型">{row.type}</span>
                                 {row.platform === 'weixin' ? (
-                                    <button onClick={() => onHome(row.platform, row.id)} disabled={busy || row.id === weixinHomeChannel}>{row.id === weixinHomeChannel ? '已默认' : '设为默认'}</button>
-                                ) : <span className="muted">-</span>}
-                                <button onClick={() => onTest(row.platform, row.id)} disabled={busy}>测试</button>
+                                    <button data-label="默认通道" onClick={() => onHome(row.platform, row.id)} disabled={busy || row.id === weixinHomeChannel}>{row.id === weixinHomeChannel ? '已默认' : '设为默认'}</button>
+                                ) : <span className="muted" data-label="默认通道">-</span>}
+                                <button data-label="操作" onClick={() => onTest(row.platform, row.id)} disabled={busy}>测试</button>
                             </div>
                         ))}
                     </div>
