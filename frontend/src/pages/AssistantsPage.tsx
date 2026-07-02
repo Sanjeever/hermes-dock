@@ -5,7 +5,7 @@ import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
 import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, WizardStep} from '../types';
-import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, slugProfileID, statusClassName} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, providerReferenceLabels, slugProfileID, statusClassName} from '../utils';
 
 export function AssistantsPage(props: {
     state: AppState;
@@ -567,6 +567,7 @@ function AssistantWizard(props: {
                     modelOptions={props.modelOptions}
                     modelListStatus={props.modelListStatus}
                     modelTestStatus={props.modelTestStatus}
+                    modelDirty={props.modelDirty}
                     busy={props.busy}
                     showApiKey={props.showApiKey}
                     setShowApiKey={props.setShowApiKey}
@@ -656,6 +657,7 @@ function ModelServiceStep(props: {
     modelOptions: ModelOption[];
     modelListStatus: string;
     modelTestStatus: string;
+    modelDirty: boolean;
     busy: boolean;
     showApiKey: boolean;
     setShowApiKey: (value: boolean) => void;
@@ -673,6 +675,7 @@ function ModelServiceStep(props: {
     const modelChoices = ensureCurrentModelOption(props.modelOptions, props.model.default);
     const modelReady = !!selected && props.model.default.trim() !== '';
     const modelCanTest = modelReady && !selected.disabled && selected.apiKey.trim() !== '';
+    const selectedRefs = selectedID ? providerReferenceLabels(props.model, selectedID) : [];
 
     const updateProvider = (id: string, next: ProviderEntry) => {
         props.setProviders({providers: {...props.providers.providers, [id]: next}});
@@ -706,6 +709,35 @@ function ModelServiceStep(props: {
         });
         props.setSelectedProvider(id);
         props.setModel({...props.model, provider: id, default: entry.defaultModel});
+    };
+
+    const deleteSelectedProvider = () => {
+        if (!selected || selected.builtin || ids.length <= 1) return;
+        const nextProviders = {...props.providers.providers};
+        delete nextProviders[selectedID];
+        const nextConfig = {providers: nextProviders};
+        const fallbackID = providerIDs(nextConfig).find((id) => !nextProviders[id].disabled) || firstProviderID(nextConfig);
+        const fallback = nextProviders[fallbackID];
+        const nextAuxiliary = {...props.model.auxiliary};
+        for (const [key, aux] of Object.entries(nextAuxiliary)) {
+            if (aux.provider === selectedID) {
+                nextAuxiliary[key] = {
+                    ...aux,
+                    provider: fallbackID,
+                    model: fallback?.defaultModel || props.model.default,
+                    baseUrl: '',
+                    apiKey: '',
+                };
+            }
+        }
+        props.setProviders(nextConfig);
+        props.setSelectedProvider(fallbackID);
+        props.setModel({
+            ...props.model,
+            provider: props.model.provider === selectedID ? fallbackID : props.model.provider,
+            default: props.model.provider === selectedID ? (fallback?.defaultModel || '') : props.model.default,
+            auxiliary: nextAuxiliary,
+        });
     };
 
     return (
@@ -744,13 +776,19 @@ function ModelServiceStep(props: {
                         {selected.apiKey.trim() === '' && <div className="form-warning">API 密钥为空时可以保存选择，但不能测试或正常调用。</div>}
                         <div className="actions model-actions">
                             <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
-                            <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>测试模型</button>
+                            <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>{props.modelDirty ? '保存并测试模型' : '测试模型'}</button>
                             {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
                             {props.modelTestStatus && <span className="inline-status">{props.modelTestStatus}</span>}
                         </div>
                         <details className="wizard-details">
                             <summary>其他选项</summary>
-                            <button className="ghost detail-toggle" onClick={addProvider}>添加自定义服务</button>
+                            <div className="actions compact detail-provider-actions">
+                                <button className="ghost detail-toggle" onClick={addProvider}>添加自定义服务</button>
+                                {!selected.builtin && (
+                                    <button className="ghost detail-toggle danger-inline" onClick={deleteSelectedProvider} disabled={props.busy || ids.length <= 1}>删除当前自定义服务</button>
+                                )}
+                            </div>
+                            {!selected.builtin && selectedRefs.length > 0 && <div className="form-warning">删除时会把正在使用它的模型切回其他服务。</div>}
                             <div className="field-grid">
                                 <Field label="显示名称" value={selected.label} onChange={(value) => updateProvider(selectedID, {...selected, label: value})}/>
                                 <Field label="推荐默认模型" value={selected.defaultModel} onChange={(value) => updateProvider(selectedID, {...selected, defaultModel: value})}/>

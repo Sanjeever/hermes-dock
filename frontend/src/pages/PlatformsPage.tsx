@@ -69,27 +69,34 @@ function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; b
 }
 
 function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
+    const botID = envValue(props.env, 'WECOM_BOT_ID');
+    const secret = envValue(props.env, 'WECOM_SECRET');
     const dmPolicy = closedPolicyValue(envValue(props.env, 'WECOM_DM_POLICY'));
     const groupPolicy = closedPolicyValue(envValue(props.env, 'WECOM_GROUP_POLICY'));
+    const canSave = botID.trim() !== '' && secret.trim() !== '';
     const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
             <p className="eyebrow">企业微信 AI Bot WebSocket</p>
-            <Field label="Bot ID" value={envValue(props.env, 'WECOM_BOT_ID')} onChange={(value) => props.set('WECOM_BOT_ID', value)}/>
-            <SecretField label="Secret" value={envValue(props.env, 'WECOM_SECRET')} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('WECOM_SECRET', value)}/>
+            <Field label="Bot ID" value={botID} onChange={(value) => props.set('WECOM_BOT_ID', value)}/>
+            <SecretField label="Secret" value={secret} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('WECOM_SECRET', value)}/>
             <Field label="WebSocket 地址" value={envValue(props.env, 'WECOM_WEBSOCKET_URL') || 'wss://openws.work.weixin.qq.com'} onChange={(value) => props.set('WECOM_WEBSOCKET_URL', value)}/>
             <div className="field-grid">
                 <PolicySelect label="私聊策略" value={dmPolicy} onChange={(value) => props.set('WECOM_DM_POLICY', value)}/>
                 <PolicySelect label="群聊策略" value={groupPolicy} onChange={(value) => props.set('WECOM_GROUP_POLICY', value)}/>
             </div>
-            <button className="primary" onClick={props.onSave} disabled={props.busy}><Save size={16}/>保存企业微信配置</button>
+            {!canSave && <div className="form-warning">请填写 Bot ID 和 Secret 后再保存；清空或迁移绑定请使用高级编辑。</div>}
+            <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存企业微信配置</button>
         </div>
     );
 }
 
 function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
+    const appID = envValue(props.env, 'FEISHU_APP_ID');
+    const appSecret = envValue(props.env, 'FEISHU_APP_SECRET');
     const domain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
     const groupPolicy = disabledPolicyValue(envValue(props.env, 'FEISHU_GROUP_POLICY'));
+    const canSave = appID.trim() !== '' && appSecret.trim() !== '';
     const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
@@ -102,12 +109,13 @@ function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) =
                         <option value="lark">Lark（海外）</option>
                     </select>
                 </label>
-                <Field label="App ID" value={envValue(props.env, 'FEISHU_APP_ID')} onChange={(value) => props.set('FEISHU_APP_ID', value)}/>
-                <SecretField label="App Secret" value={envValue(props.env, 'FEISHU_APP_SECRET')} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('FEISHU_APP_SECRET', value)}/>
+                <Field label="App ID" value={appID} onChange={(value) => props.set('FEISHU_APP_ID', value)}/>
+                <SecretField label="App Secret" value={appSecret} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('FEISHU_APP_SECRET', value)}/>
                 <FeishuGroupPolicySelect label="群聊策略" value={groupPolicy} onChange={(value) => props.set('FEISHU_GROUP_POLICY', value)}/>
             </div>
             <div className="setting-note">使用 WebSocket 模式连接飞书开放平台；群聊策略只保留开放和关闭。</div>
-            <button className="primary" onClick={props.onSave} disabled={props.busy}><Save size={16}/>保存飞书配置</button>
+            {!canSave && <div className="form-warning">请填写 App ID 和 App Secret 后再保存；清空或迁移绑定请使用高级编辑。</div>}
+            <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存飞书配置</button>
         </div>
     );
 }

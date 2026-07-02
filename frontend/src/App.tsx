@@ -55,6 +55,7 @@ function App() {
     const [logsFollowing, setLogsFollowing] = useState(false);
     const [busy, setBusy] = useState('');
     const [notice, setNotice] = useState<Notice | null>(null);
+    const [refreshError, setRefreshError] = useState('');
     const [needsRebuild, setNeedsRebuild] = useState(false);
     const [qrData, setQrData] = useState('');
     const [qrStatus, setQrStatus] = useState('');
@@ -62,6 +63,7 @@ function App() {
     const [advancedContent, setAdvancedContent] = useState('');
     const [advancedStatus, setAdvancedStatus] = useState('');
     const [advancedDirty, setAdvancedDirty] = useState(false);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
     const [soulContent, setSoulContent] = useState('');
     const [soulStatus, setSoulStatus] = useState('');
     const [soulDirty, setSoulDirty] = useState(false);
@@ -158,9 +160,10 @@ function App() {
 
     useEffect(() => {
         if (page !== 'operations' || operationsTab !== 'advanced') return;
+        if (!advancedOpen) return;
         if (advancedDirty) return;
         loadAdvancedFile(advancedPath);
-    }, [page, operationsTab, advancedPath]);
+    }, [page, operationsTab, advancedPath, advancedOpen]);
 
     useEffect(() => {
         if (page !== 'assistants' || wizardStep !== 'soul') return;
@@ -203,7 +206,15 @@ function App() {
     }, [state, busy]);
 
     async function refresh() {
-        const next = await GetAppState();
+        let next: unknown;
+        try {
+            next = await GetAppState();
+        } catch (error) {
+            const message = String(error);
+            setRefreshError(message);
+            appendLog(message);
+            return message;
+        }
         const nextState = next as AppState;
         const firstRefresh = !stateRef.current;
         const previousProfile = stateRef.current?.activeProfile;
@@ -229,6 +240,8 @@ function App() {
         if (firstRefresh || profileChanged) {
             setSelectedPlatform(firstBoundPlatform(nextEnv));
         }
+        setRefreshError('');
+        return '';
     }
 
     async function selectProfile(id: string) {
@@ -250,6 +263,7 @@ function App() {
             },
             afterSuccess: () => {
                 setAdvancedDirty(false);
+                setAdvancedOpen(false);
                 setAdvancedPath(defaultAdvancedPath(id));
                 setSoulDirty(false);
                 setSoulContent('');
@@ -340,11 +354,17 @@ function App() {
         try {
             await action();
             options.beforeRefresh?.();
-            await refresh();
+            const refreshMessage = await refresh();
             if (options.rebuildRequired) {
                 setNeedsRebuild(true);
             }
             options.afterSuccess?.();
+            if (refreshMessage) {
+                const message = `${doneLabel(label)}，但刷新状态失败：${refreshMessage}`;
+                setNotice({type: 'error', message});
+                setLastOperationError(message);
+                return true;
+            }
             setNotice({type: 'ok', message: doneLabel(label)});
             return true;
         } catch (error) {
@@ -381,6 +401,12 @@ function App() {
             await SaveTextFile({path: advancedPath, content: advancedContent, reason: 'before-advanced-save'});
             setAdvancedDirty(false);
             setNeedsRebuild(true);
+            const refreshMessage = await refresh();
+            if (refreshMessage) {
+                setAdvancedStatus(`已保存 ${advancedPath}，但刷新状态失败`);
+                setNotice({type: 'error', message: `已保存文件，但刷新状态失败：${refreshMessage}`});
+                return;
+            }
             setAdvancedStatus(`已保存 ${advancedPath}，应用并重建后生效`);
             setNotice({type: 'ok', message: '已保存文件'});
         } catch (error) {
@@ -503,6 +529,12 @@ function App() {
     }
 
     async function saveWeComConfig() {
+        if (envValue(env, 'WECOM_BOT_ID').trim() === '' || envValue(env, 'WECOM_SECRET').trim() === '') {
+            const message = '请填写企业微信 Bot ID 和 Secret 后再保存';
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            return false;
+        }
         return await run('正在保存企业微信配置', () => SaveWeComConfig({
             botId: envValue(env, 'WECOM_BOT_ID'),
             secret: envValue(env, 'WECOM_SECRET'),
@@ -515,6 +547,12 @@ function App() {
     }
 
     async function saveFeishuConfig() {
+        if (envValue(env, 'FEISHU_APP_ID').trim() === '' || envValue(env, 'FEISHU_APP_SECRET').trim() === '') {
+            const message = '请填写飞书 App ID 和 App Secret 后再保存';
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            return false;
+        }
         return await run('正在保存飞书配置', () => SaveFeishuConfig({
             appId: envValue(env, 'FEISHU_APP_ID'),
             appSecret: envValue(env, 'FEISHU_APP_SECRET'),
@@ -550,6 +588,7 @@ function App() {
                 setLogs([]);
                 setNeedsRebuild(false);
                 setAdvancedDirty(false);
+                setAdvancedOpen(false);
                 setWizardStep('model');
                 setPage('assistants');
             },
@@ -674,6 +713,7 @@ function App() {
     const activeSetupDone = !!activeProfile?.setupCompletedAt;
     const showContainerStatus = page !== 'assistants' || activeSetupDone;
     const showRebuildBanner = needsRebuild && (page !== 'assistants' || activeSetupDone);
+    const unsavedChanges = hasUnsavedChanges();
 
     return (
         <div className="shell">
@@ -727,6 +767,19 @@ function App() {
                     </div>
                 </header>
                 {notice && <div className={`notice ${notice.type}`}>{notice.message}</div>}
+                {unsavedChanges && (
+                    <div className="dirty-banner">
+                        <span>当前有未保存修改，请回到对应页面保存或放弃修改后再切换助手。</span>
+                    </div>
+                )}
+                {!state && refreshError && (
+                    <div className="panel startup-error">
+                        <p className="eyebrow">启动器状态读取失败</p>
+                        <h2>暂时无法加载 Hermes Dock</h2>
+                        <p>{refreshError}</p>
+                        <button className="primary no-margin" onClick={() => refresh()} disabled={!!busy}>重试加载</button>
+                    </div>
+                )}
                 {showRebuildBanner && (
                     <div className="rebuild-banner">
                         <span>配置已保存，重建后生效。</span>
@@ -840,6 +893,8 @@ function App() {
                         advancedOptions={advancedFileOptions(state.activeProfile || 'default')}
                         advancedPath={advancedPath}
                         setAdvancedPath={changeAdvancedPath}
+                        advancedOpen={advancedOpen}
+                        setAdvancedOpen={setAdvancedOpen}
                         advancedContent={advancedContent}
                         setAdvancedContent={(value) => {
                             setAdvancedContent(value);

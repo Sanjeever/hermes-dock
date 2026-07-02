@@ -201,6 +201,31 @@ h2 {
     color: #a24d12;
 }
 
+.dirty-banner {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    margin: -10px 0 18px;
+    padding: 0 13px;
+    border-radius: 8px;
+    background: #fff6d8;
+    color: #8a520d;
+    font-weight: 800;
+}
+
+.startup-error {
+    display: grid;
+    gap: 12px;
+    max-width: 760px;
+}
+
+.startup-error p:not(.eyebrow) {
+    margin: 0;
+    color: #9d241a;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
 .rebuild-banner {
     min-height: 44px;
     display: flex;
@@ -1314,6 +1339,10 @@ textarea:focus {
 
 .detail-toggle {
     margin-bottom: 12px;
+}
+
+.detail-provider-actions .detail-toggle {
+    margin-bottom: 0;
 }
 
 .advanced-fields,

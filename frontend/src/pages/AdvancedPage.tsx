@@ -4,10 +4,9 @@ import {EditorView} from '@codemirror/view';
 import {CornerDownRight, FileCode2, Save, Search, Trash2} from 'lucide-react';
 import {CodeEditor} from '../components/CodeEditor';
 
-export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
+export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
-    const [editorOpen, setEditorOpen] = useState(false);
     const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
     const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
 
@@ -23,17 +22,17 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                 <div className="section-head">
                     <div>
                         <p className="eyebrow">高级编辑</p>
-                        <h2>{editorOpen ? props.path : '选择要编辑的文件'}</h2>
-                        {!editorOpen && <p className="setup-subtitle">直接修改原始配置文件。保存后通常需要应用并重建才会生效。</p>}
+                        <h2>{props.open ? props.path : '选择要编辑的文件'}</h2>
+                        {!props.open && <p className="setup-subtitle">直接修改原始配置文件。保存后通常需要应用并重建才会生效。</p>}
                     </div>
-                    {editorOpen && <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>}
+                    {props.open && <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>}
                 </div>
-                {!editorOpen ? (
+                {!props.open ? (
                     <div className="advanced-file-grid">
                         {props.options.map((option) => (
                             <button key={option.value} className="advanced-file-card" onClick={() => {
                                 props.setPath(option.value);
-                                setEditorOpen(true);
+                                props.setOpen(true);
                             }}>
                                 <FileCode2 size={20}/>
                                 <strong>{option.label}</strong>
@@ -55,7 +54,7 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                                 <button type="button" className="ghost" onClick={() => editorView && gotoLine(editorView)} disabled={!editorView} title="跳转到行">
                                     <CornerDownRight size={16}/>跳行
                                 </button>
-                                <button type="button" className="ghost" onClick={() => setEditorOpen(false)} disabled={props.busy || props.dirty}>返回文件选择</button>
+                                <button type="button" className="ghost" onClick={() => props.setOpen(false)} disabled={props.busy || props.dirty}>返回文件选择</button>
                                 <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
                             </div>
                         </div>

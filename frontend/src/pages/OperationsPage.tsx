@@ -25,6 +25,8 @@ export function OperationsPage(props: {
     advancedOptions: Array<{ value: string; label: string }>;
     advancedPath: string;
     setAdvancedPath: (value: string) => void;
+    advancedOpen: boolean;
+    setAdvancedOpen: (value: boolean) => void;
     advancedContent: string;
     setAdvancedContent: (value: string) => void;
     advancedStatus: string;
@@ -108,11 +110,13 @@ export function OperationsPage(props: {
             )}
             {props.tab === 'advanced' && (
                 <div className="operations-context">
-                    <div className="setting-note">默认编辑当前助手：{props.activeProfileName}。全局高级文件在下拉列表中单独选择。</div>
+                    <div className="setting-note">高级编辑是专家逃生口。默认编辑当前助手：{props.activeProfileName}；模型、部署和平台等结构化页面保存时，可能覆盖这里的部分字段。</div>
                     <AdvancedPage
                         options={props.advancedOptions}
                         path={props.advancedPath}
                         setPath={props.setAdvancedPath}
+                        open={props.advancedOpen}
+                        setOpen={props.setAdvancedOpen}
                         content={props.advancedContent}
                         setContent={props.setAdvancedContent}
                         status={props.advancedStatus}
