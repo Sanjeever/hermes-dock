@@ -1,41 +1,38 @@
-import {useState} from 'react';
 import {CheckCircle2, MessageSquare, QrCode, Save, Square} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
 import {FeishuGroupPolicySelect, Field, PolicySelect} from '../components/fields';
 import {IconButton} from '../components/primitives';
-import type {EnvVar} from '../types';
+import type {EnvVar, PlatformKey} from '../types';
 import {enumValue, envValue, setEnvValue} from '../utils';
-
-type PlatformKey = 'weixin' | 'wecom' | 'feishu';
 
 export function PlatformsPage(props: {
     env: EnvVar[];
     setEnv: (value: EnvVar[]) => void;
     qrData: string;
     qrStatus: string;
+    selected: PlatformKey;
+    setSelected: (value: PlatformKey) => void;
     busy: boolean;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
-    onSaveWeCom: () => void;
-    onSaveFeishu: () => void;
+    onSaveWeCom: () => Promise<boolean>;
+    onSaveFeishu: () => Promise<boolean>;
 }) {
     const weixinBound = !!envValue(props.env, 'WEIXIN_ACCOUNT_ID') && !!envValue(props.env, 'WEIXIN_TOKEN');
     const wecomBound = !!envValue(props.env, 'WECOM_BOT_ID') && !!envValue(props.env, 'WECOM_SECRET');
     const feishuBound = !!envValue(props.env, 'FEISHU_APP_ID') && !!envValue(props.env, 'FEISHU_APP_SECRET');
-    const firstBound: PlatformKey = weixinBound ? 'weixin' : wecomBound ? 'wecom' : feishuBound ? 'feishu' : 'weixin';
-    const [selected, setSelected] = useState<PlatformKey>(firstBound);
     const set = (key: string, value: string) => props.setEnv(setEnvValue(props.env, key, value));
 
     return (
         <section className="platform-stack">
             <div className="platform-cards">
-                <PlatformCard id="weixin" selected={selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" onSelect={setSelected}/>
-                <PlatformCard id="wecom" selected={selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" onSelect={setSelected}/>
-                <PlatformCard id="feishu" selected={selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" onSelect={setSelected}/>
+                <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" onSelect={props.setSelected}/>
+                <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" onSelect={props.setSelected}/>
+                <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" onSelect={props.setSelected}/>
             </div>
-            {selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin}/>}
-            {selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom}/>}
-            {selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu}/>}
+            {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin}/>}
+            {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom}/>}
+            {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu}/>}
         </section>
     );
 }
@@ -70,7 +67,7 @@ function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; b
     );
 }
 
-function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => void }) {
+function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
     const dmPolicy = closedPolicyValue(envValue(props.env, 'WECOM_DM_POLICY'));
     const groupPolicy = closedPolicyValue(envValue(props.env, 'WECOM_GROUP_POLICY'));
     return (
@@ -88,7 +85,7 @@ function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) =>
     );
 }
 
-function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => void }) {
+function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
     const domain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
     const groupPolicy = disabledPolicyValue(envValue(props.env, 'FEISHU_GROUP_POLICY'));
     return (

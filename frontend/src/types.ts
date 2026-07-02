@@ -1,6 +1,7 @@
 export type Page = 'assistants' | 'operations';
 export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
 export type OperationsTab = 'status' | 'deploy' | 'channels' | 'advanced';
+export type PlatformKey = 'weixin' | 'wecom' | 'feishu';
 
 export type EnvVar = { key: string; value: string; secret: boolean };
 export type ComposeSettings = {
@@ -60,7 +61,7 @@ export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] 
 export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
 export type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
 export type Notice = { type: 'ok' | 'error' | 'info'; message: string };
-export type RunOptions = { rebuildRequired?: boolean; afterSuccess?: () => void };
+export type RunOptions = { rebuildRequired?: boolean; beforeRefresh?: () => void; afterSuccess?: () => void };
 export type AppState = {
     appVersion: string;
     instanceRoot: string;

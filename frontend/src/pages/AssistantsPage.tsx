@@ -4,7 +4,7 @@ import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
-import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, ProviderConfig, ProviderEntry, RuntimeProfileStatus, WizardStep} from '../types';
+import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, WizardStep} from '../types';
 import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, slugProfileID, statusClassName} from '../utils';
 
 export function AssistantsPage(props: {
@@ -43,9 +43,12 @@ export function AssistantsPage(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+    platformDirty: boolean;
+    selectedPlatform: PlatformKey;
+    setSelectedPlatform: (value: PlatformKey) => void;
     needsRebuild: boolean;
     hasPlatformBinding: boolean;
-    onSelect: (id: string) => void;
+    onSelect: (id: string) => Promise<boolean>;
     onCreate: () => Promise<boolean>;
     onRename: (id: string, name: string) => void;
     onEnabled: (id: string, enabled: boolean) => void;
@@ -59,8 +62,9 @@ export function AssistantsPage(props: {
     onDiscardSoul: () => void;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
-    onSaveWeCom: () => void;
-    onSaveFeishu: () => void;
+    onSaveWeCom: () => Promise<boolean>;
+    onSaveFeishu: () => Promise<boolean>;
+    onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
     onRebuild: () => void;
     onOpenOperations: (tab: OperationsTab) => void;
@@ -96,10 +100,10 @@ export function AssistantsPage(props: {
         props.setWizardStep(step);
     };
 
-    const selectAssistant = (id: string) => {
+    const selectAssistant = async (id: string) => {
         const target = profiles.find((profile) => profile.id === id);
+        if (!(await props.onSelect(id))) return;
         setShowAdvancedModels(false);
-        props.onSelect(id);
         props.setWizardStep(target?.setupCompletedAt ? null : 'model');
     };
 
@@ -247,6 +251,9 @@ export function AssistantsPage(props: {
                         setSoulDirty={props.setSoulDirty}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
+                        platformDirty={props.platformDirty}
+                        selectedPlatform={props.selectedPlatform}
+                        setSelectedPlatform={props.setSelectedPlatform}
                         setEnv={props.setEnv}
                         hasPlatformBinding={props.hasPlatformBinding}
                         onStep={props.setWizardStep}
@@ -259,6 +266,7 @@ export function AssistantsPage(props: {
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
+                        onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}
                     />
                 )}
@@ -491,6 +499,9 @@ function AssistantWizard(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+    platformDirty: boolean;
+    selectedPlatform: PlatformKey;
+    setSelectedPlatform: (value: PlatformKey) => void;
     setEnv: (value: EnvVar[]) => void;
     hasPlatformBinding: boolean;
     onStep: (step: WizardStep | null) => void;
@@ -501,8 +512,9 @@ function AssistantWizard(props: {
     onDiscardSoul: () => void;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
-    onSaveWeCom: () => void;
-    onSaveFeishu: () => void;
+    onSaveWeCom: () => Promise<boolean>;
+    onSaveFeishu: () => Promise<boolean>;
+    onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
 }) {
     const steps: Array<{ id: WizardStep; label: string }> = [
@@ -574,13 +586,18 @@ function AssistantWizard(props: {
                         setEnv={props.setEnv}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
+                        selected={props.selectedPlatform}
+                        setSelected={props.setSelectedPlatform}
                         busy={props.busy}
                         onWeixinLogin={props.onWeixinLogin}
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
                     />
-                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={() => props.onStep('finish')} nextLabel={props.hasPlatformBinding ? '下一步' : '暂不绑定平台，下一步'}/>
+                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={async () => {
+                        if (props.platformDirty && !(await props.onSaveCurrentPlatform())) return;
+                        props.onStep('finish');
+                    }} nextLabel={props.platformDirty ? '保存并下一步' : props.hasPlatformBinding ? '下一步' : '暂不绑定平台，下一步'}/>
                 </div>
             )}
             {props.step === 'finish' && (

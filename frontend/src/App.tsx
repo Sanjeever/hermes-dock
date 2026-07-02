@@ -36,7 +36,7 @@ import {EventsOn} from '../wailsjs/runtime/runtime';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, ProviderConfig, RunOptions, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -44,6 +44,7 @@ function App() {
     const [operationsTab, setOperationsTab] = useState<OperationsTab>('status');
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
+    const stateRef = useRef<AppState | null>(null);
     const activeProfileRef = useRef('default');
     const [env, setEnv] = useState<EnvVar[]>([]);
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
@@ -65,6 +66,8 @@ function App() {
     const [showApiKey, setShowApiKey] = useState(false);
     const [autoScrollLogs, setAutoScrollLogs] = useState(true);
     const [providers, setProviders] = useState<ProviderConfig>(fallbackProviderConfig);
+    const [modelDirty, setModelDirty] = useState(false);
+    const modelDirtyRef = useRef(false);
     const [selectedProvider, setSelectedProvider] = useState('dashscope-payg');
     const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
     const [modelOptionsKey, setModelOptionsKey] = useState('');
@@ -76,6 +79,13 @@ function App() {
     const [newProfileName, setNewProfileName] = useState('');
     const [newProfileCopyMode, setNewProfileCopyMode] = useState('clean');
     const [newProfileEnabled, setNewProfileEnabled] = useState(true);
+    const [platformDirty, setPlatformDirty] = useState(false);
+    const platformDirtyRef = useRef(false);
+    const [selectedPlatform, setSelectedPlatform] = useState<PlatformKey>('weixin');
+    const [deployDirty, setDeployDirty] = useState(false);
+    const deployDirtyRef = useRef(false);
+    const [weixinLoginProfile, setWeixinLoginProfile] = useState('');
+    const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
 
     useEffect(() => {
         refresh();
@@ -91,6 +101,7 @@ function App() {
         const isCurrentProfileEvent = (event: { profile_id?: string }) => !event.profile_id || event.profile_id === activeProfileRef.current;
         const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) return;
+            setWeixinLoginProfile(event.profile_id || activeProfileRef.current);
             setQrData(event.scan_data);
             setQrStatus('等待微信扫码');
         });
@@ -100,16 +111,23 @@ function App() {
         });
         const offQRDone = EventsOn('weixin-login:confirmed', (event: { account_id: string; user_id: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) {
+                setWeixinLoginProfile((current) => current === event.profile_id ? '' : current);
+                setNeedsRebuild(true);
+                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
+                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的微信已绑定成功，重建后生效`});
                 refresh();
                 return;
             }
             setQrStatus(`绑定成功 ${event.user_id || event.account_id}`);
             setQrData('');
+            setWeixinLoginProfile('');
+            setNeedsRebuild(true);
             refresh();
         });
         const offQRError = EventsOn('weixin-login:error', (event: { message: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) return;
             setQrStatus(event.message);
+            setWeixinLoginProfile('');
         });
         return () => {
             offDocker();
@@ -120,6 +138,18 @@ function App() {
             offQRError();
         };
     }, []);
+
+    useEffect(() => {
+        modelDirtyRef.current = modelDirty;
+    }, [modelDirty]);
+
+    useEffect(() => {
+        platformDirtyRef.current = platformDirty;
+    }, [platformDirty]);
+
+    useEffect(() => {
+        deployDirtyRef.current = deployDirty;
+    }, [deployDirty]);
 
     useEffect(() => {
         if (page !== 'operations' || operationsTab !== 'advanced') return;
@@ -170,24 +200,49 @@ function App() {
     async function refresh() {
         const next = await GetAppState();
         const nextState = next as AppState;
+        const firstRefresh = !stateRef.current;
+        const previousProfile = stateRef.current?.activeProfile;
+        const profileChanged = !!previousProfile && previousProfile !== nextState.activeProfile;
+        stateRef.current = nextState;
         activeProfileRef.current = nextState.activeProfile || 'default';
         setState(nextState);
-        setEnv(nextState.environment || []);
-        setCompose(nextState.compose);
-        setModel(nextState.model);
+        const nextEnv = nextState.environment || [];
+        if (!platformDirtyRef.current) {
+            setEnv(nextEnv);
+        }
+        if (!deployDirtyRef.current) {
+            setCompose(nextState.compose);
+        }
+        if (!modelDirtyRef.current) {
+            setModel(nextState.model);
+        }
         const nextProviders = nextState.providers || fallbackProviderConfig;
-        setProviders(nextProviders);
-        setSelectedProvider(nextState.model?.provider && nextProviders.providers[nextState.model.provider] ? nextState.model.provider : firstProviderID(nextProviders));
+        if (!modelDirtyRef.current) {
+            setProviders(nextProviders);
+            setSelectedProvider(nextState.model?.provider && nextProviders.providers[nextState.model.provider] ? nextState.model.provider : firstProviderID(nextProviders));
+        }
+        if (firstRefresh || profileChanged) {
+            setSelectedPlatform(firstBoundPlatform(nextEnv));
+        }
     }
 
     async function selectProfile(id: string) {
-        if (id === state?.activeProfile) return;
-        if (advancedDirty || soulDirty) {
-            setNotice({type: 'error', message: '当前有未保存修改，请先保存或放弃修改后再切换 profile'});
-            return;
+        if (id === state?.activeProfile) return true;
+        if (weixinLoginProfile && weixinLoginProfile !== id) {
+            setNotice({type: 'error', message: '微信扫码登录进行中，请先完成或取消后再切换助手'});
+            return false;
+        }
+        if (hasUnsavedChanges()) {
+            setNotice({type: 'error', message: dirtyMessage});
+            return false;
         }
         const target = state?.profiles?.profiles?.find((profile) => profile.id === id);
-        await run('正在切换 Profile', () => SelectProfile(id), {
+        return await run('正在切换 Profile', () => SelectProfile(id), {
+            beforeRefresh: () => {
+                markModelDirty(false);
+                markPlatformDirty(false);
+                markDeployDirty(false);
+            },
             afterSuccess: () => {
                 setAdvancedDirty(false);
                 setAdvancedPath(defaultAdvancedPath(id));
@@ -206,6 +261,11 @@ function App() {
             copyFrom: state?.activeProfile || 'default',
             copyMode: newProfileCopyMode,
         }), {
+            beforeRefresh: () => {
+                markModelDirty(false);
+                markPlatformDirty(false);
+                markDeployDirty(false);
+            },
             afterSuccess: () => {
                 setNewProfileID('');
                 setNewProfileName('');
@@ -273,6 +333,7 @@ function App() {
         setNotice({type: 'info', message: label});
         try {
             await action();
+            options.beforeRefresh?.();
             await refresh();
             if (options.rebuildRequired) {
                 setNeedsRebuild(true);
@@ -367,7 +428,19 @@ function App() {
         return await run('正在保存模型服务', async () => {
             await SaveProviderConfig(toPlainProviderConfig(providers));
             await SaveModelConfig(toPlainModelConfig(model));
-        }, {rebuildRequired: true});
+        }, {rebuildRequired: true, beforeRefresh: () => markModelDirty(false)});
+    }
+
+    async function saveCurrentPlatform() {
+        if (!platformDirty) return true;
+        if (selectedPlatform === 'wecom') {
+            return await saveWeComConfig();
+        }
+        if (selectedPlatform === 'feishu') {
+            return await saveFeishuConfig();
+        }
+        markPlatformDirty(false);
+        return true;
     }
 
     async function finishProfileSetup(apply: boolean) {
@@ -383,6 +456,71 @@ function App() {
                 setWizardStep(null);
             },
         });
+    }
+
+    function hasUnsavedChanges() {
+        return advancedDirty || soulDirty || modelDirty || platformDirty || deployDirty;
+    }
+
+    function markModelDirty(value: boolean) {
+        modelDirtyRef.current = value;
+        setModelDirty(value);
+    }
+
+    function markPlatformDirty(value: boolean) {
+        platformDirtyRef.current = value;
+        setPlatformDirty(value);
+    }
+
+    function markDeployDirty(value: boolean) {
+        deployDirtyRef.current = value;
+        setDeployDirty(value);
+    }
+
+    async function startWeixinLogin() {
+        const profileID = state?.activeProfile || 'default';
+        setWeixinLoginProfile(profileID);
+        const ok = await run('正在启动微信扫码登录', StartWeixinLogin);
+        if (!ok) {
+            setWeixinLoginProfile('');
+        }
+    }
+
+    async function cancelWeixinLogin() {
+        await CancelWeixinLogin();
+        setQrData('');
+        setQrStatus('');
+        setWeixinLoginProfile('');
+    }
+
+    async function saveWeComConfig() {
+        return await run('正在保存企业微信配置', () => SaveWeComConfig({
+            botId: envValue(env, 'WECOM_BOT_ID'),
+            secret: envValue(env, 'WECOM_SECRET'),
+            websocketUrl: envValue(env, 'WECOM_WEBSOCKET_URL'),
+            dmPolicy: closedPolicyValue(envValue(env, 'WECOM_DM_POLICY')),
+            allowedUsers: '',
+            groupPolicy: closedPolicyValue(envValue(env, 'WECOM_GROUP_POLICY')),
+            groupAllowUsers: '',
+        }), {rebuildRequired: true, beforeRefresh: () => markPlatformDirty(false)});
+    }
+
+    async function saveFeishuConfig() {
+        return await run('正在保存飞书配置', () => SaveFeishuConfig({
+            appId: envValue(env, 'FEISHU_APP_ID'),
+            appSecret: envValue(env, 'FEISHU_APP_SECRET'),
+            domain: envValue(env, 'FEISHU_DOMAIN') || 'feishu',
+            allowedUsers: '',
+            groupPolicy: disabledPolicyValue(envValue(env, 'FEISHU_GROUP_POLICY')),
+        }), {rebuildRequired: true, beforeRefresh: () => markPlatformDirty(false)});
+    }
+
+    function selectPlatform(value: PlatformKey) {
+        if (platformDirty && value !== selectedPlatform) {
+            setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存后再切换平台'});
+            return;
+        }
+        setSelectedPlatform(value);
     }
 
     function openOperations(tab: OperationsTab) {
@@ -522,13 +660,22 @@ function App() {
                     <AssistantsPage
                         state={state}
                         env={env}
-                        setEnv={setEnv}
+                        setEnv={(value) => {
+                            setEnv(value);
+                            markPlatformDirty(true);
+                        }}
                         providers={providers}
-                        setProviders={setProviders}
+                        setProviders={(value) => {
+                            setProviders(value);
+                            markModelDirty(true);
+                        }}
                         selectedProvider={selectedProvider}
                         setSelectedProvider={setSelectedProvider}
                         model={model}
-                        setModel={setModel}
+                        setModel={(value) => {
+                            setModel(value);
+                            markModelDirty(true);
+                        }}
                         modelOptions={visibleModelOptions}
                         modelListStatus={modelListStatus}
                         selectedAux={selectedAux}
@@ -555,6 +702,9 @@ function App() {
                         setSoulDirty={setSoulDirty}
                         qrData={qrData}
                         qrStatus={qrStatus}
+                        platformDirty={platformDirty}
+                        selectedPlatform={selectedPlatform}
+                        setSelectedPlatform={selectPlatform}
                         needsRebuild={needsRebuild}
                         hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound}
                         onSelect={selectProfile}
@@ -569,24 +719,11 @@ function App() {
                         onTestModel={() => run('正在测试模型', TestModel)}
                         onSaveSoul={saveSoulFile}
                         onDiscardSoul={() => loadSoulFile(state?.activeProfile || 'default')}
-                        onWeixinLogin={() => run('正在启动微信扫码登录', StartWeixinLogin)}
-                        onCancelWeixin={() => CancelWeixinLogin()}
-                        onSaveWeCom={() => run('正在保存企业微信配置', () => SaveWeComConfig({
-                            botId: envValue(env, 'WECOM_BOT_ID'),
-                            secret: envValue(env, 'WECOM_SECRET'),
-                            websocketUrl: envValue(env, 'WECOM_WEBSOCKET_URL'),
-                            dmPolicy: closedPolicyValue(envValue(env, 'WECOM_DM_POLICY')),
-                            allowedUsers: '',
-                            groupPolicy: closedPolicyValue(envValue(env, 'WECOM_GROUP_POLICY')),
-                            groupAllowUsers: '',
-                        }), {rebuildRequired: true})}
-                        onSaveFeishu={() => run('正在保存飞书配置', () => SaveFeishuConfig({
-                            appId: envValue(env, 'FEISHU_APP_ID'),
-                            appSecret: envValue(env, 'FEISHU_APP_SECRET'),
-                            domain: envValue(env, 'FEISHU_DOMAIN') || 'feishu',
-                            allowedUsers: '',
-                            groupPolicy: disabledPolicyValue(envValue(env, 'FEISHU_GROUP_POLICY')),
-                        }), {rebuildRequired: true})}
+                        onWeixinLogin={startWeixinLogin}
+                        onCancelWeixin={cancelWeixinLogin}
+                        onSaveWeCom={saveWeComConfig}
+                        onSaveFeishu={saveFeishuConfig}
+                        onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
                         onRebuild={() => run('正在重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
@@ -599,7 +736,10 @@ function App() {
                         setTab={setOperationsTab}
                         state={state}
                         compose={compose}
-                        setCompose={setCompose}
+                        setCompose={(value) => {
+                            setCompose(value);
+                            markDeployDirty(true);
+                        }}
                         needsRebuild={needsRebuild}
                         busy={busy}
                         logs={logs}
@@ -633,7 +773,7 @@ function App() {
                             setPage('assistants');
                             setWizardStep('platforms');
                         }}
-                        onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true})}
+                        onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)})}
                         onRefreshChannels={() => run('正在刷新通道', refresh)}
                         onHomeChannel={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
                         onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'))}
@@ -653,6 +793,13 @@ function closedPolicyValue(value: string) {
 
 function disabledPolicyValue(value: string) {
     return value === 'open' || value === '' ? 'open' : 'disabled';
+}
+
+function firstBoundPlatform(env: EnvVar[]): PlatformKey {
+    if (envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN')) return 'weixin';
+    if (envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET')) return 'wecom';
+    if (envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET')) return 'feishu';
+    return 'weixin';
 }
 
 export default App;
