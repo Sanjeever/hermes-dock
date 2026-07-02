@@ -385,6 +385,16 @@ button:disabled {
     font-weight: 800;
 }
 
+.operation-error {
+    grid-column: 1 / -1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff1ee;
+    color: #9d241a;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
 .spin {
     animation: spin 1s linear infinite;
 }
@@ -1440,6 +1450,12 @@ textarea:focus {
     color: #ffffff;
 }
 
+.row-status {
+    grid-column: 1 / -1;
+    color: #596056;
+    font-weight: 800;
+}
+
 .advanced-toolbar {
     display: flex;
     align-items: center;
@@ -1468,6 +1484,19 @@ textarea:focus {
 
 .danger-panel {
     background: #fff1ee;
+}
+
+.danger-summary {
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.danger-summary .eyebrow {
+    display: block;
+}
+
+.danger-body {
+    margin-top: 14px;
 }
 
 .danger-button {

@@ -19,6 +19,7 @@ export function AssistantsPage(props: {
     setModel: (value: ModelConfig) => void;
     modelOptions: ModelOption[];
     modelListStatus: string;
+    modelTestStatus: string;
     selectedAux: string;
     setSelectedAux: (value: string) => void;
     auxModelOptions: Record<string, ModelOption[]>;
@@ -241,6 +242,7 @@ export function AssistantsPage(props: {
                         setModel={props.setModel}
                         modelOptions={props.modelOptions}
                         modelListStatus={props.modelListStatus}
+                        modelTestStatus={props.modelTestStatus}
                         busy={props.busy}
                         showApiKey={props.showApiKey}
                         setShowApiKey={props.setShowApiKey}
@@ -489,6 +491,7 @@ function AssistantWizard(props: {
     setModel: (value: ModelConfig) => void;
     modelOptions: ModelOption[];
     modelListStatus: string;
+    modelTestStatus: string;
     busy: boolean;
     showApiKey: boolean;
     setShowApiKey: (value: boolean) => void;
@@ -547,6 +550,7 @@ function AssistantWizard(props: {
                     setModel={props.setModel}
                     modelOptions={props.modelOptions}
                     modelListStatus={props.modelListStatus}
+                    modelTestStatus={props.modelTestStatus}
                     busy={props.busy}
                     showApiKey={props.showApiKey}
                     setShowApiKey={props.setShowApiKey}
@@ -635,6 +639,7 @@ function ModelServiceStep(props: {
     setModel: (value: ModelConfig) => void;
     modelOptions: ModelOption[];
     modelListStatus: string;
+    modelTestStatus: string;
     busy: boolean;
     showApiKey: boolean;
     setShowApiKey: (value: boolean) => void;
@@ -725,6 +730,7 @@ function ModelServiceStep(props: {
                             <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
                             <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>测试模型</button>
                             {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
+                            {props.modelTestStatus && <span className="inline-status">{props.modelTestStatus}</span>}
                         </div>
                         <details className="wizard-details">
                             <summary>其他选项</summary>

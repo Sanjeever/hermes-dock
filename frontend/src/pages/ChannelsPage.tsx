@@ -2,12 +2,13 @@ import {useMemo} from 'react';
 import {MessageSquarePlus, RefreshCcw} from 'lucide-react';
 import type {ChannelFile} from '../types';
 
-export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, weixinHomeChannel, busy, onRefresh, onOpenAssistantPlatforms, onHome, onTest}: {
+export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, weixinHomeChannel, busy, actionStatus, onRefresh, onOpenAssistantPlatforms, onHome, onTest}: {
     channels: ChannelFile;
     activeProfileName: string;
     hasPlatformBinding: boolean;
     weixinHomeChannel: string;
     busy: boolean;
+    actionStatus: Record<string, string>;
     onRefresh: () => void;
     onOpenAssistantPlatforms: () => void;
     onHome: (platform: string, id: string) => void;
@@ -60,6 +61,9 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
                                     <button data-label="默认通道" onClick={() => onHome(row.platform, row.id)} disabled={busy || row.id === weixinHomeChannel}>{row.id === weixinHomeChannel ? '已默认' : '设为默认'}</button>
                                 ) : <span className="muted" data-label="默认通道">-</span>}
                                 <button data-label="操作" onClick={() => onTest(row.platform, row.id)} disabled={busy}>测试</button>
+                                {(actionStatus[channelStatusKey(row.platform, row.id, 'home')] || actionStatus[channelStatusKey(row.platform, row.id, 'test')]) && (
+                                    <small className="row-status">{actionStatus[channelStatusKey(row.platform, row.id, 'home')] || actionStatus[channelStatusKey(row.platform, row.id, 'test')]}</small>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -67,4 +71,8 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
             )}
         </section>
     );
+}
+
+function channelStatusKey(platform: string, id: string, action: string) {
+    return `${platform}:${id}:${action}`;
 }

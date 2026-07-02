@@ -33,6 +33,7 @@ export function OperationsPage(props: {
     setAutoScrollLogs: (value: boolean) => void;
     logRef: RefObject<HTMLPreElement>;
     logsFollowing: boolean;
+    lastOperationError: string;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -45,6 +46,7 @@ export function OperationsPage(props: {
     onSaveDeploy: () => void;
     onDiscardDeploy: () => void;
     onRefreshChannels: () => void;
+    channelActionStatus: Record<string, string>;
     onHomeChannel: (platform: string, id: string) => void;
     onTestChannel: (platform: string, id: string) => void;
     onSaveAdvanced: () => void;
@@ -76,6 +78,7 @@ export function OperationsPage(props: {
                     setAutoScrollLogs={props.setAutoScrollLogs}
                     logRef={props.logRef}
                     logsFollowing={props.logsFollowing}
+                    lastOperationError={props.lastOperationError}
                     onStart={props.onStart}
                     onStop={props.onStop}
                     onRestart={props.onRestart}
@@ -95,6 +98,7 @@ export function OperationsPage(props: {
                         hasPlatformBinding={props.weixinBound || props.wecomBound || props.feishuBound}
                         weixinHomeChannel={props.weixinHomeChannel}
                         busy={!!props.busy}
+                        actionStatus={props.channelActionStatus}
                         onRefresh={props.onRefreshChannels}
                         onOpenAssistantPlatforms={props.onOpenAssistantPlatforms}
                         onHome={props.onHomeChannel}
@@ -137,6 +141,7 @@ function StatusAndLogs(props: {
     setAutoScrollLogs: (value: boolean) => void;
     logRef: RefObject<HTMLPreElement>;
     logsFollowing: boolean;
+    lastOperationError: string;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -180,6 +185,7 @@ function StatusAndLogs(props: {
                     <button className="ghost" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}
+                {props.lastOperationError && <div className="operation-error">最近错误：{props.lastOperationError}</div>}
             </div>
 
             <div className="operation-strip">

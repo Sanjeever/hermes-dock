@@ -74,6 +74,7 @@ function App() {
     const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
     const [modelOptionsKey, setModelOptionsKey] = useState('');
     const [modelListStatus, setModelListStatus] = useState('');
+    const [modelTestStatus, setModelTestStatus] = useState('');
     const [selectedAux, setSelectedAux] = useState('vision');
     const [auxModelOptions, setAuxModelOptions] = useState<Record<string, ModelOption[]>>({});
     const [auxModelListStatus, setAuxModelListStatus] = useState('');
@@ -87,6 +88,8 @@ function App() {
     const [deployDirty, setDeployDirty] = useState(false);
     const deployDirtyRef = useRef(false);
     const [weixinLoginProfile, setWeixinLoginProfile] = useState('');
+    const [channelActionStatus, setChannelActionStatus] = useState<Record<string, string>>({});
+    const [lastOperationError, setLastOperationError] = useState('');
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
 
     useEffect(() => {
@@ -333,6 +336,7 @@ function App() {
     async function run(label: string, action: () => Promise<unknown>, options: RunOptions = {}) {
         setBusy(label);
         setNotice({type: 'info', message: label});
+        setLastOperationError('');
         try {
             await action();
             options.beforeRefresh?.();
@@ -347,6 +351,7 @@ function App() {
             const message = String(error);
             appendLog(message);
             setNotice({type: 'error', message});
+            setLastOperationError(message);
             return false;
         } finally {
             setBusy('');
@@ -376,7 +381,7 @@ function App() {
             await SaveTextFile({path: advancedPath, content: advancedContent, reason: 'before-advanced-save'});
             setAdvancedDirty(false);
             setNeedsRebuild(true);
-            setAdvancedStatus(`已保存 ${advancedPath}`);
+            setAdvancedStatus(`已保存 ${advancedPath}，应用并重建后生效`);
             setNotice({type: 'ok', message: '已保存文件'});
         } catch (error) {
             const message = String(error);
@@ -599,6 +604,29 @@ function App() {
         }
     }
 
+    async function testCurrentModel() {
+        const provider = model?.provider ? providers.providers[model.provider] : undefined;
+        const label = provider?.label || model?.provider || '当前供应商';
+        const modelName = model?.default || '当前模型';
+        setModelTestStatus(`正在测试：${label} / ${modelName}`);
+        const ok = await run('正在测试模型', TestModel);
+        setModelTestStatus(ok ? `已测试：${label} / ${modelName}` : '模型测试失败，请查看错误信息');
+    }
+
+    async function setHomeChannel(platform: string, id: string) {
+        const key = channelStatusKey(platform, id, 'home');
+        setChannelActionStatus((current) => ({...current, [key]: '正在设置默认通道'}));
+        const ok = await run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true});
+        setChannelActionStatus((current) => ({...current, [key]: ok ? '已设为默认，应用并重建后生效' : '设置默认通道失败'}));
+    }
+
+    async function testChannel(platform: string, id: string) {
+        const key = channelStatusKey(platform, id, 'test');
+        setChannelActionStatus((current) => ({...current, [key]: '正在发送测试消息'}));
+        const ok = await run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'));
+        setChannelActionStatus((current) => ({...current, [key]: ok ? '测试消息已发送' : '测试消息发送失败'}));
+    }
+
     const statusClass = state?.containerStatus === 'running' ? 'ok' : 'warn';
     const weixinBound = envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN');
     const wecomBound = envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET');
@@ -698,6 +726,7 @@ function App() {
                         }}
                         modelOptions={visibleModelOptions}
                         modelListStatus={modelListStatus}
+                        modelTestStatus={modelTestStatus}
                         selectedAux={selectedAux}
                         setSelectedAux={setSelectedAux}
                         auxModelOptions={auxModelOptions}
@@ -736,7 +765,7 @@ function App() {
                         onSaveModelService={saveModelService}
                         onFetchModels={fetchModels}
                         onFetchAuxModels={fetchAuxModels}
-                        onTestModel={() => run('正在测试模型', TestModel)}
+                        onTestModel={testCurrentModel}
                         onSaveSoul={saveSoulFile}
                         onDiscardSoul={() => loadSoulFile(state?.activeProfile || 'default')}
                         onWeixinLogin={startWeixinLogin}
@@ -783,6 +812,7 @@ function App() {
                         setAutoScrollLogs={setAutoScrollLogs}
                         logRef={logRef}
                         logsFollowing={logsFollowing}
+                        lastOperationError={lastOperationError}
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
@@ -798,8 +828,9 @@ function App() {
                         onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)})}
                         onDiscardDeploy={discardDeployChanges}
                         onRefreshChannels={() => run('正在刷新通道', refresh)}
-                        onHomeChannel={(platform, id) => run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true})}
-                        onTestChannel={(platform, id) => run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'))}
+                        channelActionStatus={channelActionStatus}
+                        onHomeChannel={setHomeChannel}
+                        onTestChannel={testChannel}
                         onSaveAdvanced={saveAdvancedFile}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
@@ -823,6 +854,10 @@ function firstBoundPlatform(env: EnvVar[]): PlatformKey {
     if (envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET')) return 'wecom';
     if (envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET')) return 'feishu';
     return 'weixin';
+}
+
+function channelStatusKey(platform: string, id: string, action: string) {
+    return `${platform}:${id}:${action}`;
 }
 
 export default App;

@@ -63,20 +63,22 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                     </>
                 )}
             </div>
-            <div className="panel danger-panel">
-                <div className="section-head">
-                    <div>
-                        <p className="eyebrow">危险操作</p>
-                        <h2>恢复出厂设置</h2>
-                    </div>
+            <details className="panel danger-panel">
+                <summary className="danger-summary">
+                    <span>
+                        <span className="eyebrow">危险操作</span>
+                        <strong>恢复出厂设置</strong>
+                    </span>
+                </summary>
+                <div className="danger-body">
+                    <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
+                    <label className="reset-confirm">
+                        <span>输入「{props.resetConfirmPhrase}」确认</span>
+                        <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>
+                    </label>
+                    <button className="danger-button" onClick={factoryReset} disabled={props.busy || !resetConfirmed}><Trash2 size={16}/>恢复出厂设置</button>
                 </div>
-                <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
-                <label className="reset-confirm">
-                    <span>输入「{props.resetConfirmPhrase}」确认</span>
-                    <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>
-                </label>
-                <button className="danger-button" onClick={factoryReset} disabled={props.busy || !resetConfirmed}><Trash2 size={16}/>恢复出厂设置</button>
-            </div>
+            </details>
         </section>
     );
 }
