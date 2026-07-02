@@ -27,9 +27,9 @@ export function PlatformsPage(props: {
     return (
         <section className="platform-stack">
             <div className="platform-cards">
-                <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" onSelect={props.setSelected}/>
-                <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" onSelect={props.setSelected}/>
-                <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" onSelect={props.setSelected}/>
+                <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" busy={props.busy} onSelect={props.setSelected}/>
+                <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" busy={props.busy} onSelect={props.setSelected}/>
+                <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" busy={props.busy} onSelect={props.setSelected}/>
             </div>
             {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin}/>}
             {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom}/>}
@@ -38,9 +38,9 @@ export function PlatformsPage(props: {
     );
 }
 
-function PlatformCard(props: { id: PlatformKey; selected: PlatformKey; bound: boolean; title: string; note: string; onSelect: (value: PlatformKey) => void }) {
+function PlatformCard(props: { id: PlatformKey; selected: PlatformKey; bound: boolean; title: string; note: string; busy: boolean; onSelect: (value: PlatformKey) => void }) {
     return (
-        <button className={`platform-card ${props.selected === props.id ? 'selected' : ''}`} onClick={() => props.onSelect(props.id)}>
+        <button className={`platform-card ${props.selected === props.id ? 'selected' : ''}`} onClick={() => props.onSelect(props.id)} disabled={props.busy}>
             {props.bound ? <CheckCircle2 size={18}/> : <MessageSquare size={18}/>}
             <strong>{props.title}</strong>
             <span>{props.bound ? '已绑定' : props.note}</span>

@@ -495,7 +495,8 @@ function App() {
     }
 
     async function cancelWeixinLogin() {
-        await CancelWeixinLogin();
+        const ok = await run('正在取消微信扫码登录', CancelWeixinLogin);
+        if (!ok) return;
         setQrData('');
         setQrStatus('');
         setWeixinLoginProfile('');
@@ -605,24 +606,58 @@ function App() {
     }
 
     async function testCurrentModel() {
+        if (!model) return;
         const provider = model?.provider ? providers.providers[model.provider] : undefined;
         const label = provider?.label || model?.provider || '当前供应商';
         const modelName = model?.default || '当前模型';
-        setModelTestStatus(`正在测试：${label} / ${modelName}`);
-        const ok = await run('正在测试模型', TestModel);
-        setModelTestStatus(ok ? `已测试：${label} / ${modelName}` : '模型测试失败，请查看错误信息');
+        const hadUnsavedModel = modelDirtyRef.current;
+        const busyLabel = hadUnsavedModel ? '正在保存并测试模型' : '正在测试模型';
+        setBusy(busyLabel);
+        setNotice({type: 'info', message: busyLabel});
+        setLastOperationError('');
+        setModelTestStatus(`${hadUnsavedModel ? '正在保存并测试' : '正在测试'}：${label} / ${modelName}`);
+        try {
+            if (hadUnsavedModel) {
+                await SaveProviderConfig(toPlainProviderConfig(providers));
+                await SaveModelConfig(toPlainModelConfig(model));
+                markModelDirty(false);
+                setNeedsRebuild(true);
+            }
+            await TestModel();
+            await refresh();
+            setModelTestStatus(`已测试：${label} / ${modelName}${hadUnsavedModel ? '（已先保存当前配置）' : ''}`);
+            setNotice({type: 'ok', message: '已测试模型'});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setModelTestStatus('模型测试失败，请查看错误信息');
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+        } finally {
+            setBusy('');
+        }
     }
 
     async function setHomeChannel(platform: string, id: string) {
         const key = channelStatusKey(platform, id, 'home');
-        setChannelActionStatus((current) => ({...current, [key]: '正在设置默认通道'}));
+        const testKey = channelStatusKey(platform, id, 'test');
+        setChannelActionStatus((current) => {
+            const next = {...current, [key]: '正在设置默认通道'};
+            delete next[testKey];
+            return next;
+        });
         const ok = await run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true});
         setChannelActionStatus((current) => ({...current, [key]: ok ? '已设为默认，应用并重建后生效' : '设置默认通道失败'}));
     }
 
     async function testChannel(platform: string, id: string) {
         const key = channelStatusKey(platform, id, 'test');
-        setChannelActionStatus((current) => ({...current, [key]: '正在发送测试消息'}));
+        const homeKey = channelStatusKey(platform, id, 'home');
+        setChannelActionStatus((current) => {
+            const next = {...current, [key]: '正在发送测试消息'};
+            delete next[homeKey];
+            return next;
+        });
         const ok = await run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'));
         setChannelActionStatus((current) => ({...current, [key]: ok ? '测试消息已发送' : '测试消息发送失败'}));
     }
@@ -713,16 +748,19 @@ function App() {
                         setProviders={(value) => {
                             setProviders(value);
                             markModelDirty(true);
+                            setModelTestStatus('');
                         }}
                         selectedProvider={selectedProvider}
                         setSelectedProvider={(value) => {
                             setSelectedProvider(value);
                             setModelListStatus('');
+                            setModelTestStatus('');
                         }}
                         model={model}
                         setModel={(value) => {
                             setModel(value);
                             markModelDirty(true);
+                            setModelTestStatus('');
                         }}
                         modelOptions={visibleModelOptions}
                         modelListStatus={modelListStatus}
@@ -751,6 +789,7 @@ function App() {
                         setSoulDirty={setSoulDirty}
                         qrData={qrData}
                         qrStatus={qrStatus}
+                        modelDirty={modelDirty}
                         platformDirty={platformDirty}
                         selectedPlatform={selectedPlatform}
                         setSelectedPlatform={selectPlatform}

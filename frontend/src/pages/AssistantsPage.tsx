@@ -44,6 +44,7 @@ export function AssistantsPage(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+    modelDirty: boolean;
     platformDirty: boolean;
     selectedPlatform: PlatformKey;
     setSelectedPlatform: (value: PlatformKey) => void;
@@ -82,7 +83,9 @@ export function AssistantsPage(props: {
     const activeStatus = activeProfile ? props.state.profileStatus?.profiles?.[activeProfile.id] : undefined;
     const activeSetupDone = !!activeProfile?.setupCompletedAt;
     const activeWizardStep = activeSetupDone ? props.wizardStep : (props.wizardStep || 'model');
-    const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
+    const profileIDExists = profiles.some((profile) => profile.id === props.newProfileID);
+    const profileIDValid = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
+    const canCreate = profileIDValid && !profileIDExists;
 
     const startCreate = () => {
         setShowCreate(true);
@@ -179,7 +182,9 @@ export function AssistantsPage(props: {
                         </select>
                     </label>
                     <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后启用助手</label>
-                    {!canCreate && (props.newProfileID || props.newProfileName) && <div className="form-warning">Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。</div>}
+                    {!canCreate && (props.newProfileID || props.newProfileName) && (
+                        <div className="form-warning">{profileIDExists ? '该 Profile ID 已存在，请换一个。' : 'Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。'}</div>
+                    )}
                     <div className="actions">
                         <button className="primary no-margin" onClick={async () => {
                             if (!(await props.onCreate())) return;
@@ -204,6 +209,7 @@ export function AssistantsPage(props: {
                         providers={props.providers}
                         hasPlatformBinding={props.hasPlatformBinding}
                         needsRebuild={props.needsRebuild}
+                        busy={props.busy}
                         onStep={startWizard}
                         onAdvancedModels={() => setShowAdvancedModels(true)}
                         onEnabled={(enabled) => props.onEnabled(activeProfile.id, enabled)}
@@ -253,6 +259,7 @@ export function AssistantsPage(props: {
                         setSoulDirty={props.setSoulDirty}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
+                        modelDirty={props.modelDirty}
                         platformDirty={props.platformDirty}
                         selectedPlatform={props.selectedPlatform}
                         setSelectedPlatform={props.setSelectedPlatform}
@@ -286,6 +293,7 @@ function AssistantSummary(props: {
     providers: ProviderConfig;
     hasPlatformBinding: boolean;
     needsRebuild: boolean;
+    busy: boolean;
     onStep: (step: WizardStep) => void;
     onAdvancedModels: () => void;
     onEnabled: (enabled: boolean) => void;
@@ -316,11 +324,11 @@ function AssistantSummary(props: {
                     </button>
                 </div>
                 <div className="setup-actions">
-                    <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)}/>启用助手</label>
-                    <button className="ghost" onClick={props.onAdvancedModels}><SlidersHorizontal size={16}/>高级模型设置</button>
-                    <button className="ghost" onClick={() => props.onOpenOperations('status')}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
-                    <button className="primary no-margin" onClick={() => props.onStep('model')}>重新配置</button>
-                    {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild}><RefreshCcw size={16}/>应用并重建</button>}
+                    <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)} disabled={props.busy}/>启用助手</label>
+                    <button className="ghost" onClick={props.onAdvancedModels} disabled={props.busy}><SlidersHorizontal size={16}/>高级模型设置</button>
+                    <button className="ghost" onClick={() => props.onOpenOperations('status')} disabled={props.busy}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
+                    <button className="primary no-margin" onClick={() => props.onStep('model')} disabled={props.busy}>重新配置</button>
+                    {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild} disabled={props.busy}><RefreshCcw size={16}/>应用并重建</button>}
                 </div>
             </div>
         </div>
@@ -502,6 +510,7 @@ function AssistantWizard(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+    modelDirty: boolean;
     platformDirty: boolean;
     selectedPlatform: PlatformKey;
     setSelectedPlatform: (value: PlatformKey) => void;
@@ -530,12 +539,19 @@ function AssistantWizard(props: {
     const previous = index > 0 ? steps[index - 1].id : null;
     const next = index < steps.length - 1 ? steps[index + 1].id : null;
     const modelReady = !!props.model?.provider && !!props.model?.default?.trim();
+    const goToStep = async (step: WizardStep) => {
+        if (step === props.step) return;
+        if (props.modelDirty && !(await props.onSaveModelService())) return;
+        if (props.soulDirty && !(await props.onSaveSoul())) return;
+        if (props.platformDirty && !(await props.onSaveCurrentPlatform())) return;
+        props.onStep(step);
+    };
 
     return (
         <div className="wizard-stack">
             <div className="wizard-steps">
                 {steps.map((item, itemIndex) => (
-                    <button key={item.id} className={props.step === item.id ? 'active' : itemIndex < index ? 'done' : ''} onClick={() => props.setupDone && props.onStep(item.id)} title={item.label} aria-label={item.label} disabled={!props.setupDone}>
+                    <button key={item.id} className={props.step === item.id ? 'active' : itemIndex < index ? 'done' : ''} onClick={() => goToStep(item.id)} title={item.label} aria-label={item.label} disabled={!props.setupDone || props.busy}>
                         <span>{itemIndex + 1}</span>
                     </button>
                 ))}
@@ -577,7 +593,7 @@ function AssistantWizard(props: {
                         onSave={props.onSaveSoul}
                         onDiscard={props.onDiscardSoul}
                     />
-                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={async () => {
+                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={(step) => step && goToStep(step)} onNext={async () => {
                         if (props.soulDirty && !(await props.onSaveSoul())) return;
                         props.onStep('platforms');
                     }} nextLabel="保存并下一步"/>
@@ -598,7 +614,7 @@ function AssistantWizard(props: {
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
                     />
-                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={props.onStep} onNext={async () => {
+                    <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={(step) => step && goToStep(step)} onNext={async () => {
                         if (props.platformDirty && !(await props.onSaveCurrentPlatform())) return;
                         props.onStep('finish');
                     }} nextLabel={props.platformDirty ? '保存并下一步' : props.hasPlatformBinding ? '下一步' : '暂不绑定平台，下一步'}/>
@@ -614,7 +630,7 @@ function AssistantWizard(props: {
                         <CheckItem ok={props.hasPlatformBinding} label={props.hasPlatformBinding ? '已绑定至少一个平台' : '暂未绑定平台，此助手不会参与运行'}/>
                     </div>
                     <div className="actions">
-                        <button className="ghost" onClick={() => previous && props.onStep(previous)} disabled={props.busy}><ChevronLeft size={16}/>上一步</button>
+                        <button className="ghost" onClick={() => previous && goToStep(previous)} disabled={props.busy}><ChevronLeft size={16}/>上一步</button>
                         {props.hasPlatformBinding ? (
                             <>
                                 <button className="ghost" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>仅完成，稍后应用</button>

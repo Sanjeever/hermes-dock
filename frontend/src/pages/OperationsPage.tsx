@@ -181,7 +181,7 @@ function StatusAndLogs(props: {
                     ) : (
                         <button className="primary no-margin" onClick={props.onStart} disabled={actionBusy}><Play size={16}/>启动容器</button>
                     )}
-                    <button className="ghost" onClick={props.onRebuild} disabled={actionBusy || props.needsRebuild}><RotateCcw size={16}/>应用并重建</button>
+                    {!props.needsRebuild && <button className="ghost" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用并重建</button>}
                     <button className="ghost" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}
