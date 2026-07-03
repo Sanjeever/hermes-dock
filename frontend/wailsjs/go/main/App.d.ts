@@ -12,6 +12,8 @@ export function DeleteProfile(arg1:string):Promise<void>;
 
 export function DeleteProvider(arg1:string):Promise<void>;
 
+export function DeleteSkill(arg1:string):Promise<void>;
+
 export function FactoryResetInstance():Promise<void>;
 
 export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
@@ -28,13 +30,19 @@ export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset
 
 export function GetProviderConfig():Promise<main.ProviderConfig>;
 
+export function GetSkillDetail(arg1:string):Promise<main.SkillDetail>;
+
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
+
+export function ListProfileSkills():Promise<main.SkillsState>;
 
 export function ListProfiles():Promise<main.ProfileRegistry>;
 
 export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 
 export function OpenEndpoint(arg1:string):Promise<void>;
+
+export function OpenSkillDirectory(arg1:string):Promise<void>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 

@@ -7,10 +7,14 @@ import {
     CompleteProfileSetup,
     CreateProfile,
     DeleteProfile,
+    DeleteSkill,
     FactoryResetInstance,
     FetchProviderConfigModelList,
     GetAppState,
+    GetSkillDetail,
+    ListProfileSkills,
     OpenEndpoint,
+    OpenSkillDirectory,
     ReadTextFile,
     RebuildHermes,
     RestartHermes,
@@ -37,7 +41,7 @@ import {EventsOn} from '../wailsjs/runtime/runtime';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillsState, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -92,6 +96,9 @@ function App() {
     const [weixinLoginProfile, setWeixinLoginProfile] = useState('');
     const [channelActionStatus, setChannelActionStatus] = useState<Record<string, string>>({});
     const [lastOperationError, setLastOperationError] = useState('');
+    const [skillsState, setSkillsState] = useState<SkillsState | null>(null);
+    const [skillDetail, setSkillDetail] = useState<SkillDetail | null>(null);
+    const [skillsStatus, setSkillsStatus] = useState('');
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
 
     useEffect(() => {
@@ -179,6 +186,12 @@ function App() {
     useEffect(() => {
         if (!state?.activeProfile || advancedDirty) return;
         setAdvancedPath(defaultAdvancedPath(state.activeProfile));
+    }, [state?.activeProfile]);
+
+    useEffect(() => {
+        if (!state?.activeProfile) return;
+        setSkillDetail(null);
+        loadSkills();
     }, [state?.activeProfile]);
 
     useEffect(() => {
@@ -298,6 +311,52 @@ function App() {
 
     async function deleteProfile(id: string) {
         return await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
+    }
+
+    async function loadSkills() {
+        setSkillsStatus('正在读取技能');
+        try {
+            const next = await ListProfileSkills();
+            setSkillsState(next as SkillsState);
+            setSkillsStatus('');
+        } catch (error) {
+            const message = String(error);
+            setSkillsStatus(message);
+            appendLog(message);
+        }
+    }
+
+    async function loadSkillDetail(path: string) {
+        setSkillsStatus('正在读取技能详情');
+        try {
+            const next = await GetSkillDetail(path);
+            setSkillDetail(next as SkillDetail);
+            setSkillsStatus('');
+        } catch (error) {
+            const message = String(error);
+            setSkillDetail(null);
+            setSkillsStatus(message);
+            appendLog(message);
+        }
+    }
+
+    async function deleteSkill(path: string) {
+        const ok = await run('正在删除技能', () => DeleteSkill(path), {rebuildRequired: true});
+        if (!ok) return false;
+        setSkillDetail(null);
+        await loadSkills();
+        setNotice({type: 'ok', message: '已删除技能并创建备份，重建后生效'});
+        return true;
+    }
+
+    async function openSkillDirectory(path: string) {
+        try {
+            await OpenSkillDirectory(path);
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+        }
     }
 
     function appendLog(line: string) {
@@ -848,6 +907,9 @@ function App() {
                         setSelectedPlatform={selectPlatform}
                         needsRebuild={needsRebuild}
                         hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound}
+                        skillsState={skillsState}
+                        skillDetail={skillDetail}
+                        skillsStatus={skillsStatus}
                         onSelect={selectProfile}
                         onCreate={createProfile}
                         onRename={(id, name) => run('正在更新助手', () => UpdateProfileName(id, name))}
@@ -868,6 +930,10 @@ function App() {
                         onFinishSetup={finishProfileSetup}
                         onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
+                        onRefreshSkills={loadSkills}
+                        onSkillDetail={loadSkillDetail}
+                        onDeleteSkill={deleteSkill}
+                        onOpenSkillDirectory={openSkillDirectory}
                     />
                 )}
 

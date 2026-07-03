@@ -60,6 +60,38 @@ export type ProfileEntry = { id: string; name: string; enabled: boolean; created
 export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
 export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
 export type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
+export type SkillSummary = {
+    name: string;
+    description: string;
+    version: string;
+    author: string;
+    platforms: string[];
+    tags: string[];
+    path: string;
+    category: string;
+    builtin: boolean;
+    conflict: boolean;
+    error: string;
+    sizeBytes: number;
+    updatedAt: string;
+};
+export type SkillsState = {
+    activeProfile: string;
+    skills: SkillSummary[];
+    total: number;
+    builtinCount: number;
+    customCount: number;
+    conflictCount: number;
+};
+export type SkillFileInfo = { path: string; sizeBytes: number; updatedAt: string };
+export type SkillDetail = SkillSummary & {
+    preview: string;
+    previewTruncated: boolean;
+    files: SkillFileInfo[];
+    fileCount: number;
+    filesTruncated: boolean;
+    conflictPaths: string[];
+};
 export type Notice = { type: 'ok' | 'error' | 'info'; message: string };
 export type RunOptions = { rebuildRequired?: boolean; beforeRefresh?: () => void; afterSuccess?: () => void };
 export type AppState = {

@@ -208,6 +208,47 @@ type TextFileRequest struct {
 	Reason  string `json:"reason"`
 }
 
+type SkillsState struct {
+	ActiveProfile string         `json:"activeProfile"`
+	Skills        []SkillSummary `json:"skills"`
+	Total         int            `json:"total"`
+	BuiltinCount  int            `json:"builtinCount"`
+	CustomCount   int            `json:"customCount"`
+	ConflictCount int            `json:"conflictCount"`
+}
+
+type SkillSummary struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Version     string   `json:"version"`
+	Author      string   `json:"author"`
+	Platforms   []string `json:"platforms"`
+	Tags        []string `json:"tags"`
+	Path        string   `json:"path"`
+	Category    string   `json:"category"`
+	Builtin     bool     `json:"builtin"`
+	Conflict    bool     `json:"conflict"`
+	Error       string   `json:"error"`
+	SizeBytes   int64    `json:"sizeBytes"`
+	UpdatedAt   string   `json:"updatedAt"`
+}
+
+type SkillDetail struct {
+	SkillSummary
+	Preview          string          `json:"preview"`
+	PreviewTruncated bool            `json:"previewTruncated"`
+	Files            []SkillFileInfo `json:"files"`
+	FileCount        int             `json:"fileCount"`
+	FilesTruncated   bool            `json:"filesTruncated"`
+	ConflictPaths    []string        `json:"conflictPaths"`
+}
+
+type SkillFileInfo struct {
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type WeComConfig struct {
 	BotID           string `json:"botId"`
 	Secret          string `json:"secret"`

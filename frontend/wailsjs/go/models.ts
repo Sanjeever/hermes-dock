@@ -616,6 +616,165 @@ export namespace main {
 	
 	
 	
+	export class SkillFileInfo {
+	    path: string;
+	    sizeBytes: number;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SkillFileInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	}
+	export class SkillDetail {
+	    name: string;
+	    description: string;
+	    version: string;
+	    author: string;
+	    platforms: string[];
+	    tags: string[];
+	    path: string;
+	    category: string;
+	    builtin: boolean;
+	    conflict: boolean;
+	    error: string;
+	    sizeBytes: number;
+	    updatedAt: string;
+	    preview: string;
+	    previewTruncated: boolean;
+	    files: SkillFileInfo[];
+	    fileCount: number;
+	    filesTruncated: boolean;
+	    conflictPaths: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new SkillDetail(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.version = source["version"];
+	        this.author = source["author"];
+	        this.platforms = source["platforms"];
+	        this.tags = source["tags"];
+	        this.path = source["path"];
+	        this.category = source["category"];
+	        this.builtin = source["builtin"];
+	        this.conflict = source["conflict"];
+	        this.error = source["error"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.updatedAt = source["updatedAt"];
+	        this.preview = source["preview"];
+	        this.previewTruncated = source["previewTruncated"];
+	        this.files = this.convertValues(source["files"], SkillFileInfo);
+	        this.fileCount = source["fileCount"];
+	        this.filesTruncated = source["filesTruncated"];
+	        this.conflictPaths = source["conflictPaths"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+	export class SkillSummary {
+	    name: string;
+	    description: string;
+	    version: string;
+	    author: string;
+	    platforms: string[];
+	    tags: string[];
+	    path: string;
+	    category: string;
+	    builtin: boolean;
+	    conflict: boolean;
+	    error: string;
+	    sizeBytes: number;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SkillSummary(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.version = source["version"];
+	        this.author = source["author"];
+	        this.platforms = source["platforms"];
+	        this.tags = source["tags"];
+	        this.path = source["path"];
+	        this.category = source["category"];
+	        this.builtin = source["builtin"];
+	        this.conflict = source["conflict"];
+	        this.error = source["error"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	}
+	export class SkillsState {
+	    activeProfile: string;
+	    skills: SkillSummary[];
+	    total: number;
+	    builtinCount: number;
+	    customCount: number;
+	    conflictCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new SkillsState(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.activeProfile = source["activeProfile"];
+	        this.skills = this.convertValues(source["skills"], SkillSummary);
+	        this.total = source["total"];
+	        this.builtinCount = source["builtinCount"];
+	        this.customCount = source["customCount"];
+	        this.conflictCount = source["conflictCount"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class TextFileRequest {
 	    path: string;
 	    content: string;

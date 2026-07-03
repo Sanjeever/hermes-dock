@@ -22,6 +22,10 @@ export function DeleteProvider(arg1) {
   return window['go']['main']['App']['DeleteProvider'](arg1);
 }
 
+export function DeleteSkill(arg1) {
+  return window['go']['main']['App']['DeleteSkill'](arg1);
+}
+
 export function FactoryResetInstance() {
   return window['go']['main']['App']['FactoryResetInstance']();
 }
@@ -54,8 +58,16 @@ export function GetProviderConfig() {
   return window['go']['main']['App']['GetProviderConfig']();
 }
 
+export function GetSkillDetail(arg1) {
+  return window['go']['main']['App']['GetSkillDetail'](arg1);
+}
+
 export function InitializeInstance(arg1) {
   return window['go']['main']['App']['InitializeInstance'](arg1);
+}
+
+export function ListProfileSkills() {
+  return window['go']['main']['App']['ListProfileSkills']();
 }
 
 export function ListProfiles() {
@@ -68,6 +80,10 @@ export function MoveProfile(arg1, arg2) {
 
 export function OpenEndpoint(arg1) {
   return window['go']['main']['App']['OpenEndpoint'](arg1);
+}
+
+export function OpenSkillDirectory(arg1) {
+  return window['go']['main']['App']['OpenSkillDirectory'](arg1);
 }
 
 export function ReadTextFile(arg1) {

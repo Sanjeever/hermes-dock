@@ -1,10 +1,10 @@
-import {useState} from 'react';
-import {Activity, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Plus, RefreshCcw, Save, SlidersHorizontal, Trash2} from 'lucide-react';
+import {useEffect, useState} from 'react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, FolderOpen, MoreHorizontal, Plus, RefreshCcw, Save, Search, SlidersHorizontal, Trash2} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
-import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, WizardStep} from '../types';
+import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillsState, WizardStep} from '../types';
 import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, providerReferenceLabels, slugProfileID, statusClassName} from '../utils';
 
 export function AssistantsPage(props: {
@@ -50,6 +50,9 @@ export function AssistantsPage(props: {
     setSelectedPlatform: (value: PlatformKey) => void;
     needsRebuild: boolean;
     hasPlatformBinding: boolean;
+    skillsState: SkillsState | null;
+    skillDetail: SkillDetail | null;
+    skillsStatus: string;
     onSelect: (id: string) => Promise<boolean>;
     onCreate: () => Promise<boolean>;
     onRename: (id: string, name: string) => Promise<boolean>;
@@ -70,6 +73,10 @@ export function AssistantsPage(props: {
     onFinishSetup: (apply: boolean) => Promise<boolean>;
     onRebuild: () => void;
     onOpenOperations: (tab: OperationsTab) => void;
+    onRefreshSkills: () => void;
+    onSkillDetail: (path: string) => void;
+    onDeleteSkill: (path: string) => Promise<boolean>;
+    onOpenSkillDirectory: (path: string) => void;
 }) {
     const [showCreate, setShowCreate] = useState(false);
     const [editingID, setEditingID] = useState('');
@@ -77,6 +84,7 @@ export function AssistantsPage(props: {
     const [deleteID, setDeleteID] = useState('');
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [showAdvancedModels, setShowAdvancedModels] = useState(false);
+    const [showSkills, setShowSkills] = useState(false);
     const profiles = props.state.profiles?.profiles || [];
     const activeProfile = profiles.find((profile) => profile.id === props.state.activeProfile) || profiles[0];
     const activeIndex = activeProfile ? profiles.findIndex((profile) => profile.id === activeProfile.id) : -1;
@@ -101,6 +109,7 @@ export function AssistantsPage(props: {
 
     const startWizard = (step: WizardStep) => {
         setShowAdvancedModels(false);
+        setShowSkills(false);
         props.setWizardStep(step);
     };
 
@@ -108,11 +117,12 @@ export function AssistantsPage(props: {
         const target = profiles.find((profile) => profile.id === id);
         if (!(await props.onSelect(id))) return;
         setShowAdvancedModels(false);
+        setShowSkills(false);
         props.setWizardStep(target?.setupCompletedAt ? null : 'model');
     };
 
     return (
-        <section className="assistant-layout">
+        <section className={`assistant-layout ${showSkills ? 'skills-mode' : ''}`}>
             {activeSetupDone && (
                 <div className="assistant-switcher">
                     {activeProfile && (
@@ -190,6 +200,7 @@ export function AssistantsPage(props: {
                             if (!(await props.onCreate())) return;
                             setShowCreate(false);
                             setShowAdvancedModels(false);
+                            setShowSkills(false);
                             props.setWizardStep('model');
                         }} disabled={props.busy || !canCreate}><Save size={16}/>开始配置</button>
                         <button className="ghost" onClick={() => setShowCreate(false)} disabled={props.busy}>取消</button>
@@ -199,7 +210,7 @@ export function AssistantsPage(props: {
 
             <div className="assistant-detail">
                 {!activeProfile && <div className="panel">暂无助手。</div>}
-                {activeProfile && !activeWizardStep && !showAdvancedModels && (
+                {activeProfile && !activeWizardStep && !showAdvancedModels && !showSkills && (
                     <AssistantSummary
                         profileName={activeProfile.name || activeProfile.id}
                         setupCompletedAt={activeProfile.setupCompletedAt || ''}
@@ -208,13 +219,33 @@ export function AssistantsPage(props: {
                         model={props.model}
                         providers={props.providers}
                         hasPlatformBinding={props.hasPlatformBinding}
+                        skillsState={props.skillsState}
                         needsRebuild={props.needsRebuild}
                         busy={props.busy}
                         onStep={startWizard}
                         onAdvancedModels={() => setShowAdvancedModels(true)}
+                        onSkills={() => {
+                            setShowAdvancedModels(false);
+                            setShowSkills(true);
+                            props.onRefreshSkills();
+                        }}
                         onEnabled={(enabled) => props.onEnabled(activeProfile.id, enabled)}
                         onRebuild={props.onRebuild}
                         onOpenOperations={props.onOpenOperations}
+                    />
+                )}
+                {activeProfile && !activeWizardStep && showSkills && (
+                    <SkillsPanel
+                        profileName={activeProfile.name || activeProfile.id}
+                        skillsState={props.skillsState}
+                        detail={props.skillDetail}
+                        status={props.skillsStatus}
+                        busy={props.busy}
+                        onBack={() => setShowSkills(false)}
+                        onRefresh={props.onRefreshSkills}
+                        onDetail={props.onSkillDetail}
+                        onDelete={props.onDeleteSkill}
+                        onOpenDirectory={props.onOpenSkillDirectory}
                     />
                 )}
                 {activeProfile && !activeWizardStep && showAdvancedModels && props.model && (
@@ -292,15 +323,18 @@ function AssistantSummary(props: {
     model: ModelConfig | null;
     providers: ProviderConfig;
     hasPlatformBinding: boolean;
+    skillsState: SkillsState | null;
     needsRebuild: boolean;
     busy: boolean;
     onStep: (step: WizardStep) => void;
     onAdvancedModels: () => void;
+    onSkills: () => void;
     onEnabled: (enabled: boolean) => void;
     onRebuild: () => void;
     onOpenOperations: (tab: OperationsTab) => void;
 }) {
     const provider = props.model ? props.providers.providers[props.model.provider] : undefined;
+    const skills = props.skillsState;
     return (
         <div className="assistant-summary">
             <div className="setup-card">
@@ -322,6 +356,10 @@ function AssistantSummary(props: {
                         <span>平台绑定</span>
                         <strong>{props.hasPlatformBinding ? '已绑定' : '暂未绑定'}</strong>
                     </button>
+                    <button onClick={props.onSkills}>
+                        <span>技能</span>
+                        <strong>{skills ? skillSummaryLabel(skills) : '正在读取'}</strong>
+                    </button>
                 </div>
                 <div className="setup-actions">
                     <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)} disabled={props.busy}/>启用助手</label>
@@ -333,6 +371,195 @@ function AssistantSummary(props: {
             </div>
         </div>
     );
+}
+
+function SkillsPanel(props: {
+    profileName: string;
+    skillsState: SkillsState | null;
+    detail: SkillDetail | null;
+    status: string;
+    busy: boolean;
+    onBack: () => void;
+    onRefresh: () => void;
+    onDetail: (path: string) => void;
+    onDelete: (path: string) => Promise<boolean>;
+    onOpenDirectory: (path: string) => void;
+}) {
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState<'all' | 'builtin' | 'custom' | 'conflict'>('all');
+    const [detailTab, setDetailTab] = useState<'overview' | 'skill' | 'files'>('overview');
+    const [deletePath, setDeletePath] = useState('');
+    const skills = props.skillsState?.skills || [];
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = skills.filter((skill) => {
+        if (filter === 'builtin' && !skill.builtin) return false;
+        if (filter === 'custom' && skill.builtin) return false;
+        if (filter === 'conflict' && !skill.conflict) return false;
+        if (!normalizedQuery) return true;
+        return [skill.name, skill.description, skill.category, skill.path].some((value) => (value || '').toLowerCase().includes(normalizedQuery));
+    });
+    const filteredPaths = filtered.map((skill) => skill.path).join('\n');
+    const activeDetail = props.detail && filtered.some((skill) => skill.path === props.detail?.path) ? props.detail : null;
+
+    useEffect(() => {
+        if (filtered.length === 0) return;
+        if (props.detail && filtered.some((skill) => skill.path === props.detail?.path)) return;
+        setDeletePath('');
+        setDetailTab('overview');
+        props.onDetail(filtered[0].path);
+    }, [filteredPaths, props.detail?.path]);
+
+    return (
+        <div className="skills-panel">
+            <div className="skills-shell">
+                <div className="skills-head">
+                    <div>
+                        <p className="eyebrow">当前助手：{props.profileName}</p>
+                        <h2>技能管理</h2>
+                        <p>{skillSummaryLine(props.skillsState)}</p>
+                    </div>
+                    <div className="skills-head-actions">
+                        <button className="ghost" onClick={props.onRefresh} disabled={props.busy}><RefreshCcw size={16}/>刷新</button>
+                        <button className="ghost" onClick={props.onBack} disabled={props.busy}><ChevronLeft size={16}/>返回摘要</button>
+                    </div>
+                </div>
+                <div className="skills-controls">
+                    <div className="skills-toolbar">
+                        <label className="skills-search">
+                            <Search size={16}/>
+                            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索技能名、描述或分类"/>
+                        </label>
+                        <div className="segmented compact">
+                            {[
+                                ['all', '全部'],
+                                ['builtin', '内置'],
+                                ['custom', '自定义'],
+                                ['conflict', '冲突'],
+                            ].map(([value, label]) => (
+                                <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value as typeof filter)}>{label}</button>
+                            ))}
+                        </div>
+                    </div>
+                    {props.status && <div className="inline-status skills-status">{props.status}</div>}
+                </div>
+                <div className="skills-workspace">
+                    <aside className="skill-list-pane">
+                        {filtered.length === 0 ? (
+                            <div className="skill-list-empty">{skills.length === 0 ? '当前助手还没有技能。' : '没有匹配的技能。'}</div>
+                        ) : (
+                            <div className="skill-list">
+                                {filtered.map((skill) => (
+                                    <button key={skill.path} className={`skill-row ${skill.conflict ? 'conflict' : ''} ${activeDetail?.path === skill.path ? 'selected' : ''}`} onClick={() => {
+                                        setDeletePath('');
+                                        setDetailTab('overview');
+                                        props.onDetail(skill.path);
+                                    }}>
+                                        <span className="skill-row-main">
+                                            <span className="skill-row-title">
+                                                <strong>{skill.name}</strong>
+                                                <Badge label={skill.builtin ? '内置' : '自定义'} tone={skill.builtin ? 'muted' : 'ok'}/>
+                                            </span>
+                                            <small>{skill.description || skill.error || '无描述'}</small>
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </aside>
+                    <section className="skill-detail-pane">
+                        {!activeDetail ? (
+                            <div className="skill-detail-empty">
+                                <p className="eyebrow">技能详情</p>
+                                <h2>{filtered.length === 0 ? '暂无技能' : '正在读取'}</h2>
+                                <p>{filtered.length === 0 ? '调整搜索或筛选条件后再查看。' : '详情会显示在这里。'}</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="skill-detail-head">
+                                    <div>
+                                        <p className="eyebrow">{activeDetail.builtin ? '内置技能' : '自定义技能'}</p>
+                                        <h2>{activeDetail.name}</h2>
+                                        <p>{activeDetail.description || activeDetail.error || '无描述'}</p>
+                                    </div>
+                                    <button className="ghost" onClick={() => props.onOpenDirectory(activeDetail.path)} disabled={props.busy}><FolderOpen size={16}/>打开目录</button>
+                                </div>
+                                <div className="skill-detail-tabs">
+                                    {[
+                                        ['overview', '概览'],
+                                        ['skill', 'SKILL.md'],
+                                        ['files', `文件 ${activeDetail.fileCount}`],
+                                    ].map(([value, label]) => (
+                                        <button key={value} className={detailTab === value ? 'selected' : ''} onClick={() => setDetailTab(value as typeof detailTab)}>{label}</button>
+                                    ))}
+                                </div>
+                                {detailTab === 'overview' && (
+                                    <div className="skill-detail-section">
+                                        <dl className="skill-meta-list">
+                                            <Meta label="路径" value={activeDetail.path}/>
+                                            <Meta label="版本" value={activeDetail.version || '未声明'}/>
+                                            <Meta label="作者" value={activeDetail.author || '未声明'}/>
+                                            <Meta label="平台" value={activeDetail.platforms?.length ? activeDetail.platforms.join(', ') : '未限制'}/>
+                                            <Meta label="标签" value={activeDetail.tags?.length ? activeDetail.tags.join(', ') : '未声明'}/>
+                                            <Meta label="大小" value={formatBytes(activeDetail.sizeBytes)}/>
+                                        </dl>
+                                        {(activeDetail.conflictPaths?.length || 0) > 0 && (
+                                            <div className="form-warning">发现同名技能：{activeDetail.conflictPaths.join('、')}</div>
+                                        )}
+                                        <div className="skill-danger-zone">
+                                            <div>
+                                                <strong>危险操作</strong>
+                                                <p>删除前会自动备份，重建后生效。</p>
+                                            </div>
+                                            {deletePath === activeDetail.path ? (
+                                                <div className="skill-delete-confirm">
+                                                    <span>确认删除 {activeDetail.name}？</span>
+                                                    <button className="danger-button compact" onClick={async () => {
+                                                        if (await props.onDelete(activeDetail.path)) setDeletePath('');
+                                                    }} disabled={props.busy}><Trash2 size={16}/>确认删除</button>
+                                                    <button className="ghost" onClick={() => setDeletePath('')} disabled={props.busy}>取消</button>
+                                                </div>
+                                            ) : (
+                                                <button className="ghost danger-inline" onClick={() => setDeletePath(activeDetail.path)} disabled={props.busy}><Trash2 size={16}/>删除技能</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                {detailTab === 'skill' && (
+                                    <pre className="skill-preview">{activeDetail.preview}{activeDetail.previewTruncated ? '\n\n...预览已截断' : ''}</pre>
+                                )}
+                                {detailTab === 'files' && (
+                                    <div className="skill-files">
+                                        {activeDetail.files.map((file) => (
+                                            <div key={file.path}>
+                                                <code>{file.path}</code>
+                                                <span>{formatBytes(file.sizeBytes)}</span>
+                                            </div>
+                                        ))}
+                                        {activeDetail.filesTruncated && <div className="muted">还有更多文件未显示。</div>}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </section>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function skillSummaryLine(state: SkillsState | null) {
+    if (!state) return '正在读取技能';
+    const parts = [`${state.total} 个技能`, `${state.builtinCount} 内置`, `${state.customCount} 自定义`];
+    if (state.conflictCount > 0) parts.push(`${state.conflictCount} 组冲突`);
+    return parts.join(' · ');
+}
+
+function Badge(props: { label: string; tone: 'ok' | 'bad' | 'muted' }) {
+    return <span className={`skill-badge ${props.tone}`}>{props.label}</span>;
+}
+
+function Meta(props: { label: string; value: string }) {
+    return <div><dt>{props.label}</dt><dd>{props.value}</dd></div>;
 }
 
 function AuxiliaryModelsPanel(props: {
@@ -855,6 +1082,19 @@ function wizardStepHelp(step: WizardStep) {
         default:
             return '';
     }
+}
+
+function skillSummaryLabel(state: SkillsState) {
+    const base = `已安装 ${state.total} 个`;
+    if (state.conflictCount > 0) return `${base}，冲突 ${state.conflictCount} 组`;
+    return `${base}，内置 ${state.builtinCount} 个，自定义 ${state.customCount} 个`;
+}
+
+function formatBytes(value: number) {
+    if (!value) return '0 B';
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function suggestProfileID(profiles: Array<{ id: string }>, name: string) {
