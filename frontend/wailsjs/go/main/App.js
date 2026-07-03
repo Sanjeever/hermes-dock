@@ -62,8 +62,16 @@ export function GetSkillDetail(arg1) {
   return window['go']['main']['App']['GetSkillDetail'](arg1);
 }
 
+export function GetSkillHubDetail(arg1) {
+  return window['go']['main']['App']['GetSkillHubDetail'](arg1);
+}
+
 export function InitializeInstance(arg1) {
   return window['go']['main']['App']['InitializeInstance'](arg1);
+}
+
+export function InstallSkillHubSkill(arg1) {
+  return window['go']['main']['App']['InstallSkillHubSkill'](arg1);
 }
 
 export function ListProfileSkills() {
@@ -72,6 +80,10 @@ export function ListProfileSkills() {
 
 export function ListProfiles() {
   return window['go']['main']['App']['ListProfiles']();
+}
+
+export function ListSkillHubSkills(arg1) {
+  return window['go']['main']['App']['ListSkillHubSkills'](arg1);
 }
 
 export function MoveProfile(arg1, arg2) {

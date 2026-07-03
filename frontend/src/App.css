@@ -116,6 +116,18 @@ code {
     overflow: auto;
 }
 
+.workspace.skills-workspace-mode {
+    box-sizing: border-box;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.workspace.skills-workspace-mode > .assistant-layout.skills-mode {
+    grid-row: 5;
+}
+
 .topbar {
     display: flex;
     align-items: center;
@@ -571,7 +583,8 @@ button:disabled {
 .assistant-layout.skills-mode {
     width: min(100%, 1320px);
     max-width: 1320px;
-    height: calc(100vh - 112px);
+    height: 100%;
+    min-height: 0;
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
     overflow: hidden;
@@ -1479,6 +1492,30 @@ textarea:focus {
     flex-wrap: wrap;
 }
 
+.skills-view-toggle {
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    border-radius: 8px;
+    padding: 4px;
+    background: #f0eadc;
+}
+
+.skills-view-toggle button {
+    min-height: 30px;
+    border: 0;
+    border-radius: 6px;
+    padding: 0 12px;
+    background: transparent;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.skills-view-toggle button.selected {
+    background: #151916;
+    color: #ffffff;
+}
+
 .skills-controls {
     display: grid;
     min-height: 0;
@@ -1508,6 +1545,21 @@ textarea:focus {
     border: 0;
     background: transparent;
     font: inherit;
+    outline: none;
+}
+
+.hub-toolbar {
+    grid-template-columns: minmax(0, 1fr) 150px auto auto;
+}
+
+.hub-toolbar select {
+    min-height: 40px;
+    border: 0;
+    border-radius: 8px;
+    padding: 0 30px 0 12px;
+    background: #f0eadc;
+    font: inherit;
+    font-weight: 800;
     outline: none;
 }
 
@@ -1790,6 +1842,34 @@ textarea:focus {
     color: #7d1b13;
     font-size: 12px;
     font-weight: 800;
+}
+
+.skill-inline-action {
+    width: max-content;
+}
+
+.hub-pager {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px 2px;
+    color: #596056;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.hub-pager.compact {
+    grid-template-columns: auto auto auto;
+    padding: 0;
+}
+
+.hub-pager.compact .ghost {
+    min-height: 40px;
+}
+
+.hub-pager button:last-child {
+    justify-self: end;
 }
 
 .skill-detail-empty {
@@ -2136,10 +2216,14 @@ textarea:focus {
         grid-template-columns: 1fr;
     }
 
+    .hub-toolbar {
+        grid-template-columns: 1fr;
+    }
+
     .skills-shell {
-        height: auto;
+        height: 100%;
         min-height: 0;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .skills-head,
@@ -2148,8 +2232,13 @@ textarea:focus {
         flex-direction: column;
     }
 
+    .skills-view-toggle {
+        width: 100%;
+    }
+
     .skills-workspace {
         grid-template-columns: 1fr;
+        grid-template-rows: minmax(150px, 38%) minmax(0, 1fr);
         min-height: 0;
     }
 
@@ -2164,8 +2253,9 @@ textarea:focus {
 
     .assistant-layout.skills-mode {
         max-width: 980px;
-        height: auto;
-        overflow: visible;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .assistant-layout.skills-mode .assistant-detail {

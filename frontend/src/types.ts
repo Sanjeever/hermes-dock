@@ -92,6 +92,43 @@ export type SkillDetail = SkillSummary & {
     filesTruncated: boolean;
     conflictPaths: string[];
 };
+export type SkillHubQuery = { keyword: string; category: string; page: number; pageSize: number; sortBy: string; order: string };
+export type SkillHubCategory = { key: string; name: string };
+export type SkillHubSkill = {
+    slug: string;
+    name: string;
+    description: string;
+    category: string;
+    categoryName: string;
+    source: string;
+    version: string;
+    downloads: number;
+    stars: number;
+    installs: number;
+    requiresApiKey: boolean;
+    verified: boolean;
+    installed: boolean;
+    installedPath: string;
+    tags: string[];
+};
+export type SkillHubState = {
+    skills: SkillHubSkill[];
+    categories: SkillHubCategory[];
+    total: number;
+    page: number;
+    pageSize: number;
+};
+export type SkillHubSecurity = { provider: string; status: string; text: string; url: string };
+export type SkillHubFile = { path: string; sha256: string; size: number };
+export type SkillHubSignature = { signed: boolean; keyId: string; contentHash: string; packageMd5: string; payload: string };
+export type SkillHubDetail = SkillHubSkill & {
+    ownerName: string;
+    homepage: string;
+    securityReports: SkillHubSecurity[];
+    files: SkillHubFile[];
+    fileCount: number;
+    signature: SkillHubSignature;
+};
 export type Notice = { type: 'ok' | 'error' | 'info'; message: string };
 export type RunOptions = { rebuildRequired?: boolean; beforeRefresh?: () => void; afterSuccess?: () => void };
 export type AppState = {

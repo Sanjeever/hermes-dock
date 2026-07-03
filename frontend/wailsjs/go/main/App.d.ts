@@ -32,11 +32,17 @@ export function GetProviderConfig():Promise<main.ProviderConfig>;
 
 export function GetSkillDetail(arg1:string):Promise<main.SkillDetail>;
 
+export function GetSkillHubDetail(arg1:string):Promise<main.SkillHubDetail>;
+
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
+
+export function InstallSkillHubSkill(arg1:string):Promise<void>;
 
 export function ListProfileSkills():Promise<main.SkillsState>;
 
 export function ListProfiles():Promise<main.ProfileRegistry>;
+
+export function ListSkillHubSkills(arg1:main.SkillHubQuery):Promise<main.SkillHubState>;
 
 export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 

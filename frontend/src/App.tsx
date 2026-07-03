@@ -12,7 +12,10 @@ import {
     FetchProviderConfigModelList,
     GetAppState,
     GetSkillDetail,
+    GetSkillHubDetail,
+    InstallSkillHubSkill,
     ListProfileSkills,
+    ListSkillHubSkills,
     OpenEndpoint,
     OpenSkillDirectory,
     ReadTextFile,
@@ -41,7 +44,7 @@ import {EventsOn} from '../wailsjs/runtime/runtime';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillsState, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -99,6 +102,10 @@ function App() {
     const [skillsState, setSkillsState] = useState<SkillsState | null>(null);
     const [skillDetail, setSkillDetail] = useState<SkillDetail | null>(null);
     const [skillsStatus, setSkillsStatus] = useState('');
+    const [skillHubState, setSkillHubState] = useState<SkillHubState | null>(null);
+    const [skillHubDetail, setSkillHubDetail] = useState<SkillHubDetail | null>(null);
+    const [skillHubStatus, setSkillHubStatus] = useState('');
+    const [assistantSkillsMode, setAssistantSkillsMode] = useState(false);
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
 
     useEffect(() => {
@@ -191,6 +198,9 @@ function App() {
     useEffect(() => {
         if (!state?.activeProfile) return;
         setSkillDetail(null);
+        setSkillHubDetail(null);
+        setSkillHubState(null);
+        setSkillHubStatus('');
         loadSkills();
     }, [state?.activeProfile]);
 
@@ -357,6 +367,42 @@ function App() {
             appendLog(message);
             setNotice({type: 'error', message});
         }
+    }
+
+    async function loadSkillHubSkills(query: SkillHubQuery) {
+        setSkillHubStatus('正在读取技能中心');
+        try {
+            const next = await ListSkillHubSkills(query);
+            setSkillHubState(next as SkillHubState);
+            setSkillHubStatus('');
+        } catch (error) {
+            const message = String(error);
+            setSkillHubStatus(message);
+            appendLog(message);
+        }
+    }
+
+    async function loadSkillHubDetail(slug: string) {
+        setSkillHubStatus('正在读取技能详情');
+        try {
+            const next = await GetSkillHubDetail(slug);
+            setSkillHubDetail(next as SkillHubDetail);
+            setSkillHubStatus('');
+        } catch (error) {
+            const message = String(error);
+            setSkillHubDetail(null);
+            setSkillHubStatus(message);
+            appendLog(message);
+        }
+    }
+
+    async function installSkillHubSkill(slug: string) {
+        const ok = await run('正在安装技能', () => InstallSkillHubSkill(slug), {rebuildRequired: true});
+        if (!ok) return false;
+        await loadSkills();
+        await loadSkillHubDetail(slug);
+        setNotice({type: 'ok', message: '已安装技能，重建后生效'});
+        return true;
     }
 
     function appendLog(line: string) {
@@ -803,7 +849,7 @@ function App() {
                 </div>
             </aside>
 
-            <main className="workspace">
+            <main className={`workspace ${page === 'assistants' && assistantSkillsMode ? 'skills-workspace-mode' : ''}`}>
                 <header className="topbar">
                     <div>
                         <h1>{titleFor(page)}</h1>
@@ -910,6 +956,9 @@ function App() {
                         skillsState={skillsState}
                         skillDetail={skillDetail}
                         skillsStatus={skillsStatus}
+                        skillHubState={skillHubState}
+                        skillHubDetail={skillHubDetail}
+                        skillHubStatus={skillHubStatus}
                         onSelect={selectProfile}
                         onCreate={createProfile}
                         onRename={(id, name) => run('正在更新助手', () => UpdateProfileName(id, name))}
@@ -934,6 +983,10 @@ function App() {
                         onSkillDetail={loadSkillDetail}
                         onDeleteSkill={deleteSkill}
                         onOpenSkillDirectory={openSkillDirectory}
+                        onSearchSkillHub={loadSkillHubSkills}
+                        onSkillHubDetail={loadSkillHubDetail}
+                        onInstallSkillHubSkill={installSkillHubSkill}
+                        onSkillsModeChange={setAssistantSkillsMode}
                     />
                 )}
 

@@ -249,6 +249,77 @@ type SkillFileInfo struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
+type SkillHubQuery struct {
+	Keyword  string `json:"keyword"`
+	Category string `json:"category"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"pageSize"`
+	SortBy   string `json:"sortBy"`
+	Order    string `json:"order"`
+}
+
+type SkillHubState struct {
+	Skills     []SkillHubSkill    `json:"skills"`
+	Categories []SkillHubCategory `json:"categories"`
+	Total      int                `json:"total"`
+	Page       int                `json:"page"`
+	PageSize   int                `json:"pageSize"`
+}
+
+type SkillHubCategory struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+type SkillHubSkill struct {
+	Slug           string   `json:"slug"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Category       string   `json:"category"`
+	CategoryName   string   `json:"categoryName"`
+	Source         string   `json:"source"`
+	Version        string   `json:"version"`
+	Downloads      int      `json:"downloads"`
+	Stars          int      `json:"stars"`
+	Installs       int      `json:"installs"`
+	RequiresAPIKey bool     `json:"requiresApiKey"`
+	Verified       bool     `json:"verified"`
+	Installed      bool     `json:"installed"`
+	InstalledPath  string   `json:"installedPath"`
+	Tags           []string `json:"tags"`
+}
+
+type SkillHubDetail struct {
+	SkillHubSkill
+	OwnerName       string             `json:"ownerName"`
+	Homepage        string             `json:"homepage"`
+	SecurityReports []SkillHubSecurity `json:"securityReports"`
+	Files           []SkillHubFile     `json:"files"`
+	FileCount       int                `json:"fileCount"`
+	Signature       SkillHubSignature  `json:"signature"`
+}
+
+type SkillHubSecurity struct {
+	Provider string `json:"provider"`
+	Status   string `json:"status"`
+	Text     string `json:"text"`
+	URL      string `json:"url"`
+}
+
+type SkillHubFile struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
+type SkillHubSignature struct {
+	Signed      bool   `json:"signed"`
+	KeyID       string `json:"keyId"`
+	ContentHash string `json:"contentHash"`
+	PackageMD5  string `json:"packageMd5"`
+	Payload     string `json:"payload"`
+}
+
 type WeComConfig struct {
 	BotID           string `json:"botId"`
 	Secret          string `json:"secret"`
