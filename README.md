@@ -102,7 +102,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 
 `launcher/` 是启动器自己的元数据目录。这里保存状态、profile registry、备份和临时 helper，不应该放用户业务数据或密钥。
 
-Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `launcher/web-sessions.json`，访问日志保存在 `launcher/logs/web-server.log`。首次创建时 Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码为 `123456`。界面会提示用户修改默认密码；关闭窗口后桌面主进程默认后台常驻，显式退出后 Web 管理停止。
+Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `launcher/web-sessions.json`，访问日志保存在 `launcher/logs/web-server.log`。首次创建时 Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码为 `123456`。界面会提示用户修改默认密码；关闭窗口会退出桌面主进程并停止 Web 管理。
 
 `data/.dock/` 保存 runner 的派生运行清单和运行状态。这里的文件可由 Hermes Dock 重新生成，不是用户业务数据。
 

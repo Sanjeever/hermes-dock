@@ -102,7 +102,7 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - Wails 事件用于流式输出 Docker 日志、命令进度和微信扫码状态。
 - 内置 Web 管理服务运行在 Wails 桌面主进程内，随主进程启动，不做独立 server 二进制、CLI/headless 或系统服务安装。
 - Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码 `123456`；只使用访问密码，不使用用户名。
-- 关闭窗口默认隐藏到后台，Web 管理继续可访问；显式退出主进程时 Web 管理停止。
+- 关闭窗口会退出桌面主进程并停止 Web 管理，不保持托盘后台常驻。
 - Web 业务调用使用白名单 RPC：`POST /api/rpc`，事件使用 `/ws/events`，不要做任意 Go 方法反射调用。
 - Web 版 `GetAppState` 不返回完整 `Environment`。
 - Web 访问日志只记录启动/停止、登录结果、RPC 方法名和失败摘要，不记录请求体、token、API key、secret。

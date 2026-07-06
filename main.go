@@ -36,7 +36,7 @@ func main() {
 		BackgroundColour:  &options.RGBA{R: 236, G: 232, B: 222, A: 1},
 		OnStartup:         app.startup,
 		OnShutdown:        app.shutdown,
-		HideWindowOnClose: true,
+		HideWindowOnClose: false,
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "hermes-dock",
 			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
