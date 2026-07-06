@@ -2191,7 +2191,7 @@ textarea:focus {
     font-weight: 800;
 }
 
-.icon-button {
+.web-address-row .icon-button {
     width: 34px;
     min-height: 34px;
     justify-content: center;
