@@ -39,15 +39,20 @@ import {
     TestModel,
     MoveProfile,
     UpdateProfileName,
-} from '../wailsjs/go/main/App';
-import {EventsOn} from '../wailsjs/runtime/runtime';
+    SaveWebSettings,
+    ChangeWebPassword,
+    ResetWebPassword,
+    isWebRuntime,
+} from './services/api';
+import {EventsOn} from './services/events';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
 import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from './types';
-import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
+import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig, webAdvancedFileOptions} from './utils';
 
 function App() {
+    const webRuntime = isWebRuntime();
     const [page, setPage] = useState<Page>('assistants');
     const [operationsTab, setOperationsTab] = useState<OperationsTab>('status');
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
@@ -196,6 +201,15 @@ function App() {
     }, [state?.activeProfile]);
 
     useEffect(() => {
+        if (!webRuntime || advancedDirty) return;
+        const options = webAdvancedFileOptions(state?.activeProfile || 'default');
+        if (!options.some((option) => option.value === advancedPath)) {
+            setAdvancedPath(options[0].value);
+            setAdvancedOpen(false);
+        }
+    }, [webRuntime, state?.activeProfile, advancedPath, advancedDirty]);
+
+    useEffect(() => {
         if (!state?.activeProfile) return;
         setSkillDetail(null);
         setSkillHubDetail(null);
@@ -320,7 +334,7 @@ function App() {
     }
 
     async function deleteProfile(id: string) {
-        return await run('正在删除 Profile', () => DeleteProfile(id), {rebuildRequired: true});
+        return await run('正在删除 Profile', () => DeleteProfile(id, id), {rebuildRequired: true});
     }
 
     async function loadSkills() {
@@ -503,7 +517,16 @@ function App() {
         setNotice({type: 'info', message: '正在保存文件'});
         setAdvancedStatus('正在保存文件');
         try {
-            await SaveTextFile({path: advancedPath, content: advancedContent, reason: 'before-advanced-save'});
+            let confirm = '';
+            if (webRuntime && advancedPath === 'docker-compose.override.yaml') {
+                confirm = window.prompt('输入“确认”保存 Docker Compose 覆盖文件') || '';
+                if (confirm !== '确认') {
+                    setAdvancedStatus('已取消保存');
+                    setNotice({type: 'error', message: '已取消保存'});
+                    return;
+                }
+            }
+            await SaveTextFile({path: advancedPath, content: advancedContent, reason: 'before-advanced-save', confirm});
             setAdvancedDirty(false);
             setNeedsRebuild(true);
             const refreshMessage = await refresh();
@@ -688,6 +711,10 @@ function App() {
     }
 
     async function factoryReset() {
+        if (webRuntime) {
+            setNotice({type: 'error', message: 'Web 管理不提供恢复出厂设置'});
+            return;
+        }
         await run('正在恢复出厂设置', FactoryResetInstance, {
             afterSuccess: () => {
                 setLogs([]);
@@ -982,7 +1009,7 @@ function App() {
                         onRefreshSkills={loadSkills}
                         onSkillDetail={loadSkillDetail}
                         onDeleteSkill={deleteSkill}
-                        onOpenSkillDirectory={openSkillDirectory}
+                        onOpenSkillDirectory={webRuntime ? async () => undefined : openSkillDirectory}
                         onSearchSkillHub={loadSkillHubSkills}
                         onSkillHubDetail={loadSkillHubDetail}
                         onInstallSkillHubSkill={installSkillHubSkill}
@@ -1009,7 +1036,7 @@ function App() {
                         wecomBound={!!wecomBound}
                         feishuBound={!!feishuBound}
                         weixinHomeChannel={weixinHomeChannel}
-                        advancedOptions={advancedFileOptions(state.activeProfile || 'default')}
+                        advancedOptions={webRuntime ? webAdvancedFileOptions(state.activeProfile || 'default') : advancedFileOptions(state.activeProfile || 'default')}
                         advancedPath={advancedPath}
                         setAdvancedPath={changeAdvancedPath}
                         advancedOpen={advancedOpen}
@@ -1047,6 +1074,11 @@ function App() {
                         onSaveAdvanced={saveAdvancedFile}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
+                        webRuntime={webRuntime}
+                        webStatus={state.web}
+                        onSaveWebSettings={(settings) => run('正在保存 Web 管理设置', () => SaveWebSettings(settings))}
+                        onChangeWebPassword={(oldPassword, newPassword) => run('正在修改 Web 访问密码', () => ChangeWebPassword(oldPassword, newPassword))}
+                        onResetWebPassword={() => run('正在重置 Web 访问密码', ResetWebPassword)}
                     />
                 )}
             </main>

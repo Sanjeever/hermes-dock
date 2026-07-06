@@ -15,6 +15,41 @@ type AppState struct {
 	DockerAvailable  bool            `json:"dockerAvailable"`
 	ComposeAvailable bool            `json:"composeAvailable"`
 	ContainerStatus  string          `json:"containerStatus"`
+	Web              WebStatus       `json:"web"`
+}
+
+type WebStatus struct {
+	Enabled              bool     `json:"enabled"`
+	Running              bool     `json:"running"`
+	Host                 string   `json:"host"`
+	Port                 string   `json:"port"`
+	LocalURL             string   `json:"localUrl"`
+	LanURLs              []string `json:"lanUrls"`
+	PrimaryURL           string   `json:"primaryUrl"`
+	UsingDefaultPassword bool     `json:"usingDefaultPassword"`
+	Error                string   `json:"error"`
+}
+
+type WebSettingsRequest struct {
+	Enabled bool   `json:"enabled"`
+	Host    string `json:"host"`
+	Port    string `json:"port"`
+}
+
+type WebTextFileRequest struct {
+	Kind    string `json:"kind"`
+	Content string `json:"content"`
+	Confirm string `json:"confirm"`
+}
+
+type DeleteProfileRequest struct {
+	ID      string `json:"id"`
+	Confirm string `json:"confirm"`
+}
+
+type DeleteSkillRequest struct {
+	Path    string `json:"path"`
+	Confirm bool   `json:"confirm"`
 }
 
 type LauncherState struct {

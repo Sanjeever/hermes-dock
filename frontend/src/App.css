@@ -2115,6 +2115,205 @@ textarea:focus {
     font-size: 16px;
 }
 
+.web-management-card {
+    display: grid;
+    gap: 16px;
+}
+
+.web-management-header {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.web-management-header h3 {
+    margin: 2px 0 6px;
+    font-size: 20px;
+    letter-spacing: 0;
+}
+
+.web-management-header p {
+    margin: 0;
+    color: #5d6559;
+}
+
+.web-password-warning {
+    width: fit-content;
+    border-radius: 6px;
+    background: #fff2c7;
+    color: #6d4d06;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.web-management-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+}
+
+.web-addresses {
+    display: grid;
+    gap: 8px;
+}
+
+.web-address-row {
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr) 34px auto;
+    gap: 8px;
+    align-items: center;
+    min-height: 36px;
+}
+
+.web-address-row span {
+    color: #60685d;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.web-address-row code {
+    overflow: hidden;
+    border-radius: 6px;
+    background: #f4efe3;
+    padding: 8px 10px;
+    color: #2f352d;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.web-address-row em {
+    color: #47651f;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.icon-button {
+    width: 34px;
+    min-height: 34px;
+    justify-content: center;
+    padding: 0;
+}
+
+.web-qr {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    color: #60685d;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.web-qr svg {
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px;
+}
+
+.web-settings-row,
+.web-password-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, auto));
+    gap: 10px;
+    align-items: end;
+    justify-content: start;
+}
+
+.web-settings-row label {
+    display: grid;
+    gap: 6px;
+    color: #60685d;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.web-settings-row input,
+.web-settings-row select,
+.web-password-row input {
+    min-height: 38px;
+}
+
+.switch-line {
+    grid-template-columns: auto auto;
+    align-items: center;
+}
+
+.switch-line input {
+    width: 18px;
+    min-height: 18px;
+}
+
+.danger-text {
+    color: #9b2f22;
+}
+
+.web-login-screen {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+    background: #ece8de;
+}
+
+.web-login-card {
+    display: grid;
+    width: min(420px, 100%);
+    gap: 16px;
+    border-radius: 8px;
+    background: #fffaf0;
+    padding: 24px;
+    box-shadow: 0 18px 46px rgba(44, 48, 39, 0.16);
+}
+
+.web-login-card h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    letter-spacing: 0;
+}
+
+.web-login-card p {
+    margin: 0;
+    color: #62695d;
+}
+
+.web-login-card input {
+    min-height: 42px;
+}
+
+.web-default-password-banner {
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    background: #fff2c7;
+    color: #684a08;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.web-default-password-banner button,
+.web-logout-button {
+    min-height: 30px;
+    border-color: rgba(104, 74, 8, 0.2);
+    background: rgba(255, 255, 255, 0.56);
+    color: #684a08;
+}
+
+.web-logout-button {
+    position: fixed;
+    z-index: 30;
+    right: 16px;
+    bottom: 16px;
+    box-shadow: 0 10px 24px rgba(44, 48, 39, 0.14);
+}
+
 @media (max-width: 980px) {
     .shell {
         grid-template-columns: 1fr;
@@ -2144,6 +2343,26 @@ textarea:focus {
     .provider-grid,
     .platform-cards {
         grid-template-columns: 1fr;
+    }
+
+    .web-management-header,
+    .web-management-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .web-management-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .web-settings-row,
+    .web-password-row,
+    .web-address-row {
+        grid-template-columns: 1fr;
+    }
+
+    .web-qr {
+        justify-items: start;
     }
 
     .ops-tabs {

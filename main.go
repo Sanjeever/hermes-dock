@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -32,8 +33,18 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 236, G: 232, B: 222, A: 1},
-		OnStartup:        app.startup,
+		BackgroundColour:  &options.RGBA{R: 236, G: 232, B: 222, A: 1},
+		OnStartup:         app.startup,
+		OnShutdown:        app.shutdown,
+		HideWindowOnClose: true,
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "hermes-dock",
+			OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
+				if app.ctx != nil {
+					runtime.Show(app.ctx)
+				}
+			},
+		},
 		Bind: []interface{}{
 			app,
 		},

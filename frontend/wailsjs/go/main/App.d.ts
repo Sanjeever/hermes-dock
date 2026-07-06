@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function CancelWeixinLogin():Promise<void>;
 
+export function ChangeWebPassword(arg1:string,arg2:string):Promise<void>;
+
 export function CompleteProfileSetup(arg1:string):Promise<void>;
 
 export function CreateProfile(arg1:main.CreateProfileRequest):Promise<void>;
@@ -50,9 +52,13 @@ export function OpenEndpoint(arg1:string):Promise<void>;
 
 export function OpenSkillDirectory(arg1:string):Promise<void>;
 
+export function OpenWebManagement():Promise<void>;
+
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function RebuildHermes():Promise<void>;
+
+export function ResetWebPassword():Promise<void>;
 
 export function RestartHermes():Promise<void>;
 
@@ -69,6 +75,8 @@ export function SaveProviderConfig(arg1:main.ProviderConfig):Promise<void>;
 export function SaveTextFile(arg1:main.TextFileRequest):Promise<void>;
 
 export function SaveWeComConfig(arg1:main.WeComConfig):Promise<void>;
+
+export function SaveWebSettings(arg1:main.WebSettingsRequest):Promise<void>;
 
 export function SelectProfile(arg1:string):Promise<void>;
 

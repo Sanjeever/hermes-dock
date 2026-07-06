@@ -1,10 +1,12 @@
 import type {RefObject} from 'react';
+import {useEffect, useState} from 'react';
 import {Clipboard, ExternalLink, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
+import {QRCodeSVG} from 'qrcode.react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
 import {Health} from '../components/primitives';
-import type {AppState, ComposeSettings, OperationsTab} from '../types';
+import type {AppState, ComposeSettings, OperationsTab, WebSettingsRequest, WebStatus} from '../types';
 import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
@@ -54,13 +56,19 @@ export function OperationsPage(props: {
     onSaveAdvanced: () => void;
     onFactoryReset: () => Promise<void>;
     resetConfirmPhrase: string;
+    webRuntime: boolean;
+    webStatus: WebStatus;
+    onSaveWebSettings: (settings: WebSettingsRequest) => Promise<boolean>;
+    onChangeWebPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
+    onResetWebPassword: () => Promise<boolean>;
 }) {
-    const tabs: Array<{ id: OperationsTab; label: string }> = [
+    const allTabs: Array<{ id: OperationsTab; label: string }> = [
         {id: 'status', label: '运行控制'},
         {id: 'deploy', label: '部署参数'},
         {id: 'channels', label: '通道诊断'},
         {id: 'advanced', label: '高级编辑'},
     ];
+    const tabs = allTabs;
     return (
         <section className="operations-stack">
             <div className="ops-tabs">
@@ -89,6 +97,10 @@ export function OperationsPage(props: {
                     onClearLogs={props.onClearLogs}
                     onCopyLogs={props.onCopyLogs}
                     onOpenEndpoint={props.onOpenEndpoint}
+                    webStatus={props.webStatus}
+                    onSaveWebSettings={props.onSaveWebSettings}
+                    onChangeWebPassword={props.onChangeWebPassword}
+                    onResetWebPassword={props.onResetWebPassword}
                 />
             )}
             {props.tab === 'deploy' && <DeployPage compose={props.compose} setCompose={props.setCompose} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>}
@@ -125,6 +137,7 @@ export function OperationsPage(props: {
                         onSave={props.onSaveAdvanced}
                         onFactoryReset={props.onFactoryReset}
                         resetConfirmPhrase={props.resetConfirmPhrase}
+                        hideFactoryReset={props.webRuntime}
                     />
                 </div>
             )}
@@ -154,6 +167,10 @@ function StatusAndLogs(props: {
     onClearLogs: () => void;
     onCopyLogs: () => void;
     onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
+    webStatus: WebStatus;
+    onSaveWebSettings: (settings: WebSettingsRequest) => Promise<boolean>;
+    onChangeWebPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
+    onResetWebPassword: () => Promise<boolean>;
 }) {
     const actionBusy = props.busy !== '';
     const dashboardURL = endpointURL(props.compose.dashboardHost, props.compose.dashboardPort);
@@ -212,6 +229,14 @@ function StatusAndLogs(props: {
                     <ExternalLink size={15}/>
                 </button>
             </div>
+
+            <WebManagementCard
+                status={props.webStatus}
+                busy={actionBusy}
+                onSave={props.onSaveWebSettings}
+                onChangePassword={props.onChangeWebPassword}
+                onResetPassword={props.onResetWebPassword}
+            />
 
             <div className="operation-diagnostics">
                 <Health label="Docker" ok={props.state.dockerAvailable}/>
@@ -272,6 +297,112 @@ function StatusAndLogs(props: {
                 </details>
             </div>
         </section>
+    );
+}
+
+function WebManagementCard(props: {
+    status: WebStatus;
+    busy: boolean;
+    onSave: (settings: WebSettingsRequest) => Promise<boolean>;
+    onChangePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
+    onResetPassword: () => Promise<boolean>;
+}) {
+    const [enabled, setEnabled] = useState(props.status.enabled);
+    const [scope, setScope] = useState(props.status.host === '127.0.0.1' ? 'local' : 'lan');
+    const [port, setPort] = useState(props.status.port || '9876');
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [copied, setCopied] = useState('');
+    const host = scope === 'local' ? '127.0.0.1' : '0.0.0.0';
+    const primaryURL = props.status.primaryUrl || props.status.localUrl;
+
+    useEffect(() => {
+        setEnabled(props.status.enabled);
+        setScope(props.status.host === '127.0.0.1' ? 'local' : 'lan');
+        setPort(props.status.port || '9876');
+    }, [props.status.enabled, props.status.host, props.status.port]);
+
+    async function copy(value: string) {
+        await navigator.clipboard.writeText(value);
+        setCopied(value);
+        window.setTimeout(() => setCopied(''), 1200);
+    }
+
+    async function saveSettings() {
+        await props.onSave({enabled, host, port});
+    }
+
+    async function changePassword() {
+        const ok = await props.onChangePassword(oldPassword, newPassword);
+        if (ok) {
+            setOldPassword('');
+            setNewPassword('');
+        }
+    }
+
+    return (
+        <div className="panel web-management-card">
+            <div className="web-management-header">
+                <div>
+                    <p className="eyebrow">Web 管理</p>
+                    <h3>{props.status.running ? '局域网管理入口运行中' : 'Web 管理未运行'}</h3>
+                    <p>局域网设备可通过下方地址访问 Web 管理。默认访问密码是 123456，建议首次登录后修改。</p>
+                </div>
+                <div className={`status-pill ${props.status.running ? 'ok' : 'warn'}`}>{props.status.running ? '运行中' : '未运行'}</div>
+            </div>
+            {props.status.usingDefaultPassword && <div className="web-password-warning">当前仍在使用默认访问密码，建议修改。</div>}
+            {props.status.error && <div className="operation-error">Web 管理启动失败：{props.status.error}</div>}
+            <div className="web-management-grid">
+                <div className="web-addresses">
+                    <AddressRow label="本机地址" value={props.status.localUrl} copied={copied} onCopy={copy}/>
+                    {(props.status.lanUrls || []).map((url) => <AddressRow key={url} label="局域网地址" value={url} copied={copied} onCopy={copy}/>)}
+                </div>
+                {primaryURL && (
+                    <div className="web-qr">
+                        <QRCodeSVG value={primaryURL} size={128}/>
+                        <span>扫码打开 Web 管理</span>
+                    </div>
+                )}
+            </div>
+            <div className="web-settings-row">
+                <label className="switch-line">
+                    <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)}/>
+                    <span>开启 Web 管理</span>
+                </label>
+                <label>
+                    <span>访问范围</span>
+                    <select value={scope} onChange={(event) => setScope(event.target.value)}>
+                        <option value="lan">局域网</option>
+                        <option value="local">仅本机</option>
+                    </select>
+                </label>
+                <label>
+                    <span>端口</span>
+                    <input value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric"/>
+                </label>
+                <button className="ghost" onClick={saveSettings} disabled={props.busy}>保存 Web 设置</button>
+            </div>
+            <div className="web-password-row">
+                <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)}/>
+                <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)}/>
+                <button className="ghost" onClick={changePassword} disabled={props.busy || !oldPassword || !newPassword}>修改密码</button>
+                <button className="ghost danger-text" onClick={props.onResetPassword} disabled={props.busy}>重置为 123456</button>
+            </div>
+        </div>
+    );
+}
+
+function AddressRow(props: { label: string; value: string; copied: string; onCopy: (value: string) => void }) {
+    if (!props.value) return null;
+    return (
+        <div className="web-address-row">
+            <span>{props.label}</span>
+            <code>{props.value}</code>
+            <button className="icon-button" onClick={() => props.onCopy(props.value)} title="复制地址">
+                <Clipboard size={15}/>
+            </button>
+            {props.copied === props.value && <em>已复制</em>}
+        </div>
     );
 }
 

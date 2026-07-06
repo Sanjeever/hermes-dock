@@ -6,6 +6,10 @@ export function CancelWeixinLogin() {
   return window['go']['main']['App']['CancelWeixinLogin']();
 }
 
+export function ChangeWebPassword(arg1, arg2) {
+  return window['go']['main']['App']['ChangeWebPassword'](arg1, arg2);
+}
+
 export function CompleteProfileSetup(arg1) {
   return window['go']['main']['App']['CompleteProfileSetup'](arg1);
 }
@@ -98,12 +102,20 @@ export function OpenSkillDirectory(arg1) {
   return window['go']['main']['App']['OpenSkillDirectory'](arg1);
 }
 
+export function OpenWebManagement() {
+  return window['go']['main']['App']['OpenWebManagement']();
+}
+
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
 }
 
 export function RebuildHermes() {
   return window['go']['main']['App']['RebuildHermes']();
+}
+
+export function ResetWebPassword() {
+  return window['go']['main']['App']['ResetWebPassword']();
 }
 
 export function RestartHermes() {
@@ -136,6 +148,10 @@ export function SaveTextFile(arg1) {
 
 export function SaveWeComConfig(arg1) {
   return window['go']['main']['App']['SaveWeComConfig'](arg1);
+}
+
+export function SaveWebSettings(arg1) {
+  return window['go']['main']['App']['SaveWebSettings'](arg1);
 }
 
 export function SelectProfile(arg1) {

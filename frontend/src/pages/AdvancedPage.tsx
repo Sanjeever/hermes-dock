@@ -4,10 +4,10 @@ import {EditorView} from '@codemirror/view';
 import {CornerDownRight, FileCode2, Save, Search, Trash2} from 'lucide-react';
 import {CodeEditor} from '../components/CodeEditor';
 
-export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
+export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string; hideFactoryReset?: boolean }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
-    const languageLabel = props.path.endsWith('.env') ? '.env' : 'YAML';
+    const languageLabel = props.path.endsWith('.env') ? '.env' : props.path.endsWith('.md') ? 'Markdown' : 'YAML';
     const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
 
     async function factoryReset() {
@@ -62,28 +62,31 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                     </>
                 )}
             </div>
-            <details className="panel danger-panel">
-                <summary className="danger-summary">
-                    <span>
-                        <span className="eyebrow">危险操作</span>
-                        <strong>恢复出厂设置</strong>
-                    </span>
-                </summary>
-                <div className="danger-body">
-                    <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
-                    <label className="reset-confirm">
-                        <span>输入「{props.resetConfirmPhrase}」确认</span>
-                        <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>
-                    </label>
-                    <button className="danger-button" onClick={factoryReset} disabled={props.busy || !resetConfirmed}><Trash2 size={16}/>恢复出厂设置</button>
-                </div>
-            </details>
+            {!props.hideFactoryReset && (
+                <details className="panel danger-panel">
+                    <summary className="danger-summary">
+                        <span>
+                            <span className="eyebrow">危险操作</span>
+                            <strong>恢复出厂设置</strong>
+                        </span>
+                    </summary>
+                    <div className="danger-body">
+                        <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
+                        <label className="reset-confirm">
+                            <span>输入「{props.resetConfirmPhrase}」确认</span>
+                            <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>
+                        </label>
+                        <button className="danger-button" onClick={factoryReset} disabled={props.busy || !resetConfirmed}><Trash2 size={16}/>恢复出厂设置</button>
+                    </div>
+                </details>
+            )}
         </section>
     );
 }
 
 function advancedFileHint(path: string) {
     if (path.endsWith('.env')) return '密钥、平台变量和运行环境';
+    if (path.endsWith('SOUL.md')) return '当前助手的人格设定';
     if (path.includes('override')) return '全局 Docker Compose 覆盖';
     return '当前助手的模型、终端和 Hermes 配置';
 }

@@ -145,4 +145,25 @@ export type AppState = {
     dockerAvailable: boolean;
     composeAvailable: boolean;
     containerStatus: string;
+    web: WebStatus;
 };
+
+export type WebStatus = {
+    enabled: boolean;
+    running: boolean;
+    host: string;
+    port: string;
+    localUrl: string;
+    lanUrls: string[];
+    primaryUrl: string;
+    usingDefaultPassword: boolean;
+    error: string;
+};
+
+export type WebSettingsRequest = {
+    enabled: boolean;
+    host: string;
+    port: string;
+};
+
+export type WebTextFileKind = 'profile_config' | 'profile_soul' | 'compose_override';

@@ -38,6 +38,7 @@ weixin.go                  个人微信扫码登录
 platforms.go               企业微信、飞书和通道相关操作
 paths.go                   实例路径和 safePath 限制
 backup.go                  写入前备份
+web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 ```
 
 多 profile 相关路径约定：
@@ -46,6 +47,9 @@ backup.go                  写入前备份
 ~/.hermes-dock/data/                     default profile 的 Hermes home
 ~/.hermes-dock/data/profiles/<id>/       非 default profile 的 Hermes home
 ~/.hermes-dock/launcher/profiles.json    Dock profile registry，事实来源
+~/.hermes-dock/launcher/web-server.json  Web 管理配置
+~/.hermes-dock/launcher/web-sessions.json Web 登录会话
+~/.hermes-dock/launcher/logs/web-server.log Web 访问日志
 ~/.hermes-dock/data/.dock/               runner 派生运行态
 ```
 
@@ -61,6 +65,9 @@ backup.go                  写入前备份
 - 不要把密钥写入 `launcher/state.json`。
 - 不要把密钥写入 `launcher/profiles.json`、`data/.dock/profiles-runtime.json` 或 `data/.dock/profile-status.json`。
 - UI 日志、事件、错误信息中不要输出完整 token、API key、secret。
+- Web 管理不返回完整 `.env`，不提供 `.env` 明文编辑入口。
+- Web 高级编辑只开放当前 profile 的 `config.yaml`、当前 profile 的 `SOUL.md` 和全局 `docker-compose.override.yaml`；保存 Compose 覆盖文件需要输入“确认”。
+- Web 管理不提供“恢复出厂设置”。
 - 不要为了兼容失败而吞掉错误；应返回清晰错误，让 UI 展示。
 - 高级页“恢复出厂设置”是唯一允许删除整个 `~/.hermes-dock` 的流程；必须先 `docker compose down`，失败则中止，不加 `--volumes`。
 
@@ -92,6 +99,12 @@ backup.go                  写入前备份
 - Go 后端执行 Docker、文件、备份、平台绑定和模型列表拉取。
 - React 前端只保留表单状态和展示状态，保存动作走 Wails Go 方法。
 - Wails 事件用于流式输出 Docker 日志、命令进度和微信扫码状态。
+- 内置 Web 管理服务运行在 Wails 桌面主进程内，随主进程启动，不做独立 server 二进制、CLI/headless 或系统服务安装。
+- Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码 `123456`；只使用访问密码，不使用用户名。
+- 关闭窗口默认隐藏到后台，Web 管理继续可访问；显式退出主进程时 Web 管理停止。
+- Web 业务调用使用白名单 RPC：`POST /api/rpc`，事件使用 `/ws/events`，不要做任意 Go 方法反射调用。
+- Web 版 `GetAppState` 不返回完整 `Environment`。
+- Web 访问日志只记录启动/停止、登录结果、RPC 方法名和失败摘要，不记录请求体、token、API key、secret。
 - 内置模板来自 `templates/seed-data/`，只能包含干净初始文件和 Hermes 内置 skills 快照。
 - `launcher/state.json` 只保存启动器元数据和 UI 策略，不保存密钥。
 - `launcher/profiles.json` 保存 profile registry，不保存密钥，数组顺序就是 UI 显示顺序。
@@ -155,9 +168,10 @@ UI 和功能边界：
 - `enabled` 只表示参与运行，不影响编辑。
 - 保存配置不自动重建；显示未应用变更，由用户手动“应用并重建”。
 - 模型测试和平台测试消息只针对当前 profile。
-- 高级编辑以当前 profile 为上下文，只打开当前 profile 的 `config.yaml` 和 `.env`；`SOUL.md` 使用独立菜单管理。
+- 桌面高级编辑以当前 profile 为上下文，可打开当前 profile 的 `config.yaml` 和 `.env`；Web 高级编辑只打开当前 profile 的 `config.yaml`、`SOUL.md` 和全局 `docker-compose.override.yaml`。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。
-- 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导，不做 skills marketplace，也暂不提供 skills 管理界面。
+- 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导。
+- skills 管理和 Skill Hub 安装在桌面端和 Web 端都可用；Web 端不支持打开本机技能目录。
 
 测试要求：
 

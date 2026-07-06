@@ -27,6 +27,7 @@ type App struct {
 	logCancel    context.CancelFunc
 	loginCancel  context.CancelFunc
 	startupErr   error
+	web          *webRuntime
 }
 
 func NewApp() *App {
@@ -37,6 +38,20 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.instanceRoot = detectInstanceRoot()
 	a.startupErr = a.ensureInstanceReady()
+	if a.startupErr == nil {
+		a.startWebServer()
+		a.startTray()
+	}
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	a.stopTray()
+	a.stopWebServer(ctx)
+	if a.loginCancel != nil {
+		a.loginCancel()
+		a.loginCancel = nil
+	}
+	a.StopTailLogs()
 }
 
 func (a *App) GetAppState() (AppState, error) {
@@ -72,6 +87,7 @@ func (a *App) GetAppState() (AppState, error) {
 		DockerAvailable:  commandExists("docker"),
 		ComposeAvailable: a.composeAvailable(context.Background()),
 		ContainerStatus:  containerStatus,
+		Web:              a.webStatus(),
 	}, nil
 }
 
@@ -93,7 +109,10 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := ensureDir(a.dockDataDir()); err != nil {
 			return err
 		}
-		return a.ensureProfileRegistry()
+		if err := a.ensureProfileRegistry(); err != nil {
+			return err
+		}
+		return a.ensureWebConfig()
 	}
 	if err := ensureDir(a.instanceRoot); err != nil {
 		return err
@@ -132,9 +151,15 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.writeState(state); err != nil {
 			return err
 		}
-		return a.ensureProfileRegistry()
+		if err := a.ensureProfileRegistry(); err != nil {
+			return err
+		}
+		return a.ensureWebConfig()
 	}
-	return a.ensureProfileRegistry()
+	if err := a.ensureProfileRegistry(); err != nil {
+		return err
+	}
+	return a.ensureWebConfig()
 }
 
 func (a *App) InitializeInstance(settings ComposeSettings) (LauncherState, error) {
@@ -306,4 +331,5 @@ func (a *App) emit(event string, payload interface{}) {
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, event, payload)
 	}
+	a.emitWeb(event, payload)
 }
