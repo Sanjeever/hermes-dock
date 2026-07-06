@@ -100,6 +100,9 @@ func (a *App) ensureInstanceReady() error {
 func (a *App) ensureInstanceReadyLocked() error {
 	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.defaultEnvPath()) && fileExists(a.defaultConfigPath()) {
 		settings := a.readComposeSettings()
+		if err := a.ensureFeishuDepsHelper(); err != nil {
+			return err
+		}
 		if err := a.migrateComposeIfNeeded(settings); err != nil {
 			return err
 		}
@@ -118,6 +121,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		return err
 	}
 	if err := ensureDir(a.hermesDockDir()); err != nil {
+		return err
+	}
+	if err := a.ensureFeishuDepsHelper(); err != nil {
 		return err
 	}
 	if err := a.releaseSeedData(); err != nil {
@@ -175,6 +181,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		return LauncherState{}, err
 	}
 	if err := ensureDir(a.hermesDockDir()); err != nil {
+		return LauncherState{}, err
+	}
+	if err := a.ensureFeishuDepsHelper(); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.releaseSeedData(); err != nil {

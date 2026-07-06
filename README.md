@@ -94,6 +94,8 @@ Hermes Dock 固定管理当前用户下的单实例目录：
       web-server.log
     backups/
     helpers/
+      hermes-profile-runner
+      install-feishu-deps
 ```
 
 `data/` 是用户数据，也是 `default` profile 的 Hermes home。非 default profile 使用 `data/profiles/<id>/`，保持和 Hermes 原生 profile 结构兼容。Hermes Dock 默认不会覆盖已有用户数据，只在明确保存配置、绑定平台或执行迁移时写入对应文件。
@@ -183,6 +185,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - 控制台账号密码，控制台固定启用。
 - 内存、CPU 和 shm 限制。
 - `./data:/opt/data` 数据挂载。
+- `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，在 s6 初始化阶段补齐飞书运行依赖。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。
 
 高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。桌面高级编辑入口可以打开当前 profile 的 `config.yaml` 和 `.env`，用于处理结构化页面尚未覆盖的少量配置；Web 高级编辑不开放 `.env`，只开放当前 profile 的 `config.yaml`、`SOUL.md` 和全局 `docker-compose.override.yaml`。
@@ -241,6 +244,8 @@ MVP 只支持飞书 / Lark WebSocket 模式，用户手动填写 App ID 和 App 
 - `FEISHU_GROUP_POLICY=open`
 
 群聊策略只支持 `open` 和 `disabled`，界面显示为“开放”和“关闭”。保存飞书配置时会清空旧版本的名单字段。
+
+Hermes Dock 会在容器初始化阶段自动检查 `lark-oapi==1.5.3` 和 `qrcode==7.4.2`。缺少时，`/etc/cont-init.d/018-install-feishu-deps` 会使用 Compose 中配置的 Python 镜像源安装到 `/opt/hermes/.venv`，安装后再次执行 import 验证；已安装时直接跳过。该流程只补齐运行依赖，不读取或输出飞书 App Secret，容器重新创建后会重新检查。
 
 ## 开发环境
 

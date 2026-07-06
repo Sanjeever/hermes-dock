@@ -80,6 +80,7 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - 控制台和网关端口。
 - 控制台认证环境变量，控制台固定启用。
 - 中国大陆友好的 pip、uv、npm 镜像源。
+- 飞书运行依赖通过 `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，由 s6-overlay 在 profile runner 前执行。
 - 单 profile 版本使用 `env_file: ./data/.env`；多 profile runner 版本不能用一个全局 `env_file` 表达 profile 运行态密钥。
 - `volumes: ./data:/opt/data`。
 
@@ -254,6 +255,7 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 - 默认 `FEISHU_GROUP_POLICY=open`。
 - 群聊策略只支持 `open` 和 `disabled`，界面显示为“开放”和“关闭”；保存飞书配置时清空旧版本名单字段。
 - 多 profile 版本中 `FEISHU_APP_ID` 在 enabled profiles 中必须唯一。
+- 飞书 Python 依赖由 `/etc/cont-init.d/018-install-feishu-deps` 自动安装固定版本，不读取或输出 App Secret。
 
 ## 前端约定
 
@@ -294,6 +296,8 @@ pnpm --dir frontend run build
 - Hermes CLI 可能能从 `/opt/data/.env` 读到配置，但 gateway 运行态依赖进程环境变量。
 - `docker compose config` 能看到 env 并不代表当前旧容器已经拿到 env。
 - 多 profile 版本不能继续依赖全局 Compose `env_file`，否则多个 profile 的同名平台密钥会互相覆盖。
+- 不要通过覆盖 Compose `command` 或 `entrypoint` 安装 Python 依赖；飞书依赖安装由 `/etc/cont-init.d/018-install-feishu-deps` 完成。
+- 飞书依赖 helper 来源是 `launcher/helpers/install-feishu-deps`，脚本修改后必须同步更新 helper 释放和 Compose 迁移相关测试。
 - 非 default profile 如果 `terminal.cwd` 或 `SOUL.md` 仍指向 `/opt/data`，会污染 default profile 根目录。
 - Weixin iLink bot 是否能收到普通微信群消息，受 iLink 侧能力限制。
 - 现有 `~/.hermes-dock/data/.env` 可能包含旧版本遗留键，默认保留，不要清理用户文件。

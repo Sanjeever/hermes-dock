@@ -176,10 +176,12 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		return err
 	}
 	content := string(data)
-	if strings.Contains(content, "hermes-profile-runner") && !strings.Contains(content, "env_file:") {
+	if strings.Contains(content, "hermes-profile-runner") &&
+		!strings.Contains(content, "env_file:") &&
+		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") {
 		return nil
 	}
-	return a.writeCompose(settings, "before-compose-env-file-migration")
+	return a.writeCompose(settings, "before-compose-runtime-helper-migration")
 }
 
 func renderCompose(settings ComposeSettings) string {
@@ -234,6 +236,7 @@ func renderCompose(settings ComposeSettings) string {
       NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
     volumes:
       - ./data:/opt/data
+      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
     deploy:
       resources:
@@ -245,6 +248,9 @@ func renderCompose(settings ComposeSettings) string {
 
 func (a *App) StartHermes() error {
 	if err := a.writeRuntimeManifest(); err != nil {
+		return err
+	}
+	if err := a.ensureFeishuDepsHelper(); err != nil {
 		return err
 	}
 	if err := a.ensureProfileRunnerHelper(); err != nil {
@@ -277,6 +283,9 @@ func (a *App) RebuildHermes() error {
 
 func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.writeRuntimeManifest(); err != nil {
+		return err
+	}
+	if err := a.ensureFeishuDepsHelper(); err != nil {
 		return err
 	}
 	if err := a.ensureProfileRunnerHelper(); err != nil {
