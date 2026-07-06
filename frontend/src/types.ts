@@ -131,6 +131,18 @@ export type SkillHubDetail = SkillHubSkill & {
 };
 export type Notice = { type: 'ok' | 'error' | 'info'; message: string };
 export type RunOptions = { rebuildRequired?: boolean; beforeRefresh?: () => void; afterSuccess?: () => void };
+export type UpdateMirrorLink = { label: string; url: string };
+export type UpdateInfo = {
+    currentVersion: string;
+    latestVersion: string;
+    available: boolean;
+    dismissed: boolean;
+    releaseUrl: string;
+    assetUrl: string;
+    assetName: string;
+    mirrors: UpdateMirrorLink[];
+    checkedAt: string;
+};
 export type AppState = {
     appVersion: string;
     instanceRoot: string;

@@ -818,6 +818,9 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"SaveWebSettings":      oneArg[WebSettingsRequest](a.SaveWebSettings),
 		"ChangeWebPassword":    twoArgs[string, string](a.ChangeWebPassword),
 		"ResetWebPassword":     noResult(a.ResetWebPassword),
+		"CheckForUpdates":      oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
+		"DismissUpdate":        oneArg[string](a.DismissUpdate),
+		"OpenUpdateURL":        noResult(func() error { return errors.New("Web 管理请直接在浏览器打开更新链接") }),
 	}
 }
 

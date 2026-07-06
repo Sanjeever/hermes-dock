@@ -96,6 +96,10 @@ func (a *App) profilesPath() string {
 	return filepath.Join(a.hermesDockDir(), "profiles.json")
 }
 
+func (a *App) updateStatePath() string {
+	return filepath.Join(a.hermesDockDir(), "update.json")
+}
+
 func (a *App) dockDataDir() string {
 	return filepath.Join(a.defaultDataDir(), ".dock")
 }

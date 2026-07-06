@@ -1,12 +1,14 @@
 import {useEffect, useRef, useState} from 'react';
-import {CheckCircle2, CircleAlert, RotateCcw} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Clipboard, ExternalLink, RefreshCcw, RotateCcw} from 'lucide-react';
 import './App.css';
 import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
+    CheckForUpdates,
     CompleteProfileSetup,
     CreateProfile,
     DeleteProfile,
+    DismissUpdate,
     DeleteSkill,
     FactoryResetInstance,
     FetchProviderConfigModelList,
@@ -17,6 +19,7 @@ import {
     ListProfileSkills,
     ListSkillHubSkills,
     OpenEndpoint,
+    OpenUpdateURL,
     OpenSkillDirectory,
     ReadTextFile,
     RebuildHermes,
@@ -48,7 +51,7 @@ import {EventsOn} from './services/events';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig, webAdvancedFileOptions} from './utils';
 
 function App() {
@@ -68,6 +71,9 @@ function App() {
     const [busy, setBusy] = useState('');
     const [notice, setNotice] = useState<Notice | null>(null);
     const [refreshError, setRefreshError] = useState('');
+    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+    const [updateBusy, setUpdateBusy] = useState(false);
+    const updateCheckedRef = useRef(false);
     const [needsRebuild, setNeedsRebuild] = useState(false);
     const [qrData, setQrData] = useState('');
     const [qrStatus, setQrStatus] = useState('');
@@ -241,6 +247,12 @@ function App() {
         }, 1500);
         return () => window.clearTimeout(timer);
     }, [state, busy]);
+
+    useEffect(() => {
+        if (!state?.appVersion || updateCheckedRef.current) return;
+        updateCheckedRef.current = true;
+        checkForUpdates(false);
+    }, [state?.appVersion]);
 
     async function refresh() {
         let next: unknown;
@@ -494,6 +506,68 @@ function App() {
             return false;
         } finally {
             setBusy('');
+        }
+    }
+
+    async function checkForUpdates(force: boolean) {
+        setUpdateBusy(true);
+        try {
+            const info = await CheckForUpdates(force);
+            setUpdateInfo(info);
+            if (force) {
+                if (info.available && !info.dismissed) {
+                    setNotice({type: 'ok', message: `发现新版本 v${info.latestVersion}`});
+                } else if (info.available && info.dismissed) {
+                    setNotice({type: 'info', message: `v${info.latestVersion} 已忽略`});
+                } else {
+                    setNotice({type: 'ok', message: '当前已是最新版本'});
+                }
+            }
+        } catch (error) {
+            const message = String(error);
+            if (force) {
+                appendLog(message);
+                setNotice({type: 'error', message});
+            }
+        } finally {
+            setUpdateBusy(false);
+        }
+    }
+
+    async function dismissUpdate() {
+        if (!updateInfo?.latestVersion) return;
+        try {
+            await DismissUpdate(updateInfo.latestVersion);
+            setUpdateInfo({...updateInfo, dismissed: true});
+            setNotice({type: 'ok', message: `已忽略 v${updateInfo.latestVersion}`});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+        }
+    }
+
+    async function openUpdateURL(url: string) {
+        if (!url) return;
+        try {
+            await OpenUpdateURL(url);
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+        }
+    }
+
+    async function copyUpdateCommand(url: string) {
+        if (!updateInfo?.assetName || !url) return;
+        const command = `curl -L -o ${updateInfo.assetName} ${url}\nsudo apt install -y ./${updateInfo.assetName}`;
+        try {
+            await navigator.clipboard.writeText(command);
+            setNotice({type: 'ok', message: '已复制安装命令'});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
         }
     }
 
@@ -846,6 +920,9 @@ function App() {
     const showContainerStatus = page !== 'assistants' || activeSetupDone;
     const showRebuildBanner = needsRebuild && (page !== 'assistants' || activeSetupDone);
     const unsavedChanges = hasUnsavedChanges();
+    const showUpdateBanner = !!updateInfo?.available && !updateInfo.dismissed;
+    const updateAssetIsDeb = !!updateInfo?.assetName?.endsWith('.deb');
+    const updateBannerDetail = updateAssetIsDeb ? 'Debian 13 可下载新的 deb 包后安装。' : '可在发布页下载适合当前系统的安装包。';
 
     return (
         <div className="shell">
@@ -896,9 +973,32 @@ function App() {
                                 {containerStatusText(state?.containerStatus)}
                             </div>
                         )}
+                        <button className="ghost topbar-update-button" onClick={() => checkForUpdates(true)} disabled={updateBusy}>
+                            <RefreshCcw size={15}/>{updateBusy ? '检查中' : '检查更新'}
+                        </button>
                     </div>
                 </header>
                 {notice && <div className={`notice ${notice.type}`}>{notice.message}</div>}
+                {showUpdateBanner && updateInfo && (
+                    <div className="update-banner">
+                        <div>
+                            <strong>发现新版本 v{updateInfo.latestVersion}</strong>
+                            <span>当前版本 v{updateInfo.currentVersion}，{updateBannerDetail}</span>
+                        </div>
+                        <div className="update-actions">
+                            {updateInfo.releaseUrl && <button onClick={() => openUpdateURL(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
+                            {updateInfo.assetUrl && updateAssetIsDeb && <button onClick={() => copyUpdateCommand(updateInfo.assetUrl)}><Clipboard size={15}/>复制安装命令</button>}
+                            {updateInfo.assetUrl && !updateAssetIsDeb && <button onClick={() => openUpdateURL(updateInfo.assetUrl)}><ExternalLink size={15}/>下载安装包</button>}
+                            {updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
+                                <button key={mirror.label} onClick={() => copyUpdateCommand(mirror.url)}><Clipboard size={15}/>{mirror.label}</button>
+                            ))}
+                            {!updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
+                                <button key={mirror.label} onClick={() => openUpdateURL(mirror.url)}><ExternalLink size={15}/>{mirror.label}</button>
+                            ))}
+                            <button onClick={dismissUpdate}>忽略</button>
+                        </div>
+                    </div>
+                )}
                 {unsavedChanges && (
                     <div className="dirty-banner">
                         <span>当前有未保存修改，请回到对应页面保存或放弃修改后再切换助手。</span>

@@ -10,6 +10,10 @@ export function ChangeWebPassword(arg1, arg2) {
   return window['go']['main']['App']['ChangeWebPassword'](arg1, arg2);
 }
 
+export function CheckForUpdates(arg1) {
+  return window['go']['main']['App']['CheckForUpdates'](arg1);
+}
+
 export function CompleteProfileSetup(arg1) {
   return window['go']['main']['App']['CompleteProfileSetup'](arg1);
 }
@@ -28,6 +32,10 @@ export function DeleteProvider(arg1) {
 
 export function DeleteSkill(arg1) {
   return window['go']['main']['App']['DeleteSkill'](arg1);
+}
+
+export function DismissUpdate(arg1) {
+  return window['go']['main']['App']['DismissUpdate'](arg1);
 }
 
 export function FactoryResetInstance() {
@@ -100,6 +108,10 @@ export function OpenEndpoint(arg1) {
 
 export function OpenSkillDirectory(arg1) {
   return window['go']['main']['App']['OpenSkillDirectory'](arg1);
+}
+
+export function OpenUpdateURL(arg1) {
+  return window['go']['main']['App']['OpenUpdateURL'](arg1);
 }
 
 export function OpenWebManagement() {

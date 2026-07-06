@@ -144,6 +144,10 @@ code {
     justify-content: flex-end;
 }
 
+.topbar-update-button {
+    min-height: 34px;
+}
+
 .profile-picker {
     display: grid;
     gap: 5px;
@@ -261,6 +265,58 @@ h2 {
     border-radius: 6px;
     padding: 0 11px;
     background: #d8ff67;
+    color: #151916;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.update-banner {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: -8px 0 18px;
+    padding: 10px 13px;
+    border-radius: 8px;
+    background: #fffaf0;
+    color: #20251f;
+    font-weight: 800;
+}
+
+.update-banner > div:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.update-banner strong,
+.update-banner span {
+    min-width: 0;
+}
+
+.update-banner span {
+    color: #596056;
+    font-size: 13px;
+}
+
+.update-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.update-actions button {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    border-radius: 6px;
+    padding: 0 11px;
+    background: #e5dfd1;
     color: #151916;
     font: inherit;
     font-weight: 800;
@@ -2404,6 +2460,7 @@ textarea:focus {
     .log-head,
     .deploy-summary,
     .channel-head,
+    .update-banner,
     .rebuild-banner,
     .topbar {
         align-items: stretch;

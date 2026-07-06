@@ -42,6 +42,23 @@ type WebTextFileRequest struct {
 	Confirm string `json:"confirm"`
 }
 
+type UpdateInfo struct {
+	CurrentVersion string             `json:"currentVersion"`
+	LatestVersion  string             `json:"latestVersion"`
+	Available      bool               `json:"available"`
+	Dismissed      bool               `json:"dismissed"`
+	ReleaseURL     string             `json:"releaseUrl"`
+	AssetURL       string             `json:"assetUrl"`
+	AssetName      string             `json:"assetName"`
+	Mirrors        []UpdateMirrorLink `json:"mirrors"`
+	CheckedAt      string             `json:"checkedAt"`
+}
+
+type UpdateMirrorLink struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
 type DeleteProfileRequest struct {
 	ID      string `json:"id"`
 	Confirm string `json:"confirm"`

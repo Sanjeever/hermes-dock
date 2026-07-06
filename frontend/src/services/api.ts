@@ -6,6 +6,7 @@ import type {
     ProviderConfig,
     ProviderEntry,
     SkillHubQuery,
+    UpdateInfo,
     WebSettingsRequest,
     WebTextFileKind,
 } from '../types';
@@ -112,6 +113,15 @@ export const SaveWebSettings = (settings: WebSettingsRequest) => wailsOrRPC<void
 export const ChangeWebPassword = (oldPassword: string, newPassword: string) => wailsOrRPC<void>('ChangeWebPassword', [oldPassword, newPassword]);
 export const ResetWebPassword = () => wailsOrRPC<void>('ResetWebPassword');
 export const OpenWebManagement = () => wailsOrRPC<void>('OpenWebManagement');
+export const CheckForUpdates = (force: boolean) => wailsOrRPC<UpdateInfo>('CheckForUpdates', [force]);
+export const DismissUpdate = (version: string) => wailsOrRPC<void>('DismissUpdate', [version]);
+export const OpenUpdateURL = (url: string) => {
+    if (isWebRuntime()) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return Promise.resolve();
+    }
+    return wailsOrRPC<void>('OpenUpdateURL', [url]);
+};
 
 function webTextFileKind(path: string): WebTextFileKind {
     if (path === 'docker-compose.override.yaml') return 'compose_override';

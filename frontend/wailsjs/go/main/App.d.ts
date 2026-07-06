@@ -6,6 +6,8 @@ export function CancelWeixinLogin():Promise<void>;
 
 export function ChangeWebPassword(arg1:string,arg2:string):Promise<void>;
 
+export function CheckForUpdates(arg1:boolean):Promise<main.UpdateInfo>;
+
 export function CompleteProfileSetup(arg1:string):Promise<void>;
 
 export function CreateProfile(arg1:main.CreateProfileRequest):Promise<void>;
@@ -15,6 +17,8 @@ export function DeleteProfile(arg1:string):Promise<void>;
 export function DeleteProvider(arg1:string):Promise<void>;
 
 export function DeleteSkill(arg1:string):Promise<void>;
+
+export function DismissUpdate(arg1:string):Promise<void>;
 
 export function FactoryResetInstance():Promise<void>;
 
@@ -51,6 +55,8 @@ export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 export function OpenEndpoint(arg1:string):Promise<void>;
 
 export function OpenSkillDirectory(arg1:string):Promise<void>;
+
+export function OpenUpdateURL(arg1:string):Promise<void>;
 
 export function OpenWebManagement():Promise<void>;
 
