@@ -38,6 +38,7 @@ import {
     StartWeixinLogin,
     StopHermes,
     StopTailLogs,
+    SyncBundledSkills,
     TailLogs,
     TestModel,
     UnbindPlatform,
@@ -52,7 +53,7 @@ import {EventsOn} from './services/events';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -375,6 +376,34 @@ function App() {
         await loadSkills();
         setNotice({type: 'ok', message: '已删除技能并创建备份，重建后生效'});
         return true;
+    }
+
+    async function syncBundledSkills() {
+        setBusy('正在同步内置技能');
+        setNotice({type: 'info', message: '正在同步内置技能'});
+        setSkillsStatus('正在同步内置技能');
+        setLastOperationError('');
+        try {
+            const result = await SyncBundledSkills();
+            await refresh();
+            await loadSkills();
+            const summary = syncBundledSkillsMessage(result);
+            if (result.syncedFiles > 0) {
+                setNeedsRebuild(true);
+            }
+            setSkillsStatus(summary);
+            setNotice({type: 'ok', message: summary});
+            return true;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setSkillsStatus(message);
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            return false;
+        } finally {
+            setBusy('');
+        }
     }
 
     async function openSkillDirectory(path: string) {
@@ -1112,6 +1141,7 @@ function App() {
                         onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
                         onRefreshSkills={loadSkills}
+                        onSyncBundledSkills={syncBundledSkills}
                         onSkillDetail={loadSkillDetail}
                         onDeleteSkill={deleteSkill}
                         onOpenSkillDirectory={openSkillDirectory}
@@ -1196,6 +1226,13 @@ function closedPolicyValue(value: string) {
 
 function disabledPolicyValue(value: string) {
     return value === 'open' || value === '' ? 'open' : 'disabled';
+}
+
+function syncBundledSkillsMessage(result: SyncBundledSkillsResult) {
+    if (result.syncedFiles === 0) return '没有可同步的内置技能文件';
+    const skillCount = result.syncedSkills.length;
+    if (skillCount > 0) return `已同步 ${skillCount} 个内置技能，覆盖/写入 ${result.syncedFiles} 个文件`;
+    return `已覆盖/写入内置技能文件 ${result.syncedFiles} 个`;
 }
 
 function platformLabel(platform: PlatformKey) {

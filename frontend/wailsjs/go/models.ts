@@ -1046,6 +1046,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class SyncBundledSkillsResult {
+	    activeProfile: string;
+	    syncedSkills: string[];
+	    syncedFiles: number;
+
+	    static createFrom(source: any = {}) {
+	        return new SyncBundledSkillsResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.activeProfile = source["activeProfile"];
+	        this.syncedSkills = source["syncedSkills"];
+	        this.syncedFiles = source["syncedFiles"];
+	    }
+	}
 	export class TextFileRequest {
 	    path: string;
 	    content: string;
@@ -1166,4 +1182,3 @@ export namespace main {
 	}
 
 }
-

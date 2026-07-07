@@ -198,6 +198,10 @@ export function StopTailLogs() {
   return window['go']['main']['App']['StopTailLogs']();
 }
 
+export function SyncBundledSkills() {
+  return window['go']['main']['App']['SyncBundledSkills']();
+}
+
 export function TailLogs() {
   return window['go']['main']['App']['TailLogs']();
 }

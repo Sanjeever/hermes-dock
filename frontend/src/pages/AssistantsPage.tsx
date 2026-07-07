@@ -78,6 +78,7 @@ export function AssistantsPage(props: {
     onRebuild: () => void;
     onOpenOperations: (tab: OperationsTab) => void;
     onRefreshSkills: () => void;
+    onSyncBundledSkills: () => Promise<boolean>;
     onSkillDetail: (path: string) => void;
     onDeleteSkill: (path: string) => Promise<boolean>;
     onOpenSkillDirectory: (path: string) => void;
@@ -262,6 +263,7 @@ export function AssistantsPage(props: {
                         busy={props.busy}
                         onBack={() => setShowSkills(false)}
                         onRefresh={props.onRefreshSkills}
+                        onSyncBundledSkills={props.onSyncBundledSkills}
                         onDetail={props.onSkillDetail}
                         onDelete={props.onDeleteSkill}
                         onOpenDirectory={props.onOpenSkillDirectory}
@@ -407,6 +409,7 @@ function SkillsPanel(props: {
     busy: boolean;
     onBack: () => void;
     onRefresh: () => void;
+    onSyncBundledSkills: () => Promise<boolean>;
     onDetail: (path: string) => void;
     onDelete: (path: string) => Promise<boolean>;
     onOpenDirectory: (path: string) => void;
@@ -483,6 +486,7 @@ function SkillsPanel(props: {
                         <button className={view === 'hub' ? 'selected' : ''} onClick={() => setView('hub')} disabled={props.busy}>技能中心</button>
                     </div>
                     <div className="skills-head-actions">
+                        {view === 'local' && <button className="ghost" onClick={props.onSyncBundledSkills} disabled={props.busy}><Download size={16}/>同步内置技能</button>}
                         <button className="ghost" onClick={() => view === 'local' ? props.onRefresh() : searchHub(hubKeyword, hubCategory, hubPage)} disabled={props.busy}><RefreshCcw size={16}/>刷新</button>
                         <button className="ghost" onClick={props.onBack} disabled={props.busy}><ChevronLeft size={16}/>返回摘要</button>
                     </div>

@@ -798,6 +798,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"ListProfileSkills":    noParams(func() (interface{}, error) { return a.ListProfileSkills() }),
 		"GetSkillDetail":       oneArgValue[string, SkillDetail](a.GetSkillDetail),
 		"DeleteSkill":          oneArg[DeleteSkillRequest](a.webDeleteSkill),
+		"SyncBundledSkills":    noParams(func() (interface{}, error) { return a.SyncBundledSkills() }),
 		"ListSkillHubSkills":   oneArgValue[SkillHubQuery, SkillHubState](a.ListSkillHubSkills),
 		"GetSkillHubDetail":    oneArgValue[string, SkillHubDetail](a.GetSkillHubDetail),
 		"InstallSkillHubSkill": oneArg[string](a.InstallSkillHubSkill),

@@ -100,6 +100,8 @@ export function StopHermes():Promise<void>;
 
 export function StopTailLogs():Promise<void>;
 
+export function SyncBundledSkills():Promise<main.SyncBundledSkillsResult>;
+
 export function TailLogs():Promise<void>;
 
 export function TestModel():Promise<void>;

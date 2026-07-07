@@ -83,6 +83,7 @@ export type SkillsState = {
     customCount: number;
     conflictCount: number;
 };
+export type SyncBundledSkillsResult = { activeProfile: string; syncedSkills: string[]; syncedFiles: number };
 export type SkillFileInfo = { path: string; sizeBytes: number; updatedAt: string };
 export type SkillDetail = SkillSummary & {
     preview: string;

@@ -6,6 +6,7 @@ import type {
     ProviderConfig,
     ProviderEntry,
     SkillHubQuery,
+    SyncBundledSkillsResult,
     UpdateInfo,
     WebSettingsRequest,
     WebTextFileKind,
@@ -90,6 +91,7 @@ export const SendTestMessage = (platform: string, id: string, message: string) =
 export const ListProfileSkills = () => wailsOrRPC<unknown>('ListProfileSkills');
 export const GetSkillDetail = (path: string) => wailsOrRPC<unknown>('GetSkillDetail', [path]);
 export const DeleteSkill = (path: string) => isWebRuntime() ? rpc<void>('DeleteSkill', [{path, confirm: true}]) : wailsOrRPC<void>('DeleteSkill', [path]);
+export const SyncBundledSkills = () => wailsOrRPC<SyncBundledSkillsResult>('SyncBundledSkills');
 export const ListSkillHubSkills = (query: SkillHubQuery) => wailsOrRPC<unknown>('ListSkillHubSkills', [query]);
 export const GetSkillHubDetail = (slug: string) => wailsOrRPC<unknown>('GetSkillHubDetail', [slug]);
 export const InstallSkillHubSkill = (slug: string) => wailsOrRPC<void>('InstallSkillHubSkill', [slug]);

@@ -160,7 +160,7 @@ profile registry 和运行态文件：
 - 不做 Kanban/跨 profile 协作 UI，但保持 Hermes 原生 profile 和 Kanban 机制兼容。
 - 不做 profile 导入/导出。
 
-skills 管理、Skill Hub 安装和打开本机技能目录在桌面端和 Web 端都可用。
+skills 管理、Skill Hub 安装、打开本机技能目录和同步启动器内置最新技能在桌面端和 Web 端都可用。同步内置技能会用启动器模板覆盖当前 profile 的内置技能文件，不删除自定义技能或模板外文件。
 
 ## 数据安全策略
 

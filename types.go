@@ -269,6 +269,12 @@ type SkillsState struct {
 	ConflictCount int            `json:"conflictCount"`
 }
 
+type SyncBundledSkillsResult struct {
+	ActiveProfile string   `json:"activeProfile"`
+	SyncedSkills  []string `json:"syncedSkills"`
+	SyncedFiles   int      `json:"syncedFiles"`
+}
+
 type SkillSummary struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`

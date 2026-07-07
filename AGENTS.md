@@ -172,7 +172,7 @@ UI 和功能边界：
 - 桌面和 Web 高级编辑都以当前 profile 为上下文，可打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。
 - 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导。
-- skills 管理、Skill Hub 安装和打开本机技能目录在桌面端和 Web 端都可用。
+- skills 管理、Skill Hub 安装、打开本机技能目录和同步启动器内置最新技能在桌面端和 Web 端都可用。同步内置技能会用启动器模板覆盖当前 profile 的内置技能文件，不删除自定义技能或模板外文件。
 
 测试要求：
 
