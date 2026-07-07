@@ -83,6 +83,7 @@ export const SaveModelConfig = (model: ModelConfig) => wailsOrRPC<void>('SaveMod
 export const SaveProviderConfig = (providers: ProviderConfig) => wailsOrRPC<void>('SaveProviderConfig', [providers]);
 export const SaveWeComConfig = (config: unknown) => wailsOrRPC<void>('SaveWeComConfig', [config]);
 export const SaveFeishuConfig = (config: unknown) => wailsOrRPC<void>('SaveFeishuConfig', [config]);
+export const UnbindPlatform = (platform: string) => wailsOrRPC<void>('UnbindPlatform', [platform]);
 export const FetchProviderConfigModelList = (provider: ProviderEntry) => wailsOrRPC<unknown[]>('FetchProviderConfigModelList', [provider]);
 export const SetHomeChannel = (platform: string, id: string) => wailsOrRPC<void>('SetHomeChannel', [platform, id]);
 export const SendTestMessage = (platform: string, id: string, message: string) => wailsOrRPC<void>('SendTestMessage', [platform, id, message]);

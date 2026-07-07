@@ -206,6 +206,10 @@ export function TestModel() {
   return window['go']['main']['App']['TestModel']();
 }
 
+export function UnbindPlatform(arg1) {
+  return window['go']['main']['App']['UnbindPlatform'](arg1);
+}
+
 export function UpdateProfileName(arg1, arg2) {
   return window['go']['main']['App']['UpdateProfileName'](arg1, arg2);
 }

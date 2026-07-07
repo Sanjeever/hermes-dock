@@ -789,6 +789,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"SaveProviderConfig":   oneArg[ProviderConfig](a.SaveProviderConfig),
 		"SaveWeComConfig":      oneArg[WeComConfig](a.SaveWeComConfig),
 		"SaveFeishuConfig":     oneArg[FeishuConfig](a.SaveFeishuConfig),
+		"UnbindPlatform":       oneArg[string](a.UnbindPlatform),
 		"CreateProfile":        oneArg[CreateProfileRequest](a.CreateProfile),
 		"DeleteProfile":        oneArg[DeleteProfileRequest](a.webDeleteProfile),
 		"CompleteProfileSetup": oneArg[string](a.CompleteProfileSetup),

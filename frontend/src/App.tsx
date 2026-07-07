@@ -40,6 +40,7 @@ import {
     StopTailLogs,
     TailLogs,
     TestModel,
+    UnbindPlatform,
     MoveProfile,
     UpdateProfileName,
     SaveWebSettings,
@@ -764,6 +765,22 @@ function App() {
         }), {rebuildRequired: true, beforeRefresh: () => markPlatformDirty(false)});
     }
 
+    async function unbindPlatform(platform: PlatformKey) {
+        const label = platformLabel(platform);
+        if (!window.confirm(`确定取消绑定${label}？这会清空当前助手的绑定密钥，保存后需要应用并重建才会影响运行中的容器。`)) return;
+        await run(`正在取消绑定${label}`, () => UnbindPlatform(platform), {
+            rebuildRequired: true,
+            beforeRefresh: () => markPlatformDirty(false),
+            afterSuccess: () => {
+                if (platform === 'weixin') {
+                    setQrData('');
+                    setQrStatus('');
+                    setWeixinLoginProfile('');
+                }
+            },
+        });
+    }
+
     function selectPlatform(value: PlatformKey) {
         if (platformDirty && value !== selectedPlatform) {
             setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存后再切换平台'});
@@ -1102,6 +1119,7 @@ function App() {
                         onCancelWeixin={cancelWeixinLogin}
                         onSaveWeCom={saveWeComConfig}
                         onSaveFeishu={saveFeishuConfig}
+                        onUnbindPlatform={unbindPlatform}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
                         onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
@@ -1192,6 +1210,19 @@ function closedPolicyValue(value: string) {
 
 function disabledPolicyValue(value: string) {
     return value === 'open' || value === '' ? 'open' : 'disabled';
+}
+
+function platformLabel(platform: PlatformKey) {
+    switch (platform) {
+        case 'weixin':
+            return '个人微信';
+        case 'wecom':
+            return '企业微信';
+        case 'feishu':
+            return '飞书 / Lark';
+        default:
+            return platform;
+    }
 }
 
 function firstBoundPlatform(env: EnvVar[]): PlatformKey {

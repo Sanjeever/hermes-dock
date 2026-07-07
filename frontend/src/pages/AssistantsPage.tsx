@@ -72,6 +72,7 @@ export function AssistantsPage(props: {
     onCancelWeixin: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
+    onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
     onRebuild: () => void;
@@ -327,6 +328,7 @@ export function AssistantsPage(props: {
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
+                        onUnbind={props.onUnbindPlatform}
                         onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}
                     />
@@ -923,6 +925,7 @@ function AssistantWizard(props: {
     onCancelWeixin: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
+    onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
 }) {
@@ -1011,6 +1014,7 @@ function AssistantWizard(props: {
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
+                        onUnbind={props.onUnbindPlatform}
                     />
                     <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={(step) => step && goToStep(step)} onNext={async () => {
                         if (props.platformDirty && !(await props.onSaveCurrentPlatform())) return;

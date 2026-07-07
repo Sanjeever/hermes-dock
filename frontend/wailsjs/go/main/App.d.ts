@@ -104,4 +104,6 @@ export function TailLogs():Promise<void>;
 
 export function TestModel():Promise<void>;
 
+export function UnbindPlatform(arg1:string):Promise<void>;
+
 export function UpdateProfileName(arg1:string,arg2:string):Promise<void>;

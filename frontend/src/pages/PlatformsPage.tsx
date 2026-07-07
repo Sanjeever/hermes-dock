@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {CheckCircle2, MessageSquare, QrCode, Save, Square} from 'lucide-react';
+import {CheckCircle2, MessageSquare, QrCode, Save, Square, Unlink} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
 import {FeishuGroupPolicySelect, Field, PolicySelect, SecretField} from '../components/fields';
 import {IconButton} from '../components/primitives';
@@ -18,6 +18,7 @@ export function PlatformsPage(props: {
     onCancelWeixin: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
+    onUnbind: (platform: PlatformKey) => void;
 }) {
     const weixinBound = !!envValue(props.env, 'WEIXIN_ACCOUNT_ID') && !!envValue(props.env, 'WEIXIN_TOKEN');
     const wecomBound = !!envValue(props.env, 'WECOM_BOT_ID') && !!envValue(props.env, 'WECOM_SECRET');
@@ -31,9 +32,9 @@ export function PlatformsPage(props: {
                 <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" busy={props.busy} onSelect={props.setSelected}/>
                 <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" busy={props.busy} onSelect={props.setSelected}/>
             </div>
-            {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin}/>}
-            {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom}/>}
-            {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu}/>}
+            {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin} onUnbind={() => props.onUnbind('weixin')}/>}
+            {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom} onUnbind={() => props.onUnbind('wecom')}/>}
+            {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu} onUnbind={() => props.onUnbind('feishu')}/>}
         </section>
     );
 }
@@ -48,7 +49,7 @@ function PlatformCard(props: { id: PlatformKey; selected: PlatformKey; bound: bo
     );
 }
 
-function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; busy: boolean; onWeixinLogin: () => void; onCancelWeixin: () => void }) {
+function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; busy: boolean; onWeixinLogin: () => void; onCancelWeixin: () => void; onUnbind: () => void }) {
     const accountID = envValue(props.env, 'WEIXIN_ACCOUNT_ID');
     const homeChannel = envValue(props.env, 'WEIXIN_HOME_CHANNEL');
     const bound = !!accountID && !!envValue(props.env, 'WEIXIN_TOKEN');
@@ -63,17 +64,19 @@ function WeixinPanel(props: { env: EnvVar[]; qrData: string; qrStatus: string; b
             <div className="actions">
                 <IconButton icon={QrCode} label="扫码登录" onClick={props.onWeixinLogin} disabled={props.busy}/>
                 <IconButton icon={Square} label="取消" onClick={props.onCancelWeixin} disabled={props.busy}/>
+                <button className="ghost danger-text" onClick={props.onUnbind} disabled={props.busy || !bound}><Unlink size={16}/>取消绑定</button>
             </div>
         </div>
     );
 }
 
-function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
+function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean>; onUnbind: () => void }) {
     const botID = envValue(props.env, 'WECOM_BOT_ID');
     const secret = envValue(props.env, 'WECOM_SECRET');
     const dmPolicy = closedPolicyValue(envValue(props.env, 'WECOM_DM_POLICY'));
     const groupPolicy = closedPolicyValue(envValue(props.env, 'WECOM_GROUP_POLICY'));
     const canSave = botID.trim() !== '' && secret.trim() !== '';
+    const bound = canSave;
     const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
@@ -85,18 +88,22 @@ function WeComPanel(props: { env: EnvVar[]; set: (key: string, value: string) =>
                 <PolicySelect label="私聊策略" value={dmPolicy} onChange={(value) => props.set('WECOM_DM_POLICY', value)}/>
                 <PolicySelect label="群聊策略" value={groupPolicy} onChange={(value) => props.set('WECOM_GROUP_POLICY', value)}/>
             </div>
-            {!canSave && <div className="form-warning">请填写 Bot ID 和 Secret 后再保存；清空或迁移绑定请使用高级编辑。</div>}
-            <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存企业微信配置</button>
+            {!canSave && <div className="form-warning">请填写 Bot ID 和 Secret 后再保存。</div>}
+            <div className="actions">
+                <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存企业微信配置</button>
+                <button className="ghost danger-text" onClick={props.onUnbind} disabled={props.busy || !bound}><Unlink size={16}/>取消绑定</button>
+            </div>
         </div>
     );
 }
 
-function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean> }) {
+function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; busy: boolean; onSave: () => Promise<boolean>; onUnbind: () => void }) {
     const appID = envValue(props.env, 'FEISHU_APP_ID');
     const appSecret = envValue(props.env, 'FEISHU_APP_SECRET');
     const domain = enumValue(envValue(props.env, 'FEISHU_DOMAIN'), ['feishu', 'lark'], 'feishu');
     const groupPolicy = disabledPolicyValue(envValue(props.env, 'FEISHU_GROUP_POLICY'));
     const canSave = appID.trim() !== '' && appSecret.trim() !== '';
+    const bound = canSave;
     const [secretVisible, setSecretVisible] = useState(false);
     return (
         <div className="panel">
@@ -114,8 +121,11 @@ function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) =
                 <FeishuGroupPolicySelect label="群聊策略" value={groupPolicy} onChange={(value) => props.set('FEISHU_GROUP_POLICY', value)}/>
             </div>
             <div className="setting-note">使用 WebSocket 模式连接飞书开放平台；群聊策略只保留开放和关闭。</div>
-            {!canSave && <div className="form-warning">请填写 App ID 和 App Secret 后再保存；清空或迁移绑定请使用高级编辑。</div>}
-            <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存飞书配置</button>
+            {!canSave && <div className="form-warning">请填写 App ID 和 App Secret 后再保存。</div>}
+            <div className="actions">
+                <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存飞书配置</button>
+                <button className="ghost danger-text" onClick={props.onUnbind} disabled={props.busy || !bound}><Unlink size={16}/>取消绑定</button>
+            </div>
         </div>
     );
 }

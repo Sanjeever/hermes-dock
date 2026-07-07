@@ -51,6 +51,50 @@ func (a *App) SaveFeishuConfig(config FeishuConfig) error {
 	return a.SaveEnvironment(mergeEnv(env, updates))
 }
 
+func (a *App) UnbindPlatform(platform string) error {
+	platform = strings.TrimSpace(platform)
+	env, _ := readEnvFile(a.envPath())
+	var updates []EnvVar
+	switch platform {
+	case "weixin":
+		a.CancelWeixinLogin()
+		updates = []EnvVar{
+			{Key: "WEIXIN_ACCOUNT_ID", Value: ""},
+			{Key: "WEIXIN_TOKEN", Value: ""},
+			{Key: "WEIXIN_BASE_URL", Value: ""},
+			{Key: "WEIXIN_CDN_BASE_URL", Value: "https://novac2c.cdn.weixin.qq.com/c2c"},
+			{Key: "WEIXIN_DM_POLICY", Value: "open"},
+			{Key: "WEIXIN_ALLOW_ALL_USERS", Value: "true"},
+			{Key: "WEIXIN_ALLOWED_USERS", Value: ""},
+			{Key: "WEIXIN_GROUP_POLICY", Value: "open"},
+			{Key: "WEIXIN_GROUP_ALLOWED_USERS", Value: ""},
+			{Key: "WEIXIN_HOME_CHANNEL", Value: ""},
+		}
+	case "wecom":
+		updates = []EnvVar{
+			{Key: "WECOM_BOT_ID", Value: ""},
+			{Key: "WECOM_SECRET", Value: ""},
+			{Key: "WECOM_WEBSOCKET_URL", Value: "wss://openws.work.weixin.qq.com"},
+			{Key: "WECOM_DM_POLICY", Value: "open"},
+			{Key: "WECOM_ALLOWED_USERS", Value: ""},
+			{Key: "WECOM_GROUP_POLICY", Value: "open"},
+			{Key: "WECOM_GROUP_ALLOWED_USERS", Value: ""},
+		}
+	case "feishu":
+		updates = []EnvVar{
+			{Key: "FEISHU_APP_ID", Value: ""},
+			{Key: "FEISHU_APP_SECRET", Value: ""},
+			{Key: "FEISHU_DOMAIN", Value: "feishu"},
+			{Key: "FEISHU_CONNECTION_MODE", Value: "websocket"},
+			{Key: "FEISHU_ALLOWED_USERS", Value: ""},
+			{Key: "FEISHU_GROUP_POLICY", Value: "open"},
+		}
+	default:
+		return fmt.Errorf("不支持的平台：%s", platform)
+	}
+	return a.SaveEnvironment(mergeEnv(env, updates))
+}
+
 func keepExistingIfMaskedSecret(existing []EnvVar, key string, value string) string {
 	value = strings.TrimSpace(value)
 	if isMaskedSecretPlaceholder(value) {
