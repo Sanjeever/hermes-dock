@@ -45,6 +45,7 @@ func (a *App) SaveFeishuConfig(config FeishuConfig) error {
 		{Key: "FEISHU_APP_SECRET", Value: keepExistingIfMaskedSecret(env, "FEISHU_APP_SECRET", config.AppSecret)},
 		{Key: "FEISHU_DOMAIN", Value: domain},
 		{Key: "FEISHU_CONNECTION_MODE", Value: "websocket"},
+		{Key: "FEISHU_ALLOW_ALL_USERS", Value: "true"},
 		{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 		{Key: "FEISHU_GROUP_POLICY", Value: groupPolicy},
 	}
@@ -86,6 +87,7 @@ func (a *App) UnbindPlatform(platform string) error {
 			{Key: "FEISHU_APP_SECRET", Value: ""},
 			{Key: "FEISHU_DOMAIN", Value: "feishu"},
 			{Key: "FEISHU_CONNECTION_MODE", Value: "websocket"},
+			{Key: "FEISHU_ALLOW_ALL_USERS", Value: "true"},
 			{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 			{Key: "FEISHU_GROUP_POLICY", Value: "open"},
 		}

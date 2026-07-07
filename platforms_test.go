@@ -92,6 +92,9 @@ func TestSaveFeishuConfigNormalizesPolicyAndClearsAllowlist(t *testing.T) {
 	if got := envValue(env, "FEISHU_ALLOWED_USERS"); got != "" {
 		t.Fatalf("FEISHU_ALLOWED_USERS = %q, want empty", got)
 	}
+	if got := envValue(env, "FEISHU_ALLOW_ALL_USERS"); got != "true" {
+		t.Fatalf("FEISHU_ALLOW_ALL_USERS = %q, want true", got)
+	}
 }
 
 func TestSaveFeishuConfigPreservesExistingSecretWhenRequestIsRedacted(t *testing.T) {
@@ -198,6 +201,9 @@ func TestUnbindPlatformClearsFeishuBinding(t *testing.T) {
 	}
 	if got := envValue(env, "FEISHU_CONNECTION_MODE"); got != "websocket" {
 		t.Fatalf("FEISHU_CONNECTION_MODE = %q, want websocket", got)
+	}
+	if got := envValue(env, "FEISHU_ALLOW_ALL_USERS"); got != "true" {
+		t.Fatalf("FEISHU_ALLOW_ALL_USERS = %q, want true", got)
 	}
 }
 
