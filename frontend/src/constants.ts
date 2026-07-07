@@ -52,6 +52,15 @@ export const fallbackModelProviderPresets: ModelProviderPreset[] = [
         defaultModel: 'deepseek-v4-flash',
         modelListUrl: 'https://api.deepseek.com/models',
     },
+    {
+        key: 'agnes',
+        label: 'Agnes AI',
+        provider: 'custom',
+        baseUrl: 'https://apihub.agnes-ai.com/v1',
+        apiMode: 'chat_completions',
+        defaultModel: 'agnes-2.0-flash',
+        modelListUrl: 'https://apihub.agnes-ai.com/v1/models',
+    },
 ];
 
 export const fallbackProviderConfig: ProviderConfig = {

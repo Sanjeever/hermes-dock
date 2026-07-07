@@ -56,3 +56,27 @@ providers:
 		t.Fatalf("DASHSCOPE_API_KEY = %q, want real-secret", got)
 	}
 }
+
+func TestNormalizeAgnesDefaults(t *testing.T) {
+	app := NewApp()
+	model := app.normalizeModelConfigForSave(ModelConfig{
+		Provider: "custom",
+		BaseURL:  "https://apihub.agnes-ai.com/v1",
+	})
+	if model.Provider != "custom" {
+		t.Fatalf("provider = %q, want custom", model.Provider)
+	}
+	if model.BaseURL != "https://apihub.agnes-ai.com/v1" {
+		t.Fatalf("base URL = %q", model.BaseURL)
+	}
+	if model.APIMode != "chat_completions" {
+		t.Fatalf("api mode = %q", model.APIMode)
+	}
+}
+
+func TestAgnesProviderAPIKeyEnv(t *testing.T) {
+	key := modelProviderAPIKeyEnv("custom", "https://apihub.agnes-ai.com/v1")
+	if key != "AGNES_API_KEY" {
+		t.Fatalf("env key = %q, want AGNES_API_KEY", key)
+	}
+}

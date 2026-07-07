@@ -14,7 +14,7 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 - 可视化管理 Docker 镜像、端口、控制台账号密码、内存、CPU 和共享内存，控制台固定启用。
 - 通过模型、部署和平台绑定表单写入必要配置，不向普通用户提供环境变量编辑页。
 - 可视化配置主模型和 auxiliary 模型。
-- 支持 DashScope 按量计费和 DeepSeek 两个模型供应商预设。
+- 支持 DashScope 按量计费、OpenCode Go、DeepSeek 和 Agnes AI 模型供应商预设。
 - 支持通过 API Key 拉取模型列表并选择模型。
 - 支持个人微信 Weixin / WeChat Personal 扫码登录。
 - 支持企业微信 AI Bot WebSocket 配置。
@@ -203,13 +203,14 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 
 供应商配置独立保存在当前 profile 的 `config.yaml` 顶层 `providers` 中，`model.provider` 和辅助模型的 `provider` 字段只引用供应商 ID。启动器保存时会把当前引用供应商的 `base_url`、`api_mode` 和 `api_key` 展开回 `model` / `auxiliary`，兼容 Hermes 当前运行态。
 
-MVP 内置三个供应商实例：
+MVP 内置四个供应商实例：
 
 - `dashscope-payg`：DashScope 按量计费，默认模型 `qwen3.7-max`。
 - `opencode-go`：OpenCode Go，默认模型 `deepseek-v4-flash`。
 - `deepseek`：DeepSeek，默认模型 `deepseek-v4-flash`。
+- `agnes`：Agnes AI，默认模型 `agnes-2.0-flash`。
 
-供应商页负责新增、编辑、禁用供应商，以及填写 API Key、接口地址、API 模式和模型列表地址。模型页只选择已配置的供应商和模型名。保存供应商或模型配置时，启动器只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env` 的 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY` 或 `DEEPSEEK_API_KEY`，供对应 profile 运行态读取。
+供应商页负责新增、编辑、禁用供应商，以及填写 API Key、接口地址、API 模式和模型列表地址。模型页只选择已配置的供应商和模型名。保存供应商或模型配置时，启动器只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env` 的 `DASHSCOPE_API_KEY`、`OPENCODE_GO_API_KEY`、`DEEPSEEK_API_KEY` 或 `AGNES_API_KEY`，供对应 profile 运行态读取。
 
 自定义供应商在 UI 中统一保存为 `provider: custom`，适配 OpenAI 兼容或 Anthropic Messages 兼容接口。模型列表不持久化；拉取失败时仍可手动填写模型名。
 
@@ -318,7 +319,7 @@ pnpm --dir frontend run build
 - 启动、停止、重启、重建、状态和日志。
 - 镜像、端口、控制台认证和资源限制编辑。
 - 主模型和 auxiliary 模型配置。
-- DashScope 按量计费和 DeepSeek 供应商预设。
+- DashScope 按量计费、OpenCode Go、DeepSeek 和 Agnes AI 供应商预设。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
 - 飞书 / Lark WebSocket 配置。

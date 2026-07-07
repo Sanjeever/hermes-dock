@@ -188,7 +188,7 @@ UI 和功能边界：
 - 标准 compose 生成和 override 入口。
 - 启动、停止、重启、重建、状态和日志。
 - 部署配置、主模型和 auxiliary 模型配置，平台配置通过结构化页面写入 `.env`。
-- DashScope 按量计费和 DeepSeek 供应商预设及模型列表拉取。
+- DashScope 按量计费、OpenCode Go、DeepSeek 和 Agnes AI 供应商预设及模型列表拉取。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
 - 飞书 / Lark WebSocket 配置。
@@ -216,6 +216,7 @@ UI 和功能边界：
 - `dashscope-payg`：DashScope 按量计费，`provider: custom`，默认模型 `qwen3.7-max`，模型列表 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`。
 - `opencode-go`：OpenCode Go，`provider: custom`，默认模型 `deepseek-v4-flash`，模型列表 `https://opencode.ai/zen/go/v1/models`。
 - `deepseek`：DeepSeek，`provider: deepseek`，默认模型 `deepseek-v4-flash`，模型列表 `https://api.deepseek.com/models`。
+- `agnes`：Agnes AI，`provider: custom`，默认模型 `agnes-2.0-flash`，模型列表 `https://apihub.agnes-ai.com/v1/models`。
 
 供应商页负责新增、编辑、禁用供应商和填写 API Key。内置供应商不可删除，自定义供应商被主模型或辅助模型引用时不可删除。模型页只选择供应商 ID 和模型名；主供应商没有 API Key 时允许保存模型选择，但禁止测试。保存供应商或模型配置时，只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env`，空密钥不同步，也不清理旧 `.env` 遗留键。
 

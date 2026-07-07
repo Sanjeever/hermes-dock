@@ -58,6 +58,15 @@ var modelProviderPresets = []ModelProviderPreset{
 		DefaultModel: "deepseek-v4-flash",
 		ModelListURL: "https://api.deepseek.com/models",
 	},
+	{
+		Key:          "agnes",
+		Label:        "Agnes AI",
+		Provider:     "custom",
+		BaseURL:      "https://apihub.agnes-ai.com/v1",
+		APIMode:      "chat_completions",
+		DefaultModel: "agnes-2.0-flash",
+		ModelListURL: "https://apihub.agnes-ai.com/v1/models",
+	},
 }
 
 func parseYAMLFile(path string, out interface{}) error {
@@ -855,7 +864,7 @@ func modelProviderEnvUpdates(model ModelConfig) []EnvVar {
 }
 
 func orderedEnvUpdates(byKey map[string]EnvVar) []EnvVar {
-	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY"}
+	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY", "AGNES_API_KEY"}
 	updates := make([]EnvVar, 0, len(byKey))
 	for _, key := range order {
 		if item, ok := byKey[key]; ok {
@@ -873,6 +882,8 @@ func modelProviderAPIKeyEnv(provider string, baseURL string) string {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	baseURL = strings.ToLower(strings.TrimSpace(baseURL))
 	switch {
+	case provider == "custom" && strings.Contains(baseURL, "apihub.agnes-ai.com"):
+		return "AGNES_API_KEY"
 	case provider == "deepseek" || strings.Contains(baseURL, "api.deepseek.com"):
 		return "DEEPSEEK_API_KEY"
 	case provider == "opencode" || provider == "opencode-go" || strings.Contains(baseURL, "opencode.ai/zen/go"):
@@ -890,6 +901,8 @@ func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {
 	provider := strings.ToLower(strings.TrimSpace(model.Provider))
 	baseURL := strings.ToLower(strings.TrimSpace(model.BaseURL))
 	switch {
+	case provider == "custom" && strings.Contains(baseURL, "apihub.agnes-ai.com"):
+		return modelProviderPresetByKey("agnes")
 	case provider == "deepseek" || strings.Contains(baseURL, "api.deepseek.com"):
 		return modelProviderPresetByKey("deepseek")
 	case provider == "opencode" || provider == "opencode-go" || strings.Contains(baseURL, "opencode.ai/zen/go"):

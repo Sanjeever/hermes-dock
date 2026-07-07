@@ -35,6 +35,16 @@ providers:
     default_model: deepseek-v4-flash
     builtin: true
     disabled: false
+  agnes:
+    label: Agnes AI
+    provider: custom
+    base_url: https://apihub.agnes-ai.com/v1
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: https://apihub.agnes-ai.com/v1/models
+    default_model: agnes-2.0-flash
+    builtin: true
+    disabled: false
 fallback_providers: []
 toolsets:
   - hermes-cli
