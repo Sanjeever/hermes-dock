@@ -330,7 +330,7 @@ export function AssistantsPage(props: {
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
-                        onUnbind={props.onUnbindPlatform}
+                        onUnbindPlatform={props.onUnbindPlatform}
                         onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}
                     />
