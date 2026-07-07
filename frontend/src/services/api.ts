@@ -101,10 +101,7 @@ export const SaveTextFile = (req: { path: string; content: string; reason?: stri
     return wailsOrRPC<void>('SaveTextFile', [req]);
 };
 export const FactoryResetInstance = () => wailsOrRPC<void>('FactoryResetInstance');
-export const OpenSkillDirectory = (path: string) => {
-    if (isWebRuntime()) return Promise.reject(new Error('Web 管理不支持打开本机文件夹'));
-    return wailsApp.OpenSkillDirectory(path);
-};
+export const OpenSkillDirectory = (path: string) => wailsOrRPC<void>('OpenSkillDirectory', [path]);
 export const OpenEndpoint = async (endpoint: string) => {
     if (!isWebRuntime()) return wailsApp.OpenEndpoint(endpoint);
     const url = await rpc<string>('OpenEndpoint', [endpoint]);
@@ -113,7 +110,13 @@ export const OpenEndpoint = async (endpoint: string) => {
 export const SaveWebSettings = (settings: WebSettingsRequest) => wailsOrRPC<void>('SaveWebSettings', [settings]);
 export const ChangeWebPassword = (oldPassword: string, newPassword: string) => wailsOrRPC<void>('ChangeWebPassword', [oldPassword, newPassword]);
 export const ResetWebPassword = () => wailsOrRPC<void>('ResetWebPassword');
-export const OpenWebManagement = () => wailsOrRPC<void>('OpenWebManagement');
+export const OpenWebManagement = () => {
+    if (isWebRuntime()) {
+        window.open(window.location.href, '_blank', 'noopener,noreferrer');
+        return Promise.resolve();
+    }
+    return wailsOrRPC<void>('OpenWebManagement');
+};
 export const CheckForUpdates = (force: boolean) => wailsOrRPC<UpdateInfo>('CheckForUpdates', [force]);
 export const DismissUpdate = (version: string) => wailsOrRPC<void>('DismissUpdate', [version]);
 export const OpenUpdateURL = (url: string) => {
@@ -127,6 +130,7 @@ export const OpenUpdateURL = (url: string) => {
 function webTextFileKind(path: string): WebTextFileKind {
     if (path === 'docker-compose.override.yaml') return 'compose_override';
     if (path.endsWith('/SOUL.md') || path === 'data/SOUL.md') return 'profile_soul';
+    if (path.endsWith('/.env') || path === 'data/.env') return 'profile_env';
     if (path.endsWith('/config.yaml') || path === 'data/config.yaml') return 'profile_config';
     throw new Error('Web 管理不开放该文件');
 }

@@ -754,18 +754,7 @@ func decodeParam[T any](params []json.RawMessage, index int) (T, error) {
 func (a *App) webRPCHandlers() map[string]webRPCHandler {
 	return map[string]webRPCHandler{
 		"GetAppState": func(params []json.RawMessage) (interface{}, error) {
-			state, err := a.GetAppState()
-			state.Environment = maskEnvironmentForWeb(state.Environment)
-			state.Model.APIKey = maskSecret(state.Model.APIKey)
-			for key, aux := range state.Model.Auxiliary {
-				aux.APIKey = maskSecret(aux.APIKey)
-				state.Model.Auxiliary[key] = aux
-			}
-			for id, provider := range state.Providers.Providers {
-				provider.APIKey = maskSecret(provider.APIKey)
-				state.Providers.Providers[id] = provider
-			}
-			return state, err
+			return a.GetAppState()
 		},
 		"StartHermes":             a.webLocked(a.StartHermes),
 		"StopHermes":              a.webLocked(a.StopHermes),
@@ -778,8 +767,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"TestModel":               a.webLocked(a.TestModel),
 		"GetModelProviderPresets": noParams(func() (interface{}, error) { return a.GetModelProviderPresets(), nil }),
 		"GetProviderConfig": noParams(func() (interface{}, error) {
-			providers, err := a.GetProviderConfig()
-			return maskProviderConfig(providers), err
+			return a.GetProviderConfig()
 		}),
 		"ListProfiles":         noParams(func() (interface{}, error) { return a.ListProfiles() }),
 		"GetChannels":          noParams(func() (interface{}, error) { return a.GetChannels() }),
@@ -815,13 +803,16 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"InstallSkillHubSkill": oneArg[string](a.InstallSkillHubSkill),
 		"ReadWebTextFile":      oneArgValue[string, string](a.webReadTextFile),
 		"SaveWebTextFile":      oneArg[WebTextFileRequest](a.webSaveTextFile),
+		"FactoryResetInstance": a.webLocked(a.FactoryResetInstance),
+		"OpenSkillDirectory":   oneArg[string](a.OpenSkillDirectory),
 		"OpenEndpoint":         oneArgValue[string, string](a.webEndpointURL),
 		"SaveWebSettings":      oneArg[WebSettingsRequest](a.SaveWebSettings),
 		"ChangeWebPassword":    twoArgs[string, string](a.ChangeWebPassword),
 		"ResetWebPassword":     noResult(a.ResetWebPassword),
 		"CheckForUpdates":      oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
 		"DismissUpdate":        oneArg[string](a.DismissUpdate),
-		"OpenUpdateURL":        noResult(func() error { return errors.New("Web 管理请直接在浏览器打开更新链接") }),
+		"OpenUpdateURL":        oneArg[string](a.OpenUpdateURL),
+		"OpenWebManagement":    noResult(a.OpenWebManagement),
 	}
 }
 
@@ -908,32 +899,6 @@ func threeArgs[A any, B any, C any](fn func(A, B, C) error) webRPCHandler {
 		}
 		return nil, fn(a1, a2, a3)
 	}
-}
-
-func maskSecret(value string) string {
-	if strings.TrimSpace(value) == "" || isMaskedSecretPlaceholder(value) {
-		return value
-	}
-	return "<redacted>"
-}
-
-func maskProviderConfig(config ProviderConfig) ProviderConfig {
-	for id, provider := range config.Providers {
-		provider.APIKey = maskSecret(provider.APIKey)
-		config.Providers[id] = provider
-	}
-	return config
-}
-
-func maskEnvironmentForWeb(env []EnvVar) []EnvVar {
-	out := make([]EnvVar, len(env))
-	for i, item := range env {
-		if item.Secret {
-			item.Value = maskSecret(item.Value)
-		}
-		out[i] = item
-	}
-	return out
 }
 
 func (a *App) fillMaskedProviderSecret(provider ProviderConfigEntry) ProviderConfigEntry {
@@ -1027,6 +992,8 @@ func (a *App) webTextFilePath(kind string) (string, error) {
 	switch strings.TrimSpace(kind) {
 	case "profile_config":
 		path = filepath.Join(a.profileDataDir(profileID), "config.yaml")
+	case "profile_env":
+		path = filepath.Join(a.profileDataDir(profileID), ".env")
 	case "profile_soul":
 		path = filepath.Join(a.profileDataDir(profileID), "SOUL.md")
 	case "compose_override":

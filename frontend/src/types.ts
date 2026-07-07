@@ -178,4 +178,4 @@ export type WebSettingsRequest = {
     port: string;
 };
 
-export type WebTextFileKind = 'profile_config' | 'profile_soul' | 'compose_override';
+export type WebTextFileKind = 'profile_config' | 'profile_env' | 'profile_soul' | 'compose_override';

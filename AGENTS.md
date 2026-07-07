@@ -65,9 +65,9 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - 不要把密钥写入 `launcher/state.json`。
 - 不要把密钥写入 `launcher/profiles.json`、`data/.dock/profiles-runtime.json` 或 `data/.dock/profile-status.json`。
 - UI 日志、事件、错误信息中不要输出完整 token、API key、secret。
-- Web 管理不返回完整 `.env`，不提供 `.env` 明文编辑入口。
-- Web 高级编辑只开放当前 profile 的 `config.yaml`、当前 profile 的 `SOUL.md` 和全局 `docker-compose.override.yaml`；保存 Compose 覆盖文件需要输入“确认”。
-- Web 管理不提供“恢复出厂设置”。
+- Web 管理与桌面端保持同等管理能力，会返回和编辑当前 profile 的完整环境配置；访问密码是远程管理边界。
+- Web 高级编辑与桌面端一致，开放当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`；保存 Compose 覆盖文件需要输入“确认”。
+- Web 管理提供与桌面端一致的“恢复出厂设置”危险操作。
 - 不要为了兼容失败而吞掉错误；应返回清晰错误，让 UI 展示。
 - 高级页“恢复出厂设置”是唯一允许删除整个 `~/.hermes-dock` 的流程；必须先 `docker compose down`，失败则中止，不加 `--volumes`。
 
@@ -169,10 +169,10 @@ UI 和功能边界：
 - `enabled` 只表示参与运行，不影响编辑。
 - 保存配置不自动重建；显示未应用变更，由用户手动“应用并重建”。
 - 模型测试和平台测试消息只针对当前 profile。
-- 桌面高级编辑以当前 profile 为上下文，可打开当前 profile 的 `config.yaml` 和 `.env`；Web 高级编辑只打开当前 profile 的 `config.yaml`、`SOUL.md` 和全局 `docker-compose.override.yaml`。
+- 桌面和 Web 高级编辑都以当前 profile 为上下文，可打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。
 - 第一版不做按消息内容跨 profile 路由，不做 profile 导入/导出，不做批量创建向导。
-- skills 管理和 Skill Hub 安装在桌面端和 Web 端都可用；Web 端不支持打开本机技能目录。
+- skills 管理、Skill Hub 安装和打开本机技能目录在桌面端和 Web 端都可用。
 
 测试要求：
 

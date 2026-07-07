@@ -53,7 +53,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
 import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
-import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig, webAdvancedFileOptions} from './utils';
+import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
     const webRuntime = isWebRuntime();
@@ -206,15 +206,6 @@ function App() {
         if (!state?.activeProfile || advancedDirty) return;
         setAdvancedPath(defaultAdvancedPath(state.activeProfile));
     }, [state?.activeProfile]);
-
-    useEffect(() => {
-        if (!webRuntime || advancedDirty) return;
-        const options = webAdvancedFileOptions(state?.activeProfile || 'default');
-        if (!options.some((option) => option.value === advancedPath)) {
-            setAdvancedPath(options[0].value);
-            setAdvancedOpen(false);
-        }
-    }, [webRuntime, state?.activeProfile, advancedPath, advancedDirty]);
 
     useEffect(() => {
         if (!state?.activeProfile) return;
@@ -802,10 +793,6 @@ function App() {
     }
 
     async function factoryReset() {
-        if (webRuntime) {
-            setNotice({type: 'error', message: 'Web 管理不提供恢复出厂设置'});
-            return;
-        }
         await run('正在恢复出厂设置', FactoryResetInstance, {
             afterSuccess: () => {
                 setLogs([]);
@@ -1127,7 +1114,7 @@ function App() {
                         onRefreshSkills={loadSkills}
                         onSkillDetail={loadSkillDetail}
                         onDeleteSkill={deleteSkill}
-                        onOpenSkillDirectory={webRuntime ? async () => undefined : openSkillDirectory}
+                        onOpenSkillDirectory={openSkillDirectory}
                         onSearchSkillHub={loadSkillHubSkills}
                         onSkillHubDetail={loadSkillHubDetail}
                         onInstallSkillHubSkill={installSkillHubSkill}
@@ -1154,7 +1141,7 @@ function App() {
                         wecomBound={!!wecomBound}
                         feishuBound={!!feishuBound}
                         weixinHomeChannel={weixinHomeChannel}
-                        advancedOptions={webRuntime ? webAdvancedFileOptions(state.activeProfile || 'default') : advancedFileOptions(state.activeProfile || 'default')}
+                        advancedOptions={advancedFileOptions(state.activeProfile || 'default')}
                         advancedPath={advancedPath}
                         setAdvancedPath={changeAdvancedPath}
                         advancedOpen={advancedOpen}
@@ -1192,7 +1179,6 @@ function App() {
                         onSaveAdvanced={saveAdvancedFile}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
-                        webRuntime={webRuntime}
                         webStatus={state.web}
                         onSaveWebSettings={(settings) => run('正在保存 Web 管理设置', () => SaveWebSettings(settings))}
                         onChangeWebPassword={(oldPassword, newPassword) => run('正在修改 Web 访问密码', () => ChangeWebPassword(oldPassword, newPassword))}

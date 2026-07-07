@@ -72,14 +72,6 @@ export function advancedFileOptions(profileID: string) {
     ];
 }
 
-export function webAdvancedFileOptions(profileID: string) {
-    return [
-        {value: profileFilePath(profileID, 'config.yaml'), label: `${profileID}/config.yaml`},
-        {value: profileFilePath(profileID, 'SOUL.md'), label: `${profileID}/SOUL.md`},
-        {value: 'docker-compose.override.yaml', label: 'docker-compose.override.yaml'},
-    ];
-}
-
 export function endpointURL(host: string, port: string) {
     const localHost = !host || host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
     return `http://${localHost}:${port}`;

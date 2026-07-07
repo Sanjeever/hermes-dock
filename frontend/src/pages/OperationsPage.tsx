@@ -56,7 +56,6 @@ export function OperationsPage(props: {
     onSaveAdvanced: () => void;
     onFactoryReset: () => Promise<void>;
     resetConfirmPhrase: string;
-    webRuntime: boolean;
     webStatus: WebStatus;
     onSaveWebSettings: (settings: WebSettingsRequest) => Promise<boolean>;
     onChangeWebPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
@@ -137,7 +136,6 @@ export function OperationsPage(props: {
                         onSave={props.onSaveAdvanced}
                         onFactoryReset={props.onFactoryReset}
                         resetConfirmPhrase={props.resetConfirmPhrase}
-                        hideFactoryReset={props.webRuntime}
                     />
                 </div>
             )}
