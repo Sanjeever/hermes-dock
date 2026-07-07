@@ -21,7 +21,7 @@ func defaultComposeSettings() ComposeSettings {
 		DashboardEnabled:        true,
 		DashboardUsername:       "admin",
 		DashboardPassword:       "123456",
-		GatewayBusyInputMode:    "queue",
+		GatewayBusyInputMode:    "steer",
 		GatewayBusyAckEnabled:   "false",
 		BackgroundNotifications: "result",
 		MemoryLimit:             "4G",

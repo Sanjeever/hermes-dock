@@ -62,7 +62,7 @@ export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}
                 <div className="field-grid">
                     <GatewaySelect
                         label="忙碌输入模式"
-                        value={compose.gatewayBusyInputMode || 'queue'}
+                        value={compose.gatewayBusyInputMode || 'steer'}
                         onChange={(value) => update('gatewayBusyInputMode', value)}
                         options={[
                             {value: 'queue', label: '排队处理'},
