@@ -928,6 +928,20 @@ button:disabled {
     gap: 16px;
 }
 
+.deploy-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.proxy-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
 .deploy-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

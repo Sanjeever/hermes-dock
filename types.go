@@ -8,6 +8,7 @@ type AppState struct {
 	ActiveProfile    string          `json:"activeProfile"`
 	ProfileStatus    RuntimeStatus   `json:"profileStatus"`
 	Compose          ComposeSettings `json:"compose"`
+	Proxy            ProxySettings   `json:"proxy"`
 	Environment      []EnvVar        `json:"environment"`
 	Model            ModelConfig     `json:"model"`
 	Providers        ProviderConfig  `json:"providers"`
@@ -175,6 +176,14 @@ type ComposeSettings struct {
 	MemoryLimit             string `json:"memoryLimit"`
 	CPULimit                string `json:"cpuLimit"`
 	ShmSize                 string `json:"shmSize"`
+}
+
+type ProxySettings struct {
+	Enabled    bool   `json:"enabled"`
+	HTTPProxy  string `json:"httpProxy"`
+	HTTPSProxy string `json:"httpsProxy"`
+	ALLProxy   string `json:"allProxy"`
+	NoProxy    string `json:"noProxy"`
 }
 
 type EnvVar struct {

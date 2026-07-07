@@ -6,7 +6,7 @@ import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
 import {Health} from '../components/primitives';
-import type {AppState, ComposeSettings, OperationsTab, WebSettingsRequest, WebStatus} from '../types';
+import type {AppState, ComposeSettings, OperationsTab, ProxySettings, WebSettingsRequest, WebStatus} from '../types';
 import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
@@ -14,7 +14,9 @@ export function OperationsPage(props: {
     setTab: (value: OperationsTab) => void;
     state: AppState;
     compose: ComposeSettings;
+    proxy: ProxySettings;
     setCompose: (value: ComposeSettings) => void;
+    setProxy: (value: ProxySettings) => void;
     deployDirty: boolean;
     needsRebuild: boolean;
     busy: string;
@@ -102,7 +104,7 @@ export function OperationsPage(props: {
                     onResetWebPassword={props.onResetWebPassword}
                 />
             )}
-            {props.tab === 'deploy' && <DeployPage compose={props.compose} setCompose={props.setCompose} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>}
+            {props.tab === 'deploy' && <DeployPage compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>}
             {props.tab === 'channels' && (
                 <div className="operations-context">
                     <ChannelsPage

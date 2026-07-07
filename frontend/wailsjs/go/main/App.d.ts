@@ -78,6 +78,8 @@ export function SaveModelConfig(arg1:main.ModelConfig):Promise<void>;
 
 export function SaveProviderConfig(arg1:main.ProviderConfig):Promise<void>;
 
+export function SaveProxySettings(arg1:main.ProxySettings):Promise<void>;
+
 export function SaveTextFile(arg1:main.TextFileRequest):Promise<void>;
 
 export function SaveWeComConfig(arg1:main.WeComConfig):Promise<void>;

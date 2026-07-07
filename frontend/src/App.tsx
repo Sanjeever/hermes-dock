@@ -25,6 +25,7 @@ import {
     RebuildHermes,
     RestartHermes,
     SaveComposeSettings,
+    SaveProxySettings,
     SaveFeishuConfig,
     SaveModelConfig,
     SaveProviderConfig,
@@ -53,7 +54,7 @@ import {EventsOn} from './services/events';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -66,6 +67,7 @@ function App() {
     const activeProfileRef = useRef('default');
     const [env, setEnv] = useState<EnvVar[]>([]);
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
+    const [proxy, setProxy] = useState<ProxySettings | null>(null);
     const [model, setModel] = useState<ModelConfig | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const logRef = useRef<HTMLPreElement>(null!);
@@ -270,6 +272,7 @@ function App() {
         }
         if (!deployDirtyRef.current) {
             setCompose(nextState.compose);
+            setProxy(nextState.proxy);
         }
         if (!modelDirtyRef.current) {
             setModel(nextState.model);
@@ -812,8 +815,17 @@ function App() {
     function discardDeployChanges() {
         if (!state) return;
         setCompose(state.compose);
+        setProxy(state.proxy);
         markDeployDirty(false);
         setNotice({type: 'ok', message: '已放弃部署参数修改'});
+    }
+
+    async function saveDeploySettings() {
+        if (!compose || !proxy) return false;
+        return await run('正在保存部署配置', async () => {
+            await SaveComposeSettings({...compose, dashboardEnabled: true});
+            await SaveProxySettings(proxy);
+        }, {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)});
     }
 
     function openOperations(tab: OperationsTab) {
@@ -1152,14 +1164,19 @@ function App() {
                     />
                 )}
 
-                {page === 'operations' && state && compose && (
+                {page === 'operations' && state && compose && proxy && (
                     <OperationsPage
                         tab={operationsTab}
                         setTab={setOperationsTab}
                         state={state}
                         compose={compose}
+                        proxy={proxy}
                         setCompose={(value) => {
                             setCompose(value);
+                            markDeployDirty(true);
+                        }}
+                        setProxy={(value) => {
+                            setProxy(value);
                             markDeployDirty(true);
                         }}
                         deployDirty={deployDirty}
@@ -1200,7 +1217,7 @@ function App() {
                             setPage('assistants');
                             setWizardStep('platforms');
                         }}
-                        onSaveDeploy={() => run('正在保存部署配置', () => SaveComposeSettings({...compose, dashboardEnabled: true}), {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)})}
+                        onSaveDeploy={saveDeploySettings}
                         onDiscardDeploy={discardDeployChanges}
                         onRefreshChannels={() => run('正在刷新通道', refresh)}
                         channelActionStatus={channelActionStatus}

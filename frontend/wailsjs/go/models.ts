@@ -202,6 +202,24 @@ export namespace main {
 	        this.secret = source["secret"];
 	    }
 	}
+	export class ProxySettings {
+	    enabled: boolean;
+	    httpProxy: string;
+	    httpsProxy: string;
+	    allProxy: string;
+	    noProxy: string;
+	    static createFrom(source: any = {}) {
+	        return new ProxySettings(source);
+	    }
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.httpProxy = source["httpProxy"];
+	        this.httpsProxy = source["httpsProxy"];
+	        this.allProxy = source["allProxy"];
+	        this.noProxy = source["noProxy"];
+	    }
+	}
 	export class RuntimeProfileStatus {
 	    enabled: boolean;
 	    state: string;
@@ -468,6 +486,7 @@ export namespace main {
 	    activeProfile: string;
 	    profileStatus: RuntimeStatus;
 	    compose: ComposeSettings;
+	    proxy: ProxySettings;
 	    environment: EnvVar[];
 	    model: ModelConfig;
 	    providers: ProviderConfig;
@@ -490,6 +509,7 @@ export namespace main {
 	        this.activeProfile = source["activeProfile"];
 	        this.profileStatus = this.convertValues(source["profileStatus"], RuntimeStatus);
 	        this.compose = this.convertValues(source["compose"], ComposeSettings);
+	        this.proxy = this.convertValues(source["proxy"], ProxySettings);
 	        this.environment = this.convertValues(source["environment"], EnvVar);
 	        this.model = this.convertValues(source["model"], ModelConfig);
 	        this.providers = this.convertValues(source["providers"], ProviderConfig);

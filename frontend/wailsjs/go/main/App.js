@@ -154,6 +154,10 @@ export function SaveProviderConfig(arg1) {
   return window['go']['main']['App']['SaveProviderConfig'](arg1);
 }
 
+export function SaveProxySettings(arg1) {
+  return window['go']['main']['App']['SaveProxySettings'](arg1);
+}
+
 export function SaveTextFile(arg1) {
   return window['go']['main']['App']['SaveTextFile'](arg1);
 }

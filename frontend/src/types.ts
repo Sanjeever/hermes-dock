@@ -21,6 +21,13 @@ export type ComposeSettings = {
     cpuLimit: string;
     shmSize: string;
 };
+export type ProxySettings = {
+    enabled: boolean;
+    httpProxy: string;
+    httpsProxy: string;
+    allProxy: string;
+    noProxy: string;
+};
 export type AuxModel = { provider: string; model: string; baseUrl: string; apiKey: string; timeout: number; extraBody: Record<string, unknown> };
 export type ModelConfig = {
     provider: string;
@@ -151,6 +158,7 @@ export type AppState = {
     activeProfile: string;
     profileStatus: RuntimeStatus;
     compose: ComposeSettings;
+    proxy: ProxySettings;
     environment: EnvVar[];
     model: ModelConfig;
     providers: ProviderConfig;

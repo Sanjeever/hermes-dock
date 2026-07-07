@@ -166,7 +166,7 @@ func (a *App) writeCompose(settings ComposeSettings, reason string) error {
 			return err
 		}
 	}
-	content := renderCompose(settings)
+	content := renderCompose(settings, a.readProxySettings())
 	return os.WriteFile(a.composePath(), []byte(content), 0644)
 }
 
@@ -184,9 +184,12 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	return a.writeCompose(settings, "before-compose-runtime-helper-migration")
 }
 
-func renderCompose(settings ComposeSettings) string {
+func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
 	settings = withComposeDefaults(settings)
+	proxy = withProxyDefaults(proxy)
 	dashboard := "1"
+	proxyHosts := renderComposeProxyHosts(proxy)
+	proxyEnv := renderComposeProxyEnvironment(proxy)
 	return fmt.Sprintf(`services:
   init-permissions:
     image: alpine:3.22
@@ -214,6 +217,7 @@ func renderCompose(settings ComposeSettings) string {
     dns:
       - 223.5.5.5
       - 119.29.29.29
+%s
     shm_size: %s
     ports:
       - "%s:%s:8642"
@@ -229,6 +233,7 @@ func renderCompose(settings ComposeSettings) string {
       HERMES_GATEWAY_BUSY_INPUT_MODE: "%s"
       HERMES_GATEWAY_BUSY_ACK_ENABLED: "%s"
       HERMES_BACKGROUND_NOTIFICATIONS: "%s"
+%s
       UV_DEFAULT_INDEX: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_INDEX_URL: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_DEFAULT_TIMEOUT: "120"
@@ -243,7 +248,33 @@ func renderCompose(settings ComposeSettings) string {
         limits:
           memory: %s
           cpus: "%s"
-`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), settings.MemoryLimit, settings.CPULimit)
+`, settings.Image, settings.ContainerName, proxyHosts, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, settings.MemoryLimit, settings.CPULimit)
+}
+
+func renderComposeProxyHosts(proxy ProxySettings) string {
+	proxy = withProxyDefaults(proxy)
+	if !proxy.Enabled {
+		return ""
+	}
+	return `    extra_hosts:
+      - "host.docker.internal:host-gateway"
+`
+}
+
+func renderComposeProxyEnvironment(proxy ProxySettings) string {
+	proxy = withProxyDefaults(proxy)
+	if !proxy.Enabled {
+		return ""
+	}
+	return fmt.Sprintf(`      HTTP_PROXY: "%s"
+      HTTPS_PROXY: "%s"
+      ALL_PROXY: "%s"
+      NO_PROXY: "%s"
+      http_proxy: "%s"
+      https_proxy: "%s"
+      all_proxy: "%s"
+      no_proxy: "%s"
+`, yamlQuote(proxy.HTTPProxy), yamlQuote(proxy.HTTPSProxy), yamlQuote(proxy.ALLProxy), yamlQuote(proxy.NoProxy), yamlQuote(proxy.HTTPProxy), yamlQuote(proxy.HTTPSProxy), yamlQuote(proxy.ALLProxy), yamlQuote(proxy.NoProxy))
 }
 
 func (a *App) StartHermes() error {

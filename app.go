@@ -66,6 +66,7 @@ func (a *App) GetAppState() (AppState, error) {
 	state, _ := a.readState()
 	profiles, _ := a.readProfileRegistry()
 	compose := a.readComposeSettings()
+	proxy := a.readProxySettings()
 	env, _ := readEnvFile(a.envPath())
 	model, _ := a.readModelConfig()
 	providers, _ := a.readProviderConfig()
@@ -80,6 +81,7 @@ func (a *App) GetAppState() (AppState, error) {
 		ActiveProfile:    a.currentProfileID(),
 		ProfileStatus:    a.readRuntimeStatus(containerStatus),
 		Compose:          compose,
+		Proxy:            proxy,
 		Environment:      env,
 		Model:            model,
 		Providers:        providers,
@@ -137,7 +139,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 		settings = defaultComposeSettings()
 	}
 	if !fileExists(a.composePath()) {
-		if err := os.WriteFile(a.composePath(), []byte(renderCompose(settings)), 0644); err != nil {
+		if err := os.WriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
 			return err
 		}
 	} else if err := a.migrateComposeIfNeeded(settings); err != nil {

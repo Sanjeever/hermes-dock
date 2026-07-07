@@ -3,6 +3,7 @@ import type {
     AppState,
     ComposeSettings,
     ModelConfig,
+    ProxySettings,
     ProviderConfig,
     ProviderEntry,
     SkillHubQuery,
@@ -80,6 +81,7 @@ export const UpdateProfileName = (id: string, name: string) => wailsOrRPC<void>(
 export const SetProfileEnabled = (id: string, enabled: boolean) => wailsOrRPC<void>('SetProfileEnabled', [id, enabled]);
 export const SelectProfile = (id: string) => wailsOrRPC<void>('SelectProfile', [id]);
 export const SaveComposeSettings = (settings: ComposeSettings) => wailsOrRPC<void>('SaveComposeSettings', [settings]);
+export const SaveProxySettings = (settings: ProxySettings) => wailsOrRPC<void>('SaveProxySettings', [settings]);
 export const SaveModelConfig = (model: ModelConfig) => wailsOrRPC<void>('SaveModelConfig', [model]);
 export const SaveProviderConfig = (providers: ProviderConfig) => wailsOrRPC<void>('SaveProviderConfig', [providers]);
 export const SaveWeComConfig = (config: unknown) => wailsOrRPC<void>('SaveWeComConfig', [config]);

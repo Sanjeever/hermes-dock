@@ -6,15 +6,21 @@ import (
 	"strings"
 )
 
-var redactionPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|authorization)(["'\s:=]+)([^"'\s,}]+)`),
-	regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+`),
+type redactionPattern struct {
+	regex       *regexp.Regexp
+	replacement string
+}
+
+var redactionPatterns = []redactionPattern{
+	{regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|authorization)(["'\s:=]+)([^"'\s,}]+)`), `$1$2<redacted>`},
+	{regexp.MustCompile(`(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+`), `$1<redacted>`},
+	{regexp.MustCompile(`(?i)((?:https?|socks5?)://[^:/@\s]+:)[^@\s]+(@)`), `$1<redacted>$2`},
 }
 
 func redact(input string) string {
 	output := input
 	for _, pattern := range redactionPatterns {
-		output = pattern.ReplaceAllString(output, `$1$2<redacted>`)
+		output = pattern.regex.ReplaceAllString(output, pattern.replacement)
 	}
 	return output
 }

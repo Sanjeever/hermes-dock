@@ -1,7 +1,7 @@
 ---
 name: hermes-dock
-description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher GUI: assistant setup, model configuration, platform binding, container lifecycle, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
-version: 1.0.0
+description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher and Web management UI: assistant setup, model configuration, platform binding/unbinding, skills management, container lifecycle, deployment parameters, proxy settings, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
+version: 1.1.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -13,13 +13,13 @@ metadata:
 
 ## 概览
 
-你运行在企智盒（Hermes Dock）管理的 Docker 实例中。企智盒是一个桌面启动器，通过图形界面管理本机的单个 Hermes Agent Docker 容器。用户通过 GUI 完成初始化、模型配置、平台绑定、容器启停和日志查看。
+你运行在企智盒（Hermes Dock）管理的 Docker 实例中。企智盒是一个桌面启动器，通过桌面 GUI 和内置 Web 管理界面管理本机的单个 Hermes Agent Docker 容器。用户通过界面完成初始化、模型配置、平台绑定、skills 管理、容器启停、部署参数和日志查看。
 
 **重要限制**：你运行在容器内部，无法执行 Docker 命令（启动、停止、重建等）。所有容器操作必须由用户在企智盒 GUI 中完成。当用户要求你执行容器操作时，请明确说明你无法从容器内执行，并指引用户到 GUI 的对应位置。例如：
 
 > "我无法从这里重启容器。请打开企智盒，在运维管理 → 运行控制页点击「重启容器」。"
 
-Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `hermes-agent` skill。本 skill 只覆盖企智盒 GUI 操作和自查运行态。
+Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `hermes-agent` skill。本 skill 只覆盖企智盒界面操作和自查运行态。
 
 ### 核心概念
 
@@ -31,6 +31,8 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 - `HERMES_DOCK_PROFILE_HOME` — 你的 home 目录路径
 
 一个容器内可以同时运行多个 enabled profile，各自服务不同的平台入口。
+
+**Web 管理**：桌面主进程内置 Web 管理服务，默认开启，默认监听 `0.0.0.0:9876`，默认访问密码 `123456`。Web 管理能力与桌面端基本一致，包括读取/编辑当前 profile 的环境配置、高级编辑、恢复出厂设置、skills 管理和日志事件。访问密码是远程管理边界，建议用户首次使用后修改。
 
 **两页导航**：企智盒 GUI 有两个主页面：
 
@@ -96,6 +98,8 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 一个助手可以同时绑定个人微信、企业微信和飞书。
 
+每个平台面板都有"取消绑定"。取消绑定会清空当前助手对应平台的密钥和绑定变量，并恢复该平台的默认策略；保存后仍需应用并重建才会影响运行中的容器。
+
 **第 4 步：完成**
 
 - 确认配置清单（模型、人格、平台）
@@ -108,6 +112,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 - "启用助手"开关 — 控制是否参与运行
 - "高级模型设置" — 配置辅助模型策略
+- "技能管理" — 查看、搜索、删除本地 skills，安装 Skill Hub 技能，同步启动器内置最新技能
 - "应用并重建" — 有未应用配置时出现
 - "运行状态" — 跳转到运维管理页查看
 
@@ -120,6 +125,16 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 - **启用/停用**：控制是否参与运行
 - **上移/下移**：调整显示顺序
 - **删除**：非 default 助手可删除（删除前自动备份 profile 目录，备份失败则中止；default 助手不能删除，只能停用）
+
+### 技能管理
+
+助手页的"技能管理"面向当前助手：
+
+- **本地**：查看当前 profile 的 skills，按全部/内置/自定义/冲突筛选，查看 `SKILL.md` 预览和文件列表，打开技能目录，删除技能（删除前自动备份，重建后生效）
+- **技能中心**：搜索、分页浏览和安装 Skill Hub 技能
+- **同步内置技能**：用启动器内置模板覆盖/写入当前 profile 的内置技能文件，不删除自定义技能或模板外文件。若同步写入了文件，需要应用并重建
+
+当用户说内置 skill 过旧、缺文件或与启动器版本不一致时，优先指引到：助手页 → 技能管理 → 本地 → 同步内置技能。
 
 ## 运维管理页
 
@@ -137,6 +152,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 - **助手运行概览**：每个助手的运行状态（运行中/启动中/未配置/失败/已停用/不参与运行）
 - **日志**：跟随日志、复制日志、清空日志（只清空界面显示，不删除容器日志）
 - **控制台和网关**：容器运行且端口有效后可点击打开对应地址（默认控制台 `http://127.0.0.1:9119`，网关 `http://127.0.0.1:8642`）
+- **Web 管理**：显示本机地址、局域网地址和二维码；可开启/关闭 Web 管理，切换访问范围（局域网/仅本机），修改端口，修改访问密码，或重置为 `123456`
 
 ### 部署参数
 
@@ -145,6 +161,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 - **资源限制**：内存、CPU、共享内存
 - **控制台登录**：用户名和密码（默认 admin / 123456，建议修改）
 - **网关行为**：忙碌输入模式（排队处理/引导当前任务/中断当前任务）、忙碌确认回复、后台通知策略
+- **容器代理**：让 Hermes 容器使用宿主机 HTTP/SOCKS 代理。常见本机代理端口会填入 `http://host.docker.internal:7890`；容器内的 `127.0.0.1` 指容器自己，不是宿主机。启用代理时至少填写 HTTP_PROXY、HTTPS_PROXY 或 ALL_PROXY 之一
 - 保存后需回到运行控制页"应用并重建"才会生效
 
 ### 通道诊断
@@ -157,13 +174,13 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 ### 高级编辑
 
-面向熟悉配置文件的用户。可编辑：
+面向熟悉配置文件的用户。桌面端和 Web 管理端都可编辑：
 
 - 当前助手的 `config.yaml`
 - 当前助手的 `.env`
 - 全局 `docker-compose.override.yaml`
 
-编辑器支持搜索、跳行、保存。保存后通常需要应用并重建才会生效。
+编辑器支持搜索、跳行、保存。保存 `.env`、`config.yaml` 或 Compose 覆盖配置后通常需要应用并重建才会生效。保存 `docker-compose.override.yaml` 需要输入"确认"。
 
 **恢复出厂设置**（危险操作）：停止并移除容器，删除整个 `~/.hermes-dock`，重新释放内置模板。不可撤销，会删除所有配置、数据、平台凭据和备份。执行前需在确认框输入 `删除 ~/.hermes-dock`。仅在确实需要从零开始时使用。
 
@@ -190,6 +207,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 ### 安全规则
 
 - **禁止向用户输出** API Key、Token、Secret 的完整值
+- **禁止向用户输出**带用户名密码的代理 URL 完整值
 - 可以告知用户某个平台是否已绑定，但不能输出密钥内容
 - **所有配置变更必须引导用户通过 GUI 完成**，不要直接修改 config.yaml、.env 或 SOUL.md 文件。直接改文件会绕过企智盒的备份和校验逻辑
 
@@ -214,6 +232,22 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 ### 如何修改控制台密码
 
 运维管理页 → 部署参数 → 控制台登录信息 → 修改密码 → 保存 → 应用并重建。
+
+### 如何修改 Web 管理访问密码
+
+运维管理页 → 运行控制 → Web 管理 → 输入旧访问密码和新访问密码 → 修改密码。忘记密码时可重置为 `123456`，之后应尽快改掉默认密码。
+
+### 如何让容器使用宿主机代理
+
+运维管理页 → 部署参数 → 容器代理 → 启用 → 点击"常见本机代理端口"或手动填写代理地址 → 保存部署参数 → 应用并重建。代理地址通常使用 `host.docker.internal`，不要写容器内的 `127.0.0.1`。
+
+### 如何取消平台绑定
+
+助手页 → 平台绑定 → 选择对应平台 → 点击"取消绑定" → 确认 → 应用并重建。取消绑定会清空当前助手对应平台的密钥，不影响其他助手。
+
+### 如何同步内置技能
+
+助手页 → 技能管理 → 本地 → 同步内置技能。该操作会覆盖当前助手的内置技能文件，但不删除自定义技能；如果有文件写入，需应用并重建。
 
 ### 如何切换当前编辑的助手
 

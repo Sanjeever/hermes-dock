@@ -1,13 +1,15 @@
 import {useState} from 'react';
-import {RotateCcw, Save} from 'lucide-react';
+import {Network, RotateCcw, Save} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
-import type {ComposeSettings} from '../types';
+import type {ComposeSettings, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
-export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}: { compose: ComposeSettings; setCompose: (value: ComposeSettings) => void; dirty: boolean; busy: boolean; onSave: () => void; onDiscard: () => void }) {
+export function DeployPage({compose, proxy, setCompose, setProxy, dirty, busy, onSave, onDiscard}: { compose: ComposeSettings; proxy: ProxySettings; setCompose: (value: ComposeSettings) => void; setProxy: (value: ProxySettings) => void; dirty: boolean; busy: boolean; onSave: () => void; onDiscard: () => void }) {
     const [passwordVisible, setPasswordVisible] = useState(false);
     const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
+    const updateProxyText = (key: keyof Omit<ProxySettings, 'enabled'>, value: string) => setProxy({...proxy, [key]: value});
     const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
+    const proxyReady = !proxy.enabled || !!(proxy.httpProxy.trim() || proxy.httpsProxy.trim() || proxy.allProxy.trim());
     return (
         <section className="deploy-stack">
             <div className="panel deploy-summary">
@@ -18,7 +20,7 @@ export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}
                 </div>
                 <div className="actions compact">
                     <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
-                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid}><Save size={16}/>保存部署参数</button>
+                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid || !proxyReady}><Save size={16}/>保存部署参数</button>
                 </div>
             </div>
             <div className="deploy-grid">
@@ -92,6 +94,37 @@ export function DeployPage({compose, setCompose, dirty, busy, onSave, onDiscard}
                     />
                 </div>
                 <div className="setting-note">保存后需要回到运行控制页应用并重建。</div>
+            </div>
+            <div className="panel">
+                <div className="deploy-panel-head">
+                    <div>
+                        <p className="eyebrow">容器代理</p>
+                        <h2>使用宿主机 HTTP 代理</h2>
+                    </div>
+                    <label className="toggle">
+                        <input type="checkbox" checked={proxy.enabled} onChange={(event) => setProxy({...proxy, enabled: event.target.checked})}/>
+                        启用
+                    </label>
+                </div>
+                <div className="proxy-actions">
+                    <button className="ghost" type="button" onClick={() => setProxy({
+                        ...proxy,
+                        enabled: true,
+                        httpProxy: 'http://host.docker.internal:7890',
+                        httpsProxy: 'http://host.docker.internal:7890',
+                        noProxy: proxy.noProxy || 'localhost,127.0.0.1,::1,host.docker.internal',
+                    })}>
+                        <Network size={16}/>常见本机代理端口
+                    </button>
+                </div>
+                <div className="field-grid">
+                    <Field label="HTTP_PROXY" value={proxy.httpProxy} onChange={(value) => updateProxyText('httpProxy', value)}/>
+                    <Field label="HTTPS_PROXY" value={proxy.httpsProxy} onChange={(value) => updateProxyText('httpsProxy', value)}/>
+                    <Field label="ALL_PROXY" value={proxy.allProxy} onChange={(value) => updateProxyText('allProxy', value)}/>
+                    <Field label="NO_PROXY" value={proxy.noProxy} onChange={(value) => updateProxyText('noProxy', value)}/>
+                </div>
+                {!proxyReady && <div className="form-warning">启用代理时，请至少填写一个代理地址。</div>}
+                <div className="setting-note">容器里的 <code>127.0.0.1</code> 不是宿主机；宿主机代理通常使用 <code>host.docker.internal</code>。</div>
             </div>
         </section>
     );
