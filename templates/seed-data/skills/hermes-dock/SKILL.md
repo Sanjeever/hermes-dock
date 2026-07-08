@@ -1,7 +1,7 @@
 ---
 name: hermes-dock
-description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher and Web management UI: first-run setup, assistant profiles, model configuration, platform binding, skills management, service status, logs, deployment settings, Web management, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
-version: 1.2.0
+description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher and Web management UI: first-run setup, assistant profiles, model configuration, platform binding, personality editing, default personality restore, skills management, bundled skill sync/default restore, service status, logs, deployment settings, Web management, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
+version: 1.3.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -131,6 +131,8 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 - 编辑当前助手的 `SOUL.md`
 - 可以直接使用默认内容，之后随时修改
+- 可点击「恢复默认人格」用启动器内置默认人格覆盖当前 `SOUL.md`
+- 恢复默认人格前会自动备份当前文件；保存或恢复后仍需「应用配置」才会影响运行态
 - 主操作：「保存并下一步」
 
 **第 3 步：平台绑定**
@@ -217,6 +219,19 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 用启动器内置模板覆盖或写入当前 profile 的内置技能文件。不删除自定义技能或模板外文件。若同步写入了文件，需要「应用配置」。
 
 当用户说内置 skill 过旧、缺文件或与启动器版本不一致时，优先指引到：助手 → 技能管理 → 本地 → 同步内置技能。
+
+**恢复默认技能**
+
+删除当前 profile 的整个 `skills/` 目录，并重新释放启动器内置默认技能。操作前会自动备份当前技能目录；如果有文件写入，需要「应用配置」。
+
+同步和恢复的区别：
+
+| 操作 | 会覆盖内置技能 | 会删除自定义技能 | 适用场景 |
+|------|----------------|------------------|----------|
+| 同步内置技能 | 会 | 不会 | 内置技能缺失、过旧或被局部改坏 |
+| 恢复默认技能 | 会 | 会 | 想把当前助手技能整体重置为出厂默认 |
+
+恢复默认技能会移除当前助手安装的 Skill Hub 技能和自定义技能；只有用户明确想重置技能时才建议使用。
 
 ## 运行页
 
@@ -414,6 +429,14 @@ Web 管理默认开启，默认监听 `0.0.0.0:9876`，默认密码 `123456`。
 ### 如何同步内置技能
 
 进入「助手 → 技能管理 → 本地」，点击「同步内置技能」。该操作会覆盖当前助手的内置技能文件，但不删除自定义技能；如果有文件写入，需点击「应用配置」。
+
+### 如何恢复默认技能
+
+进入「助手 → 技能管理 → 本地」，点击「恢复默认技能」，再点击「确认恢复」。该操作会先备份当前技能目录，然后删除当前助手的所有技能，并重新释放内置默认技能；如果有文件写入，需点击「应用配置」。
+
+### 如何恢复默认人格
+
+进入「助手 → 人格设定」，点击「恢复默认人格」，再点击「确认恢复」。该操作会先备份当前 `SOUL.md`，再用启动器内置默认人格覆盖当前助手的人格文件；恢复后需点击「应用配置」。
 
 ### 如何切换当前编辑的助手
 
