@@ -25,6 +25,7 @@ const (
 	skillHubHTTPTimeout     = 20 * time.Second
 	skillHubInstallSubdir   = "skillhub"
 	skillHubMetadataFile    = ".hermes-dock-skillhub.json"
+	skillHubPackageMetaFile = "_meta.json"
 	skillHubDefaultPage     = 1
 	skillHubDefaultPageSize = 24
 )
@@ -506,6 +507,9 @@ func extractSkillHubZip(zipPath string, target string, expected []SkillHubFile) 
 			return fmt.Errorf("SkillHub 技能包不能包含符号链接：%s", name)
 		}
 		if len(expectedHashes) > 0 && expectedHashes[name] == "" {
+			if isSkillHubPackageMetaFile(name) {
+				continue
+			}
 			return fmt.Errorf("SkillHub 技能包包含未声明文件：%s", name)
 		}
 		if err := extractSkillHubZipFile(file, target, expectedHashes[name]); err != nil {
@@ -516,6 +520,10 @@ func extractSkillHubZip(zipPath string, target string, expected []SkillHubFile) 
 		return fmt.Errorf("SkillHub 技能包缺少 SKILL.md")
 	}
 	return nil
+}
+
+func isSkillHubPackageMetaFile(name string) bool {
+	return name == skillHubPackageMetaFile
 }
 
 func validateSkillHubZipPath(name string, isDir bool) error {
