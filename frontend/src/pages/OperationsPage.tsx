@@ -9,6 +9,7 @@ import type {AppState, ComposeSettings, OperationsTab, ProxySettings, WebSetting
 import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
+    scope?: 'runtime' | 'settings';
     tab: OperationsTab;
     setTab: (value: OperationsTab) => void;
     state: AppState;
@@ -62,19 +63,22 @@ export function OperationsPage(props: {
     onChangeWebPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
     onResetWebPassword: () => Promise<boolean>;
 }) {
-    const allTabs: Array<{ id: OperationsTab; label: string }> = [
-        {id: 'runtime', label: '运行'},
-        {id: 'remote', label: '远程管理'},
-        {id: 'diagnostics', label: '诊断'},
-        {id: 'advanced', label: '高级'},
+    const tabs: Array<{ id: OperationsTab; label: string }> = props.scope === 'settings' ? [
+        {id: 'basic', label: '基础设置'},
+        {id: 'network', label: '网络设置'},
+        {id: 'advanced', label: '高级设置'},
+        {id: 'remote', label: 'Web 管理'},
+    ] : [
+        {id: 'runtime', label: '服务状态'},
+        {id: 'diagnostics', label: '日志诊断'},
     ];
-    const tabs = allTabs;
+    const activeTab = tabs.some((item) => item.id === props.tab) ? props.tab : tabs[0].id;
     return (
         <section className="operations-stack">
             <div className="ops-tabs">
-                {tabs.map((item) => <button key={item.id} className={props.tab === item.id ? 'selected' : ''} onClick={() => props.setTab(item.id)}>{item.label}</button>)}
+                {tabs.map((item) => <button key={item.id} className={activeTab === item.id ? 'selected' : ''} onClick={() => props.setTab(item.id)}>{item.label}</button>)}
             </div>
-            {props.tab === 'runtime' && (
+            {activeTab === 'runtime' && (
                 <RuntimePage
                     state={props.state}
                     compose={props.compose}
@@ -92,7 +96,7 @@ export function OperationsPage(props: {
                     onOpenDiagnostics={() => props.setTab('diagnostics')}
                 />
             )}
-            {props.tab === 'remote' && (
+            {activeTab === 'remote' && (
                 <section className="operations-context">
                     <WebManagementCard
                         status={props.webStatus}
@@ -103,7 +107,7 @@ export function OperationsPage(props: {
                     />
                 </section>
             )}
-            {props.tab === 'diagnostics' && (
+            {activeTab === 'diagnostics' && (
                 <section className="diagnostics-stack">
                     <div className="panel ops-page-intro">
                         <div>
@@ -137,11 +141,20 @@ export function OperationsPage(props: {
                     />
                 </section>
             )}
-            {props.tab === 'advanced' && (
+            {activeTab === 'basic' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                </section>
+            )}
+            {activeTab === 'network' && (
+                <section className="advanced-ops-stack">
+                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                </section>
+            )}
+            {activeTab === 'advanced' && (
+                <section className="advanced-ops-stack">
                     <div className="operations-context">
-                        <div className="setting-note">高级编辑默认作用于当前助手：{props.activeProfileName}。结构化页面保存时，可能覆盖这里的部分字段。</div>
+                        <div className="setting-note">仅在你知道要修改什么时使用。当前助手：{props.activeProfileName}</div>
                         <AdvancedPage
                             options={props.advancedOptions}
                             path={props.advancedPath}
@@ -204,20 +217,22 @@ function RuntimePage(props: {
                 </div>
                 <div className="operation-primary-actions">
                     {props.needsRebuild ? (
-                        <button className="primary no-margin" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用并重建</button>
+                        <button className="primary no-margin" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用配置</button>
                     ) : props.state.containerStatus === 'running' ? (
-                        <button className="ghost" onClick={props.onRestart} disabled={actionBusy}><RefreshCcw size={16}/>重启容器</button>
+                        <button className="primary no-margin" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>
                     ) : (
-                        <button className="primary no-margin" onClick={props.onStart} disabled={actionBusy}><Play size={16}/>启动容器</button>
+                        <button className="primary no-margin" onClick={props.onStart} disabled={actionBusy}><Play size={16}/>启动服务</button>
                     )}
-                    {!props.needsRebuild && <button className="ghost" onClick={props.onRebuild} disabled={actionBusy}><RotateCcw size={16}/>应用并重建</button>}
-                    <button className="ghost" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止</button>
+                    {!props.needsRebuild && props.state.containerStatus !== 'running' && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
+                    {!props.needsRebuild && props.state.containerStatus === 'running' && <button className="ghost" onClick={props.onRestart} disabled={actionBusy}><RefreshCcw size={16}/>重启服务</button>}
+                    {props.needsRebuild && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
+                    <button className="ghost danger-text" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止服务</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}
                 {props.lastOperationError && (
                     <div className="operation-error operation-error-action">
-                        <span>最近错误：{props.lastOperationError}</span>
-                        <button className="ghost" onClick={props.onOpenDiagnostics}>查看诊断</button>
+                        <span>最近错误：{props.lastOperationError}<br/>下一步：查看日志诊断，定位失败原因。</span>
+                        <button className="ghost" onClick={props.onOpenDiagnostics}>查看日志</button>
                     </div>
                 )}
             </div>
@@ -471,13 +486,13 @@ function AddressRow(props: { label: string; value: string; copied: string; onCop
 
 function operationSummary(containerStatus: string, needsRebuild: boolean, runningProfiles: number, startingProfiles: number, failedProfiles: number, notConfiguredProfiles: number) {
     if (needsRebuild) {
-        return {title: '配置已保存，等待应用', detail: '点击“应用并重建”后，新配置才会进入运行态。'};
+        return {title: '配置待应用', detail: '点击“应用配置”后，新设置才会生效。'};
     }
     if (containerStatus !== 'running') {
-        return {title: 'Hermes 容器未运行', detail: '启动容器后，已绑定平台的助手才会开始接收消息。'};
+        return {title: '服务未运行', detail: '启动后，已绑定平台的助手才会接收消息。'};
     }
     if (failedProfiles > 0) {
-        return {title: '有助手启动失败', detail: '打开诊断页查看运行日志，通常能看到失败原因。'};
+        return {title: '有助手启动失败', detail: '打开日志诊断，通常能看到失败原因。'};
     }
     if (startingProfiles > 0) {
         return {title: '助手正在启动', detail: '通常需要 5-15 秒，完成后会自动刷新为运行中。'};

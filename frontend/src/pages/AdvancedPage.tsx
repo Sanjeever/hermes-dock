@@ -23,7 +23,7 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                     <div>
                         <p className="eyebrow">高级编辑</p>
                         <h2>{props.open ? props.path : '选择要编辑的文件'}</h2>
-                        {!props.open && <p className="setup-subtitle">直接修改原始配置文件。保存后通常需要应用并重建才会生效。</p>}
+                        {!props.open && <p className="setup-subtitle">直接修改原始配置文件。保存后通常需要应用配置才会生效。</p>}
                     </div>
                     {props.open && <span className={`inline-status ${props.dirty ? 'dirty' : ''}`}>{props.dirty ? '有未保存修改' : props.status}</span>}
                 </div>

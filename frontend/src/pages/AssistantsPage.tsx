@@ -391,7 +391,7 @@ function AssistantSummary(props: {
                     <button className="ghost" onClick={props.onAdvancedModels} disabled={props.busy}><SlidersHorizontal size={16}/>高级模型设置</button>
                     <button className="ghost" onClick={() => props.onOpenOperations('runtime')} disabled={props.busy}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
                     <button className="primary no-margin" onClick={() => props.onStep('model')} disabled={props.busy}>重新配置</button>
-                    {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild} disabled={props.busy}><RefreshCcw size={16}/>应用并重建</button>}
+                    {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild} disabled={props.busy}><RefreshCcw size={16}/>应用配置</button>}
                 </div>
             </div>
         </div>
@@ -1034,17 +1034,17 @@ function AssistantWizard(props: {
                     <div className="finish-checks">
                         <CheckItem ok={modelReady} label={modelReady ? '已选择模型服务和主模型' : '请先选择模型服务和主模型'}/>
                         <CheckItem ok={true} label="人格设定已可使用"/>
-                        <CheckItem ok={props.hasPlatformBinding} label={props.hasPlatformBinding ? '已绑定至少一个平台' : '暂未绑定平台，此助手不会参与运行'}/>
+                        <CheckItem ok={props.hasPlatformBinding} label={props.hasPlatformBinding ? '已绑定至少一个平台' : '还没绑定平台，暂时不会接收消息'}/>
                     </div>
                     <div className="actions">
                         <button className="ghost" onClick={() => previous && goToStep(previous)} disabled={props.busy}><ChevronLeft size={16}/>上一步</button>
                         {props.hasPlatformBinding ? (
                             <>
                                 <button className="ghost" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>仅完成，稍后应用</button>
-                                <button className="primary no-margin" onClick={() => props.onFinishSetup(true)} disabled={props.busy || !modelReady}><RefreshCcw size={16}/>完成并应用重建</button>
+                                <button className="primary no-margin" onClick={() => props.onFinishSetup(true)} disabled={props.busy || !modelReady}><RefreshCcw size={16}/>完成并应用配置</button>
                             </>
                         ) : (
-                            <button className="primary no-margin" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>完成</button>
+                            <button className="primary no-margin" onClick={() => props.onFinishSetup(false)} disabled={props.busy || !modelReady}>稍后绑定平台</button>
                         )}
                     </div>
                 </div>
@@ -1251,13 +1251,13 @@ function assistantStatusClass(setupCompletedAt?: string, status?: RuntimeProfile
 function wizardStepHelp(step: WizardStep) {
     switch (step) {
         case 'model':
-            return '先选服务商、填密钥、确认主模型。';
+            return '填写 API 密钥后，Hermes 才能调用模型。';
         case 'soul':
-            return '可以直接使用默认人格，也可以改成自己的助手说明。';
+            return '可以先用默认内容，之后随时修改。';
         case 'platforms':
-            return '选择一个平台绑定；没有账号时可以暂不绑定。';
+            return '至少绑定一个平台后，助手才能接收消息。';
         case 'finish':
-            return '确认配置结果，决定是否立即应用并重建。';
+            return '确认配置结果，再决定是否立即应用。';
         default:
             return '';
     }

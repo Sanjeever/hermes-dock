@@ -1,11 +1,14 @@
-import {Boxes, Wrench} from 'lucide-react';
+import type {ComponentType} from 'react';
+import {Activity, Boxes, LayoutDashboard, Settings} from 'lucide-react';
 import type {ModelProviderPreset, Page, ProviderEntry, ProviderConfig} from './types';
 
 export const factoryResetPhrase = '删除 ~/.hermes-dock';
 
-export const nav: Array<{ id: Page; label: string; icon: typeof Boxes }> = [
+export const nav: Array<{ id: Page; label: string; icon: ComponentType<{ size?: string | number }> }> = [
+    {id: 'overview', label: '总览', icon: LayoutDashboard},
     {id: 'assistants', label: '助手', icon: Boxes},
-    {id: 'operations', label: '运维管理', icon: Wrench},
+    {id: 'operations', label: '运行', icon: Activity},
+    {id: 'settings', label: '设置', icon: Settings},
 ];
 
 export const auxLabels: Record<string, string> = {

@@ -29,7 +29,7 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
                 <div className="panel empty-state">
                     <MessageSquarePlus size={28}/>
                     <h2>{hasPlatformBinding ? '暂未发现通道' : '当前助手还没有绑定平台'}</h2>
-                    <p>{hasPlatformBinding ? '启动容器后，从已绑定的平台给助手发送一条消息，再刷新通道。' : '请先回到助手页绑定微信、企业微信或飞书。'}</p>
+                    <p>{hasPlatformBinding ? '启动服务后，从已绑定的平台给助手发送一条消息，再刷新通道。' : '请先回到助手页绑定微信、企业微信或飞书。'}</p>
                     {hasPlatformBinding ? (
                         <button className="primary no-margin" onClick={onRefresh} disabled={busy}><RefreshCcw size={16}/>刷新通道</button>
                     ) : (

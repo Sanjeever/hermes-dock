@@ -45,7 +45,7 @@ export function PlatformsPage(props: {
             </div>
             {confirmUnbind && (
                 <div className="danger-confirm platform-unbind-confirm">
-                    <span>确认取消绑定{platformLabel(confirmUnbind)}？这会清空当前助手的绑定密钥，保存后需要应用并重建才会影响运行中的容器。</span>
+                    <span>确认取消绑定{platformLabel(confirmUnbind)}？这会清空当前助手的绑定密钥，保存后需要应用配置才会影响运行中的服务。</span>
                     <button className="danger-button compact" onClick={confirmUnbindPlatform} disabled={props.busy}><Unlink size={16}/>确认取消绑定</button>
                     <button className="ghost" onClick={() => setConfirmUnbind(null)} disabled={props.busy}>取消</button>
                 </div>

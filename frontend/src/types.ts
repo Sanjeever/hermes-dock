@@ -1,6 +1,6 @@
-export type Page = 'assistants' | 'operations';
+export type Page = 'overview' | 'assistants' | 'operations' | 'settings';
 export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
-export type OperationsTab = 'runtime' | 'remote' | 'diagnostics' | 'advanced';
+export type OperationsTab = 'runtime' | 'remote' | 'diagnostics' | 'basic' | 'network' | 'advanced';
 export type PlatformKey = 'weixin' | 'wecom' | 'feishu';
 
 export type EnvVar = { key: string; value: string; secret: boolean };

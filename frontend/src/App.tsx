@@ -53,18 +53,20 @@ import {
 import {EventsOn} from './services/events';
 import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
+import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
 import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
     const webRuntime = isWebRuntime();
-    const [page, setPage] = useState<Page>('assistants');
+    const [page, setPage] = useState<Page>('overview');
     const [operationsTab, setOperationsTab] = useState<OperationsTab>('runtime');
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
     const stateRef = useRef<AppState | null>(null);
     const activeProfileRef = useRef('default');
+    const firstRunWizardCheckedRef = useRef(false);
     const [env, setEnv] = useState<EnvVar[]>([]);
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
     const [proxy, setProxy] = useState<ProxySettings | null>(null);
@@ -188,7 +190,7 @@ function App() {
     }, [deployDirty]);
 
     useEffect(() => {
-        if (page !== 'operations' || operationsTab !== 'advanced') return;
+        if (page !== 'settings' || operationsTab !== 'advanced') return;
         if (!advancedOpen) return;
         if (advancedDirty) return;
         loadAdvancedFile(advancedPath);
@@ -284,6 +286,14 @@ function App() {
         }
         if (firstRefresh || profileChanged) {
             setSelectedPlatform(firstBoundPlatform(nextEnv));
+        }
+        if (!firstRunWizardCheckedRef.current) {
+            firstRunWizardCheckedRef.current = true;
+            const active = nextState.profiles?.profiles?.find((profile) => profile.id === nextState.activeProfile);
+            if (active?.id === 'default' && !active.setupCompletedAt) {
+                setPage('assistants');
+                setWizardStep('model');
+            }
         }
         setRefreshError('');
         return '';
@@ -633,7 +643,7 @@ function App() {
                 setNotice({type: 'error', message: `已保存文件，但刷新状态失败：${refreshMessage}`});
                 return;
             }
-            setAdvancedStatus(`已保存 ${advancedPath}，应用并重建后生效`);
+            setAdvancedStatus(`已保存 ${advancedPath}，应用配置后生效`);
             setNotice({type: 'ok', message: '已保存文件'});
         } catch (error) {
             const message = String(error);
@@ -832,6 +842,15 @@ function App() {
         setPage('operations');
     }
 
+    function navigatePage(next: Page) {
+        if (next === 'operations') {
+            setOperationsTab('runtime');
+        } else if (next === 'settings') {
+            setOperationsTab('basic');
+        }
+        setPage(next);
+    }
+
     async function factoryReset() {
         await run('正在恢复出厂设置', FactoryResetInstance, {
             afterSuccess: () => {
@@ -936,7 +955,7 @@ function App() {
             return next;
         });
         const ok = await run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true});
-        setChannelActionStatus((current) => ({...current, [key]: ok ? '已设为默认，应用并重建后生效' : '设置默认通道失败'}));
+        setChannelActionStatus((current) => ({...current, [key]: ok ? '已设为默认，应用配置后生效' : '设置默认通道失败'}));
     }
 
     async function testChannel(platform: string, id: string) {
@@ -985,7 +1004,7 @@ function App() {
                     {nav.map((item) => {
                         const Icon = item.icon;
                         return (
-                            <button key={item.id} className={page === item.id ? 'active' : ''} aria-current={page === item.id ? 'page' : undefined} onClick={() => setPage(item.id)}>
+                            <button key={item.id} className={page === item.id ? 'active' : ''} aria-current={page === item.id ? 'page' : undefined} onClick={() => navigatePage(item.id)}>
                                 <Icon size={18}/>
                                 {item.label}
                             </button>
@@ -1004,7 +1023,7 @@ function App() {
                         <h1>{titleFor(page)}</h1>
                     </div>
                     <div className="topbar-actions">
-                        {page === 'operations' && state?.profiles?.profiles && (
+                        {(page === 'operations' || page === 'settings') && state?.profiles?.profiles && (
                             <label className="profile-picker">
                                 <span>当前助手</span>
                                 <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!busy}>
@@ -1054,16 +1073,36 @@ function App() {
                         <p className="eyebrow">启动器状态读取失败</p>
                         <h2>暂时无法加载 Hermes Dock</h2>
                         <p>{refreshError}</p>
+                        <p>下一步：请从桌面应用打开，或确认 Web 管理服务正在运行。</p>
                         <button className="primary no-margin" onClick={() => refresh()} disabled={!!busy}>重试加载</button>
                     </div>
                 )}
                 {showRebuildBanner && (
                     <div className="rebuild-banner">
-                        <span>配置已保存，重建后生效。</span>
-                        <button onClick={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
-                            <RotateCcw size={16}/>应用并重建
+                        <span>配置已保存，应用后生效。</span>
+                        <button onClick={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
+                            <RotateCcw size={16}/>应用配置
                         </button>
                     </div>
+                )}
+
+                {page === 'overview' && state && (
+                    <OverviewPage
+                        state={state}
+                        needsRebuild={needsRebuild}
+                        busy={busy}
+                        lastOperationError={lastOperationError}
+                        logs={logs}
+                        onStart={() => run('正在启动', StartHermes)}
+                        onStop={() => run('正在停止', StopHermes)}
+                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onOpenAssistants={() => navigatePage('assistants')}
+                        onOpenLogs={() => {
+                            setOperationsTab('diagnostics');
+                            setPage('operations');
+                        }}
+                        onOpenSettings={() => navigatePage('settings')}
+                    />
                 )}
 
                 {page === 'assistants' && state && (
@@ -1150,7 +1189,7 @@ function App() {
                         onUnbindPlatform={unbindPlatform}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
-                        onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
                         onRefreshSkills={loadSkills}
                         onSyncBundledSkills={syncBundledSkills}
@@ -1164,8 +1203,9 @@ function App() {
                     />
                 )}
 
-                {page === 'operations' && state && compose && proxy && (
+                {(page === 'operations' || page === 'settings') && state && compose && proxy && (
                     <OperationsPage
+                        scope={page === 'settings' ? 'settings' : 'runtime'}
                         tab={operationsTab}
                         setTab={setOperationsTab}
                         state={state}
@@ -1208,7 +1248,7 @@ function App() {
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
-                        onRebuild={() => run('正在应用并重建', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onLogs={tailLogs}
                         onClearLogs={() => setLogs([])}
                         onCopyLogs={copyLogs}
