@@ -267,6 +267,97 @@ wails dev
 
 运行后，应用会管理 `~/.hermes-dock`。不需要再手动设置 `HERMES_DOCK_INSTANCE_ROOT`。
 
+## Agent 技能
+
+本仓库当前包含以下开发期 Agent 技能，文件位于 `.agents/skills/`，来源记录在 `skills-lock.json`。这些技能用于辅助维护 Hermes Dock 本身，不同于 Hermes 运行时放在 `templates/seed-data/skills/` 里的 Agent skills。
+
+### `ui-ux-pro-max`
+
+路径：`.agents/skills/ui-ux-pro-max/`。该技能用于界面设计、交互改进、视觉质量检查、无障碍和响应式评审，适合维护 Hermes Dock 的 React / Wails 界面。
+
+适合使用的场景：
+
+- 设计或重构 `frontend/src/App.tsx`、`frontend/src/App.css` 中的页面结构、导航、表单、按钮、卡片、表格和状态展示。
+- 改进多 profile 总览、平台绑定、模型供应商、Web 管理、高级编辑等界面的信息层级和交互流程。
+- 检查移动端窗口、窄屏桌面、深色/浅色主题、长中文文案、加载态、错误态和空状态。
+- 评审无障碍、键盘导航、焦点状态、触控目标、颜色对比度和响应式布局。
+- 为数据状态、容器日志、profile 状态或未来图表选择合适的展示方式。
+
+示例提示词：
+
+```text
+使用 ui-ux-pro-max 检查 Hermes Dock 的首页 profile 总览，重点看中文桌面工具的密度、信息层级、按钮布局和移动端适配。
+```
+
+```text
+使用 ui-ux-pro-max 重构平台绑定页的交互文案和错误态，但保持当前 React 组件结构和 Wails 调用不变。
+```
+
+```text
+使用 ui-ux-pro-max 评审 frontend/src/App.css，找出影响可读性、焦点可见性、触控目标和响应式布局的问题，只输出按严重程度排序的改进建议。
+```
+
+```text
+使用 ui-ux-pro-max 为多 profile 管理页设计一个克制、工具型、适合中国大陆新手用户的布局方案，避免营销型首页和大段说明文字。
+```
+
+```text
+使用 ui-ux-pro-max 优化模型供应商配置表单，要求 API Key 不暴露、错误提示靠近字段、保存和测试状态清晰。
+```
+
+该技能自带检索脚本。需要生成或查询设计建议时，可以从技能目录运行：
+
+```bash
+uv run --no-project python .agents/skills/ui-ux-pro-max/scripts/search.py "desktop launcher admin dashboard" --design-system -p "Hermes Dock"
+uv run --no-project python .agents/skills/ui-ux-pro-max/scripts/search.py "accessibility responsive forms" --domain ux
+uv run --no-project python .agents/skills/ui-ux-pro-max/scripts/search.py "react form state loading error" --stack react
+```
+
+### `vercel-react-best-practices`
+
+路径：`.agents/skills/vercel-react-best-practices/`。该技能来自 Vercel Engineering 的 React / Next.js 性能优化实践，用于编写、评审和重构 React 代码时检查瀑布请求、bundle 体积、重渲染、客户端数据读取和 JavaScript 性能问题。
+
+适合使用的场景：
+
+- 新增或重构 `frontend/src/App.tsx` 中的 React 组件、hooks、状态派生和事件处理。
+- 检查保存、测试、扫码、日志流、WebSocket 事件等异步流程是否存在不必要的串行等待。
+- 优化大列表、日志输出、profile 状态聚合、表单联动和搜索过滤等可能频繁重渲染的界面。
+- 评审导入方式、懒加载边界、重型依赖和 bundle 体积。
+- 在不改变 Wails Go 方法契约的前提下，改进前端性能和可维护性。
+
+示例提示词：
+
+```text
+使用 vercel-react-best-practices 评审 frontend/src/App.tsx，重点检查不必要的重渲染、派生 state、effect 依赖和异步瀑布。
+```
+
+```text
+使用 vercel-react-best-practices 优化容器日志视图，避免日志持续追加时导致整页频繁重渲染。
+```
+
+```text
+使用 vercel-react-best-practices 检查平台绑定页的扫码和测试消息流程，找出可以并行化或移出 effect 的逻辑。
+```
+
+```text
+使用 vercel-react-best-practices 重构模型供应商表单，保持行为不变，减少无效 memo、复杂 effect 和非必要对象依赖。
+```
+
+更新单个技能：
+
+```bash
+npx -y skills update ui-ux-pro-max --project --yes
+npx -y skills update vercel-react-best-practices --project --yes
+```
+
+更新当前项目的全部技能：
+
+```bash
+npx -y skills update --project --yes
+```
+
+如果本地改过 `.agents/skills/` 下的技能文件，更新前先提交或备份这些改动，避免被新的复制内容覆盖。
+
 ## 项目结构
 
 ```text
