@@ -389,7 +389,7 @@ function AssistantSummary(props: {
                 <div className="setup-actions">
                     <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)} disabled={props.busy}/>启用助手</label>
                     <button className="ghost" onClick={props.onAdvancedModels} disabled={props.busy}><SlidersHorizontal size={16}/>高级模型设置</button>
-                    <button className="ghost" onClick={() => props.onOpenOperations('status')} disabled={props.busy}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
+                    <button className="ghost" onClick={() => props.onOpenOperations('runtime')} disabled={props.busy}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
                     <button className="primary no-margin" onClick={() => props.onStep('model')} disabled={props.busy}>重新配置</button>
                     {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild} disabled={props.busy}><RefreshCcw size={16}/>应用并重建</button>}
                 </div>

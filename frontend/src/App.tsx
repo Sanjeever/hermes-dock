@@ -60,7 +60,7 @@ import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel
 function App() {
     const webRuntime = isWebRuntime();
     const [page, setPage] = useState<Page>('assistants');
-    const [operationsTab, setOperationsTab] = useState<OperationsTab>('status');
+    const [operationsTab, setOperationsTab] = useState<OperationsTab>('runtime');
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
     const stateRef = useRef<AppState | null>(null);

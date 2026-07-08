@@ -93,7 +93,7 @@ export function DeployPage({compose, proxy, setCompose, setProxy, dirty, busy, o
                         ]}
                     />
                 </div>
-                <div className="setting-note">保存后需要回到运行控制页应用并重建。</div>
+                <div className="setting-note">保存后需要回到运行页应用并重建。</div>
             </div>
             <div className="panel">
                 <div className="deploy-panel-head">
