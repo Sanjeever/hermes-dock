@@ -208,9 +208,11 @@ export namespace main {
 	    httpsProxy: string;
 	    allProxy: string;
 	    noProxy: string;
+	
 	    static createFrom(source: any = {}) {
 	        return new ProxySettings(source);
 	    }
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.enabled = source["enabled"];
@@ -666,6 +668,7 @@ export namespace main {
 	
 	
 	
+	
 	export class SkillFileInfo {
 	    path: string;
 	    sizeBytes: number;
@@ -1070,11 +1073,11 @@ export namespace main {
 	    activeProfile: string;
 	    syncedSkills: string[];
 	    syncedFiles: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SyncBundledSkillsResult(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.activeProfile = source["activeProfile"];
@@ -1202,3 +1205,4 @@ export namespace main {
 	}
 
 }
+
