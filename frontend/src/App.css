@@ -1,9 +1,67 @@
+.shell,
+.web-login-screen {
+    --surface: #fffaf0;
+    --surface-raised: #fcfbf4;
+    --surface-muted: #f0eadc;
+    --surface-control: #e5dfd1;
+    --surface-control-hover: #d8cfbd;
+    --ink: #1f2522;
+    --ink-soft: #596056;
+    --ink-muted: #6f756d;
+    --rail: #151916;
+    --rail-hover: #293027;
+    --accent: #cce86a;
+    --accent-strong: #abc83d;
+    --focus: #729431;
+    --danger: #9d241a;
+    --danger-bg: #fff1ee;
+    --warning: #8a520d;
+    --warning-bg: #fff6d8;
+    --ok: #1f6f43;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-panel: 0 18px 48px rgba(55, 45, 25, 0.1);
+    --shadow-popover: 0 18px 44px rgba(32, 37, 31, 0.18);
+}
+
 .shell {
-    min-height: 100vh;
+    min-height: 100dvh;
     display: grid;
     grid-template-columns: 272px 1fr;
-    background: #ece8de;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(204, 232, 106, 0.12), transparent 28rem),
+        linear-gradient(135deg, rgba(255, 250, 240, 0.44), transparent 32rem),
+        #ece8de;
     color: #1f2522;
+}
+
+.skip-link {
+    position: fixed;
+    z-index: 40;
+    top: 12px;
+    left: 12px;
+    transform: translateY(-160%);
+    border-radius: 8px;
+    padding: 9px 12px;
+    background: #151916;
+    color: #fffaf0;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform 160ms ease;
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
 }
 
 .rail {
@@ -67,12 +125,24 @@ nav button,
 .primary,
 .endpoint-card,
 .provider-card,
+.provider-list-item,
+.platform-card,
+.advanced-file-card,
+.setup-status-list button,
+.ops-tabs button,
+.wizard-steps button,
+.segmented button,
+.skills-view-toggle button,
+.skill-detail-tabs button,
+.skill-row,
+.runtime-endpoint-row,
 .table-row button,
 .profile-row,
 .profile-main {
     border: 0;
     cursor: pointer;
     font: inherit;
+    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 160ms ease, opacity 180ms ease;
 }
 
 nav button {
@@ -93,6 +163,27 @@ nav button:hover {
     color: #ffffff;
 }
 
+button:hover:not(:disabled),
+summary:hover {
+    transform: translateY(-1px);
+}
+
+button:active:not(:disabled),
+summary:active {
+    transform: translateY(0);
+}
+
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 3px solid rgba(114, 148, 49, 0.38);
+    outline-offset: 2px;
+}
+
 .root-path {
     margin-top: auto;
     display: grid;
@@ -107,7 +198,7 @@ code {
 
 .root-path code {
     max-width: 100%;
-    color: #d8ff67;
+    color: #cce86a;
     word-break: break-all;
 }
 
@@ -118,7 +209,7 @@ code {
 
 .workspace.skills-workspace-mode {
     box-sizing: border-box;
-    height: 100vh;
+    min-height: 100dvh;
     display: grid;
     grid-template-rows: auto auto auto auto minmax(0, 1fr);
     overflow: hidden;
@@ -162,25 +253,28 @@ code {
 
 .eyebrow {
     margin: 0 0 6px;
-    text-transform: uppercase;
-    letter-spacing: 0;
+    letter-spacing: 0.02em;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 h1,
 h2 {
     margin: 0;
-    letter-spacing: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
 }
 
 h1 {
     font-size: 34px;
+    line-height: 1.08;
+    font-weight: 800;
 }
 
 h2 {
     font-size: 24px;
-    line-height: 1.2;
+    line-height: 1.16;
+    font-weight: 800;
 }
 
 .status-pill {
@@ -264,7 +358,7 @@ h2 {
     border: 0;
     border-radius: 6px;
     padding: 0 11px;
-    background: #d8ff67;
+    background: #cce86a;
     color: #151916;
     font: inherit;
     font-weight: 800;
@@ -435,10 +529,34 @@ h2 {
     color: #20251f;
 }
 
+.icon-button:hover:not(:disabled),
+.ghost:hover:not(:disabled),
+.update-actions button:hover:not(:disabled),
+.secret-input button:hover:not(:disabled),
+.more-menu summary:hover {
+    background: #d8cfbd;
+}
+
 .primary {
     margin-top: 14px;
     background: #1d2b22;
     color: #ffffff;
+}
+
+.primary:hover:not(:disabled),
+.table-row button:hover:not(:disabled) {
+    background: #111813;
+}
+
+.endpoint-card:hover:not(:disabled),
+.advanced-file-card:hover:not(:disabled),
+.setup-status-list button:hover:not(:disabled),
+.provider-card:hover:not(:disabled),
+.provider-list-item:hover:not(:disabled),
+.platform-card:hover:not(:disabled),
+.profile-row:hover:not(.selected):not(.editable):not(.static-row),
+.profile-main:hover:not(:disabled) {
+    background: #e5dfd1;
 }
 
 .no-margin {
@@ -468,6 +586,7 @@ h2 {
 button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+    transform: none;
 }
 
 .busy {
@@ -576,7 +695,7 @@ button:disabled {
 }
 
 .profile-row.selected code {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .profile-status {
@@ -882,7 +1001,7 @@ button:disabled {
 .runtime-table-row {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) 110px minmax(220px, 1.2fr);
+    grid-template-columns: minmax(160px, 0.9fr) minmax(96px, auto) minmax(0, 1.4fr);
     gap: 12px;
     align-items: center;
     border-radius: 8px;
@@ -898,7 +1017,7 @@ button:disabled {
 
 .runtime-table-row.selected .runtime-profile-name code,
 .runtime-table-row.selected .runtime-profile-note {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .runtime-table-head {
@@ -930,6 +1049,8 @@ button:disabled {
     color: #596056;
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
 }
 
 .runtime-workbench-footer {
@@ -1048,7 +1169,7 @@ button:disabled {
 }
 
 .profile-row.selected .profile-state small {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .recent-logs {
@@ -1239,10 +1360,13 @@ button:disabled {
 }
 
 .wizard-steps {
-    width: max-content;
-    grid-template-columns: repeat(4, 28px);
+    width: min(100%, 760px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     justify-content: center;
     justify-self: center;
+    padding: 5px;
+    border-radius: 12px;
+    background: rgba(240, 234, 220, 0.72);
 }
 
 .ops-tabs {
@@ -1266,11 +1390,11 @@ button:disabled {
 }
 
 .wizard-steps button {
-    min-height: 28px;
-    width: 28px;
-    border-radius: 999px;
-    padding: 0;
-    background: #d8d1c1;
+    min-height: 38px;
+    width: auto;
+    border-radius: 8px;
+    padding: 0 8px;
+    background: transparent;
 }
 
 .wizard-steps button:disabled {
@@ -1284,8 +1408,17 @@ button:disabled {
     display: grid;
     place-items: center;
     border-radius: 999px;
-    background: transparent;
+    background: #d8d1c1;
     font-size: 12px;
+}
+
+.wizard-steps button em {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-style: normal;
+    white-space: nowrap;
 }
 
 .ops-tabs button.selected {
@@ -1299,12 +1432,12 @@ button:disabled {
 }
 
 .wizard-steps button.done {
-    background: #d8ff67;
+    background: #cce86a;
     color: #151916;
 }
 
 .wizard-steps button.active span {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.14);
     color: #ffffff;
 }
 
@@ -1391,7 +1524,7 @@ button:disabled {
 }
 
 .platform-card.selected span {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .health {
@@ -1416,7 +1549,7 @@ button:disabled {
 }
 
 .logbox {
-    height: 260px;
+    height: clamp(220px, 32dvh, 360px);
     overflow: auto;
     margin: 0;
     padding: 14px;
@@ -1492,6 +1625,7 @@ textarea {
     color: #1f2522;
     font: inherit;
     outline: none;
+    transition: background-color 180ms ease, box-shadow 180ms ease;
 }
 
 input,
@@ -1508,6 +1642,12 @@ input:focus,
 select:focus,
 textarea:focus {
     box-shadow: 0 0 0 2px #98b84b;
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+    background: #e5decd;
 }
 
 .field-grid {
@@ -1586,7 +1726,7 @@ textarea:focus {
 }
 
 .provider-list-item.selected span {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .provider-grid.compact .provider-card {
@@ -1610,7 +1750,7 @@ textarea:focus {
 }
 
 .provider-card.selected span {
-    color: #d8ff67;
+    color: #cce86a;
 }
 
 .detail-toggle {
@@ -1812,7 +1952,7 @@ textarea:focus {
 
 .skills-workspace {
     display: grid;
-    grid-template-columns: 380px minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
     overflow: hidden;
@@ -1895,7 +2035,7 @@ textarea:focus {
     margin-top: 3px;
     color: #596056;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2062,7 +2202,9 @@ textarea:focus {
     justify-content: space-between;
     gap: 10px;
     margin-top: 4px;
-    padding-top: 10px;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff1ee;
 }
 
 .skill-danger-zone p {
@@ -2196,7 +2338,7 @@ textarea:focus {
     margin-left: 8px;
     border-radius: 6px;
     padding: 0 7px;
-    background: #d8ff67;
+    background: #cce86a;
     color: #151916;
     font-size: 12px;
 }
@@ -2234,6 +2376,21 @@ textarea:focus {
     border-radius: 8px;
 }
 
+.platform-unbind-confirm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.platform-unbind-confirm span {
+    min-width: 0;
+    color: #7d1b13;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
 .danger-button.compact {
     min-height: 34px;
     margin-top: 0;
@@ -2242,6 +2399,7 @@ textarea:focus {
 
 .danger-panel {
     background: #fff1ee;
+    box-shadow: inset 0 0 0 1px rgba(157, 36, 26, 0.12);
 }
 
 .danger-summary {
@@ -2495,7 +2653,7 @@ textarea:focus {
 
 .web-login-screen {
     display: grid;
-    min-height: 100vh;
+    min-height: 100dvh;
     place-items: center;
     padding: 24px;
     background: #ece8de;
@@ -2557,6 +2715,17 @@ textarea:focus {
     box-shadow: 0 10px 24px rgba(44, 48, 39, 0.14);
 }
 
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
 @media (max-width: 980px) {
     .shell {
         grid-template-columns: 1fr;
@@ -2599,6 +2768,7 @@ textarea:focus {
     .web-settings-row,
     .web-password-row,
     .web-address-row,
+    .platform-unbind-confirm,
     .runtime-endpoint-row,
     .runtime-table-row,
     .runtime-workbench-footer {
@@ -2631,7 +2801,7 @@ textarea:focus {
     }
 
     .wizard-steps {
-        grid-template-columns: repeat(4, 28px);
+        grid-template-columns: 1fr 1fr;
     }
 
     .table-row {

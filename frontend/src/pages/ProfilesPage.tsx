@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Save} from 'lucide-react';
+import {ChevronDown, ChevronUp, Save} from 'lucide-react';
 import {Field} from '../components/fields';
 import type {ProfileEntry, ProfileRegistry, RuntimeStatus} from '../types';
 import {profileStatusText, slugProfileID, statusClassName} from '../utils';
@@ -44,7 +44,7 @@ export function ProfilesPage(props: {
             <div className="panel">
                 <div className="section-head">
                     <div>
-                        <p className="eyebrow">Profiles</p>
+                        <p className="eyebrow">助手</p>
                         <h2>助手列表</h2>
                     </div>
                 </div>
@@ -63,8 +63,8 @@ export function ProfilesPage(props: {
                                 </button>
                                 <div className="profile-controls">
                                     <label className="mini-toggle"><input type="checkbox" checked={profile.enabled} onChange={(event) => props.onEnabled(profile.id, event.target.checked)} disabled={props.busy}/>参与运行</label>
-                                    <button className="ghost icon-only" title="上移" onClick={() => props.onMove(profile.id, 'up')} disabled={props.busy || index === 0}>↑</button>
-                                    <button className="ghost icon-only" title="下移" onClick={() => props.onMove(profile.id, 'down')} disabled={props.busy || index === profiles.length - 1}>↓</button>
+                                    <button className="ghost icon-only" title="上移" aria-label="上移" onClick={() => props.onMove(profile.id, 'up')} disabled={props.busy || index === 0}><ChevronUp size={16}/></button>
+                                    <button className="ghost icon-only" title="下移" aria-label="下移" onClick={() => props.onMove(profile.id, 'down')} disabled={props.busy || index === profiles.length - 1}><ChevronDown size={16}/></button>
                                     <button className="ghost" onClick={() => startRename(profile)} disabled={props.busy || editingID === profile.id}>改名</button>
                                     <button className="ghost danger-inline" onClick={() => {
                                         setDeleteID(profile.id);
@@ -104,23 +104,23 @@ export function ProfilesPage(props: {
             <div className="panel">
                 <div className="section-head">
                     <div>
-                        <p className="eyebrow">新建 Profile</p>
+                        <p className="eyebrow">新建助手</p>
                         <h2>全新配置</h2>
                     </div>
                 </div>
-                <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
+                <Field label="助手 ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
                 <Field label="显示名" value={props.newProfileName} onChange={props.setNewProfileName}/>
                 <label className="field">
                     <span>创建方式</span>
                     <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
                         <option value="clean">全新配置</option>
-                        <option value="personality-skills">复制当前 profile 的人格和 skills</option>
+                        <option value="personality-skills">复制当前助手的人格和技能</option>
                     </select>
                 </label>
                 <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后参与运行</label>
-                <div className="setting-note">Profile ID 只能包含小写字母、数字和连字符，创建后不可修改。</div>
-                {!canCreate && props.newProfileID && <div className="form-warning">Profile ID 格式不符合要求，或使用了保留 ID。</div>}
-                <button className="primary" onClick={props.onCreate} disabled={props.busy || !canCreate}><Save size={16}/>创建 Profile</button>
+                <div className="setting-note">助手 ID 只能包含小写字母、数字和连字符，创建后不可修改。</div>
+                {!canCreate && props.newProfileID && <div className="form-warning">助手 ID 格式不符合要求，或使用了保留 ID。</div>}
+                <button className="primary" onClick={props.onCreate} disabled={props.busy || !canCreate}><Save size={16}/>创建助手</button>
             </div>
         </section>
     );

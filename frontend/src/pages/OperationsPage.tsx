@@ -351,8 +351,8 @@ function OperationLogPanel(props: {
             <details className="log-details" open={!!props.lastOperationError}>
                 <summary>展开完整日志</summary>
                 <div className="log-tools">
-                    <button className="ghost icon-only" onClick={props.onCopyLogs} disabled={props.logs.length === 0} title="复制日志"><Clipboard size={16}/></button>
-                    <button className="ghost icon-only" onClick={props.onClearLogs} disabled={props.logs.length === 0} title="清空日志"><Trash2 size={16}/></button>
+                    <button className="ghost icon-only" onClick={props.onCopyLogs} disabled={props.logs.length === 0} title="复制日志" aria-label="复制日志"><Clipboard size={16}/></button>
+                    <button className="ghost icon-only" onClick={props.onClearLogs} disabled={props.logs.length === 0} title="清空日志" aria-label="清空日志"><Trash2 size={16}/></button>
                     <label className="mini-toggle"><input type="checkbox" checked={props.autoScrollLogs} onChange={(event) => props.setAutoScrollLogs(event.target.checked)}/>自动滚动</label>
                 </div>
                 <pre ref={props.logRef} className="logbox">{props.logs.length ? props.logs.join('\n') : '暂无命令输出。'}</pre>
@@ -376,6 +376,7 @@ function WebManagementCard(props: {
     const [copied, setCopied] = useState('');
     const host = scope === 'local' ? '127.0.0.1' : '0.0.0.0';
     const primaryURL = props.status.primaryUrl || props.status.localUrl;
+    const portValid = isPortValue(port);
 
     useEffect(() => {
         setEnabled(props.status.enabled);
@@ -441,11 +442,12 @@ function WebManagementCard(props: {
                     <span>端口</span>
                     <input value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric"/>
                 </label>
-                <button className="ghost" onClick={saveSettings} disabled={props.busy}>保存 Web 设置</button>
+                <button className="ghost" onClick={saveSettings} disabled={props.busy || !portValid}>保存 Web 设置</button>
             </div>
+            {!portValid && <div className="form-warning">端口必须是 1 到 65535 之间的数字。</div>}
             <div className="web-password-row">
-                <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)}/>
-                <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)}/>
+                <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} autoComplete="current-password"/>
+                <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password"/>
                 <button className="ghost" onClick={changePassword} disabled={props.busy || !oldPassword || !newPassword}>修改密码</button>
                 <button className="ghost danger-text" onClick={props.onResetPassword} disabled={props.busy}>重置为 123456</button>
             </div>
@@ -459,7 +461,7 @@ function AddressRow(props: { label: string; value: string; copied: string; onCop
         <div className="web-address-row">
             <span>{props.label}</span>
             <code>{props.value}</code>
-            <button className="icon-button" onClick={() => props.onCopy(props.value)} title="复制地址">
+            <button className="icon-button" onClick={() => props.onCopy(props.value)} title="复制地址" aria-label="复制地址">
                 <Clipboard size={15}/>
             </button>
             {props.copied === props.value && <em>已复制</em>}

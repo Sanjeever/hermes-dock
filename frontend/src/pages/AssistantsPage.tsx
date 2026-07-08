@@ -197,17 +197,17 @@ export function AssistantsPage(props: {
                         props.setNewProfileName(value);
                         if (!props.newProfileID) props.setNewProfileID(suggestProfileID(profiles, value));
                     }}/>
-                    <Field label="Profile ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
+                    <Field label="助手 ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
                     <label className="field">
                         <span>创建方式</span>
                         <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
                             <option value="clean">全新配置</option>
-                            <option value="personality-skills">复制当前助手的人格和 skills</option>
+                            <option value="personality-skills">复制当前助手的人格和技能</option>
                         </select>
                     </label>
                     <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后启用助手</label>
                     {!canCreate && (props.newProfileID || props.newProfileName) && (
-                        <div className="form-warning">{profileIDExists ? '该 Profile ID 已存在，请换一个。' : 'Profile ID 只能包含小写字母、数字和连字符，且不能使用 default。'}</div>
+                        <div className="form-warning">{profileIDExists ? '该助手 ID 已存在，请换一个。' : '助手 ID 只能包含小写字母、数字和连字符，且不能使用 default。'}</div>
                     )}
                     <div className="actions">
                         <button className="primary no-margin" onClick={async () => {
@@ -366,7 +366,7 @@ function AssistantSummary(props: {
                 <div>
                     <p className="eyebrow">助手已就绪</p>
                     <h2>{props.profileName}</h2>
-                    <p className="setup-subtitle">需要修改时，从配置助理重新走一遍即可。</p>
+                    <p className="setup-subtitle">需要修改时，直接进入对应配置项；保存后按提示应用即可。</p>
                 </div>
                 <div className="setup-status-list">
                     <button onClick={() => props.onStep('model')}>
@@ -515,7 +515,7 @@ function SkillsPanel(props: {
                                 <Search size={16}/>
                                 <input value={hubKeyword} onChange={(event) => setHubKeyword(event.target.value)} onKeyDown={(event) => {
                                     if (event.key === 'Enter') searchHub();
-                                }} placeholder="搜索 SkillHub 技能"/>
+                                }} placeholder="搜索技能中心"/>
                             </label>
                             <select value={hubCategory} onChange={(event) => {
                                 const next = event.target.value;
@@ -655,7 +655,7 @@ function SkillsPanel(props: {
                                             <span className="skill-row-main">
                                                 <span className="skill-row-title">
                                                     <strong>{skill.name}</strong>
-                                                    <Badge label={skill.installed ? '已安装' : skill.source || 'SkillHub'} tone={skill.installed ? 'ok' : 'muted'}/>
+                                                    <Badge label={skill.installed ? '已安装' : skill.source || '技能中心'} tone={skill.installed ? 'ok' : 'muted'}/>
                                                 </span>
                                                 <small>{skill.description || '无描述'}</small>
                                             </span>
@@ -669,13 +669,13 @@ function SkillsPanel(props: {
                                 <div className="skill-detail-empty">
                                     <p className="eyebrow">技能中心</p>
                                     <h2>{hubSkills.length === 0 ? '暂无结果' : '正在读取'}</h2>
-                                    <p>搜索 SkillHub 并安装到当前助手。</p>
+                                    <p>搜索技能中心并安装到当前助手。</p>
                                 </div>
                             ) : (
                                 <>
                                     <div className="skill-detail-head">
                                         <div>
-                                            <p className="eyebrow">{activeHubDetail.categoryName || 'SkillHub'}</p>
+                                            <p className="eyebrow">{activeHubDetail.categoryName || '技能中心'}</p>
                                             <h2>{activeHubDetail.name}</h2>
                                             <p>{activeHubDetail.description || '无描述'}</p>
                                         </div>
@@ -690,7 +690,7 @@ function SkillsPanel(props: {
                                     </div>
                                     <dl className="skill-meta-list">
                                         <Meta label="版本" value={activeHubDetail.version || '未声明'}/>
-                                        <Meta label="来源" value={activeHubDetail.source || 'SkillHub'}/>
+                                        <Meta label="来源" value={activeHubDetail.source || '技能中心'}/>
                                         <Meta label="作者" value={activeHubDetail.ownerName || '未声明'}/>
                                         <Meta label="统计" value={`${formatCount(activeHubDetail.downloads)} 下载 · ${formatCount(activeHubDetail.stars)} 收藏`}/>
                                         <Meta label="密钥" value={activeHubDetail.requiresApiKey ? '需要 API Key' : '不需要 API Key'}/>
@@ -720,8 +720,8 @@ function skillSummaryLine(state: SkillsState | null) {
 }
 
 function skillHubSummaryLine(state: SkillHubState | null) {
-    if (!state) return '浏览 SkillHub 技能并安装到当前助手';
-    return `SkillHub · ${state.total} 个可浏览技能`;
+    if (!state) return '浏览技能中心并安装到当前助手';
+    return `技能中心 · ${state.total} 个可浏览技能`;
 }
 
 function formatCount(value: number) {
@@ -957,6 +957,7 @@ function AssistantWizard(props: {
                 {steps.map((item, itemIndex) => (
                     <button key={item.id} className={props.step === item.id ? 'active' : itemIndex < index ? 'done' : ''} onClick={() => goToStep(item.id)} title={item.label} aria-label={item.label} disabled={!props.setupDone || props.busy}>
                         <span>{itemIndex + 1}</span>
+                        <em>{item.label}</em>
                     </button>
                 ))}
             </div>

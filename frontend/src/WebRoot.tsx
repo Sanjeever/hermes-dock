@@ -61,7 +61,8 @@ function WebRoot() {
                         <h1>访问密码</h1>
                         <p>默认密码是 123456，建议首次登录后修改。</p>
                     </div>
-                    <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoFocus/>
+                    <input type="hidden" name="username" value="hermes-dock" autoComplete="username" readOnly/>
+                    <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" autoFocus/>
                     {error && <div className="operation-error">{error}</div>}
                     <button className="primary no-margin" type="submit">登录</button>
                 </form>

@@ -20,21 +20,39 @@ export function PlatformsPage(props: {
     onSaveFeishu: () => Promise<boolean>;
     onUnbind: (platform: PlatformKey) => void;
 }) {
+    const [confirmUnbind, setConfirmUnbind] = useState<PlatformKey | null>(null);
     const weixinBound = !!envValue(props.env, 'WEIXIN_ACCOUNT_ID') && !!envValue(props.env, 'WEIXIN_TOKEN');
     const wecomBound = !!envValue(props.env, 'WECOM_BOT_ID') && !!envValue(props.env, 'WECOM_SECRET');
     const feishuBound = !!envValue(props.env, 'FEISHU_APP_ID') && !!envValue(props.env, 'FEISHU_APP_SECRET');
     const set = (key: string, value: string) => props.setEnv(setEnvValue(props.env, key, value));
+    const selectPlatform = (value: PlatformKey) => {
+        setConfirmUnbind(null);
+        props.setSelected(value);
+    };
+    const requestUnbind = (platform: PlatformKey) => setConfirmUnbind(platform);
+    const confirmUnbindPlatform = () => {
+        if (!confirmUnbind) return;
+        props.onUnbind(confirmUnbind);
+        setConfirmUnbind(null);
+    };
 
     return (
         <section className="platform-stack">
             <div className="platform-cards">
-                <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" busy={props.busy} onSelect={props.setSelected}/>
-                <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" busy={props.busy} onSelect={props.setSelected}/>
-                <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" busy={props.busy} onSelect={props.setSelected}/>
+                <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" busy={props.busy} onSelect={selectPlatform}/>
+                <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" busy={props.busy} onSelect={selectPlatform}/>
+                <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" busy={props.busy} onSelect={selectPlatform}/>
             </div>
-            {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin} onUnbind={() => props.onUnbind('weixin')}/>}
-            {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom} onUnbind={() => props.onUnbind('wecom')}/>}
-            {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu} onUnbind={() => props.onUnbind('feishu')}/>}
+            {confirmUnbind && (
+                <div className="danger-confirm platform-unbind-confirm">
+                    <span>确认取消绑定{platformLabel(confirmUnbind)}？这会清空当前助手的绑定密钥，保存后需要应用并重建才会影响运行中的容器。</span>
+                    <button className="danger-button compact" onClick={confirmUnbindPlatform} disabled={props.busy}><Unlink size={16}/>确认取消绑定</button>
+                    <button className="ghost" onClick={() => setConfirmUnbind(null)} disabled={props.busy}>取消</button>
+                </div>
+            )}
+            {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrData} qrStatus={props.qrStatus} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin} onUnbind={() => requestUnbind('weixin')}/>}
+            {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom} onUnbind={() => requestUnbind('wecom')}/>}
+            {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveFeishu} onUnbind={() => requestUnbind('feishu')}/>}
         </section>
     );
 }
@@ -141,4 +159,17 @@ function disabledPolicyValue(value: string) {
 function maskID(value: string) {
     if (value.length <= 10) return value;
     return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function platformLabel(platform: PlatformKey) {
+    switch (platform) {
+        case 'weixin':
+            return '个人微信';
+        case 'wecom':
+            return '企业微信';
+        case 'feishu':
+            return '飞书 / Lark';
+        default:
+            return '平台';
+    }
 }

@@ -70,10 +70,10 @@ export function Dashboard(props: {
             <div className="panel wide">
                 <div className="section-head">
                     <div>
-                        <p className="eyebrow">Profiles</p>
+                        <p className="eyebrow">助手</p>
                         <h2>运行概览</h2>
                     </div>
-                    <button className="ghost" onClick={props.onOpenProfiles}>管理 Profiles</button>
+                    <button className="ghost" onClick={props.onOpenProfiles}>管理助手</button>
                 </div>
                 <div className="profile-list compact-list">
                     {(props.state.profiles?.profiles || []).map((profile) => {
@@ -95,8 +95,8 @@ export function Dashboard(props: {
                     <p className="eyebrow">实时输出</p>
                     <div className="actions compact">
                         <button className="ghost" onClick={props.onLogs}><TerminalSquare size={16}/>刷新日志</button>
-                        <button className="ghost icon-only" onClick={props.onCopyLogs} disabled={props.logs.length === 0} title="复制日志"><Clipboard size={16}/></button>
-                        <button className="ghost icon-only" onClick={props.onClearLogs} disabled={props.logs.length === 0} title="清空日志"><Trash2 size={16}/></button>
+                        <button className="ghost icon-only" onClick={props.onCopyLogs} disabled={props.logs.length === 0} title="复制日志" aria-label="复制日志"><Clipboard size={16}/></button>
+                        <button className="ghost icon-only" onClick={props.onClearLogs} disabled={props.logs.length === 0} title="清空日志" aria-label="清空日志"><Trash2 size={16}/></button>
                         <label className="mini-toggle"><input type="checkbox" checked={props.autoScrollLogs} onChange={(event) => props.setAutoScrollLogs(event.target.checked)}/>自动滚动</label>
                     </div>
                 </div>

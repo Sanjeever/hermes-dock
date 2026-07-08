@@ -300,7 +300,7 @@ function App() {
             return false;
         }
         const target = state?.profiles?.profiles?.find((profile) => profile.id === id);
-        return await run('正在切换 Profile', () => SelectProfile(id), {
+        return await run('正在切换助手', () => SelectProfile(id), {
             beforeRefresh: () => {
                 markModelDirty(false);
                 markPlatformDirty(false);
@@ -318,7 +318,7 @@ function App() {
     }
 
     async function createProfile() {
-        return await run('正在创建 Profile', () => CreateProfile({
+        return await run('正在创建助手', () => CreateProfile({
             id: newProfileID,
             name: newProfileName,
             enabled: newProfileEnabled,
@@ -342,7 +342,7 @@ function App() {
     }
 
     async function deleteProfile(id: string) {
-        return await run('正在删除 Profile', () => DeleteProfile(id, id), {rebuildRequired: true});
+        return await run('正在删除助手', () => DeleteProfile(id, id), {rebuildRequired: true});
     }
 
     async function loadSkills() {
@@ -790,7 +790,6 @@ function App() {
 
     async function unbindPlatform(platform: PlatformKey) {
         const label = platformLabel(platform);
-        if (!window.confirm(`确定取消绑定${label}？这会清空当前助手的绑定密钥，保存后需要应用并重建才会影响运行中的容器。`)) return;
         await run(`正在取消绑定${label}`, () => UnbindPlatform(platform), {
             rebuildRequired: true,
             beforeRefresh: () => markPlatformDirty(false),
@@ -971,6 +970,7 @@ function App() {
 
     return (
         <div className="shell">
+            <a className="skip-link" href="#main-content">跳到主内容</a>
             <aside className="rail">
                 <div className="brand">
                     <div className="brand-mark">
@@ -981,11 +981,11 @@ function App() {
                         <span>Docker 启动器</span>
                     </div>
                 </div>
-                <nav>
+                <nav aria-label="主导航">
                     {nav.map((item) => {
                         const Icon = item.icon;
                         return (
-                            <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
+                            <button key={item.id} className={page === item.id ? 'active' : ''} aria-current={page === item.id ? 'page' : undefined} onClick={() => setPage(item.id)}>
                                 <Icon size={18}/>
                                 {item.label}
                             </button>
@@ -998,7 +998,7 @@ function App() {
                 </div>
             </aside>
 
-            <main className={`workspace ${page === 'assistants' && assistantSkillsMode ? 'skills-workspace-mode' : ''}`}>
+            <main id="main-content" className={`workspace ${page === 'assistants' && assistantSkillsMode ? 'skills-workspace-mode' : ''}`}>
                 <header className="topbar">
                     <div>
                         <h1>{titleFor(page)}</h1>
@@ -1006,7 +1006,7 @@ function App() {
                     <div className="topbar-actions">
                         {page === 'operations' && state?.profiles?.profiles && (
                             <label className="profile-picker">
-                                <span>当前 Profile</span>
+                                <span>当前助手</span>
                                 <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!busy}>
                                     {state.profiles.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name || profile.id}</option>)}
                                 </select>

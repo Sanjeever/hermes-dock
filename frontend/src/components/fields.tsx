@@ -29,8 +29,8 @@ export function SecretField(props: { label: string; value: string; visible: bool
         <label className="field">
             <span>{props.label}</span>
             <div className="secret-input">
-                <input type={props.visible ? 'text' : 'password'} value={props.value || ''} onChange={(event) => props.onChange(event.target.value)}/>
-                <button type="button" onClick={() => props.setVisible(!props.visible)} title={props.visible ? '隐藏密钥' : '显示密钥'}>
+                <input type={props.visible ? 'text' : 'password'} value={props.value || ''} onChange={(event) => props.onChange(event.target.value)} autoComplete="off"/>
+                <button type="button" onClick={() => props.setVisible(!props.visible)} title={props.visible ? '隐藏密钥' : '显示密钥'} aria-label={props.visible ? '隐藏密钥' : '显示密钥'}>
                     {props.visible ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
             </div>
@@ -42,7 +42,7 @@ export function Field({label, value, onChange, secret = false}: { label: string;
     return (
         <label className="field">
             <span>{label}</span>
-            <input type={secret ? 'password' : 'text'} value={value || ''} onChange={(event) => onChange(event.target.value)}/>
+            <input type={secret ? 'password' : 'text'} value={value || ''} onChange={(event) => onChange(event.target.value)} autoComplete={secret ? 'off' : undefined}/>
         </label>
     );
 }
