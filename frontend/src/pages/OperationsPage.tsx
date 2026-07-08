@@ -427,7 +427,6 @@ function WebManagementCard(props: {
                 </div>
                 <div className={`status-pill ${props.status.running ? 'ok' : 'warn'}`}>{props.status.running ? '运行中' : '未运行'}</div>
             </div>
-            {props.status.usingDefaultPassword && <div className="web-password-warning">当前仍在使用默认访问密码，建议修改。</div>}
             {props.status.error && <div className="operation-error">Web 管理启动失败：{props.status.error}</div>}
             <div className="web-management-grid">
                 <div className="web-addresses">

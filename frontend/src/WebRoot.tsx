@@ -6,7 +6,6 @@ import {getWebSession, isWebRuntime, loginWeb, logoutWeb} from './services/api';
 function WebRoot() {
     const [checking, setChecking] = useState(true);
     const [authenticated, setAuthenticated] = useState(false);
-    const [usingDefaultPassword, setUsingDefaultPassword] = useState(false);
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
@@ -27,7 +26,6 @@ function WebRoot() {
         try {
             const session = await getWebSession();
             setAuthenticated(session.authenticated);
-            setUsingDefaultPassword(session.usingDefaultPassword);
         } finally {
             setChecking(false);
         }
@@ -71,15 +69,7 @@ function WebRoot() {
     }
     return (
         <div className="web-runtime-shell">
-            {usingDefaultPassword && (
-                <div className="web-default-password-banner">
-                    <span>当前仍在使用默认访问密码，建议修改。</span>
-                    <button onClick={logout}>退出登录</button>
-                </div>
-            )}
-            {!usingDefaultPassword && (
-                <button className="web-logout-button" onClick={logout}>退出登录</button>
-            )}
+            <button className="web-logout-button" onClick={logout}>退出登录</button>
             <App/>
         </div>
     );
