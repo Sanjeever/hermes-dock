@@ -70,6 +70,10 @@ type DeleteSkillRequest struct {
 	Confirm bool   `json:"confirm"`
 }
 
+type RestoreDefaultRequest struct {
+	Confirm bool `json:"confirm"`
+}
+
 type LauncherState struct {
 	SchemaVersion             int               `json:"schemaVersion"`
 	AppVersion                string            `json:"appVersion"`

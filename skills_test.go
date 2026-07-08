@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -104,6 +105,75 @@ func TestSyncBundledSkillsOverwritesBundledFilesOnly(t *testing.T) {
 	}
 	if len(state.Backups) == 0 {
 		t.Fatalf("sync did not record a backup")
+	}
+}
+
+func TestRestoreDefaultSkillsRemovesCustomSkills(t *testing.T) {
+	app := newTestApp(t)
+	customDir := filepath.Join(app.currentProfileDataDir(), "skills", "custom", "remove")
+	if err := os.MkdirAll(customDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(customDir, "SKILL.md"), []byte("---\nname: remove\ndescription: Remove me\n---\n\n# Remove\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.RestoreDefaultSkills()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SyncedFiles == 0 {
+		t.Fatalf("expected default skills to be restored")
+	}
+	if fileExists(customDir) {
+		t.Fatalf("custom skill still exists after default restore")
+	}
+	if !fileExists(filepath.Join(app.currentProfileDataDir(), "skills", "hermes-dock", "SKILL.md")) {
+		t.Fatalf("default skill was not restored")
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Backups) == 0 {
+		t.Fatalf("restore did not record a backup")
+	}
+}
+
+func TestRestoreDefaultSoulBacksUpAndRewritesProfileHome(t *testing.T) {
+	app := newTestApp(t)
+	if err := app.CreateProfile(CreateProfileRequest{ID: "writer", Name: "Writer", Enabled: true, CopyMode: profileCopyClean}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SelectProfile("writer"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app.soulPath(), []byte("custom soul"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.RestoreDefaultSoul(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(app.soulPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) == "custom soul" {
+		t.Fatalf("SOUL.md was not restored")
+	}
+	if !strings.Contains(string(data), "/opt/data/profiles/writer/tmp") {
+		t.Fatalf("restored SOUL.md does not point at writer tmp")
+	}
+	if strings.Contains(string(data), "/opt/data/tmp") {
+		t.Fatalf("restored SOUL.md still points at default tmp")
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Backups) == 0 {
+		t.Fatalf("restore did not record a backup")
 	}
 }
 

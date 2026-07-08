@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, Save, Search, SlidersHorizontal, Trash2} from 'lucide-react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, SlidersHorizontal, Trash2} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
@@ -68,6 +68,7 @@ export function AssistantsPage(props: {
     onTestModel: () => void;
     onSaveSoul: () => Promise<boolean>;
     onDiscardSoul: () => void;
+    onRestoreDefaultSoul: () => Promise<boolean>;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
     onSaveWeCom: () => Promise<boolean>;
@@ -79,6 +80,7 @@ export function AssistantsPage(props: {
     onOpenOperations: (tab: OperationsTab) => void;
     onRefreshSkills: () => void;
     onSyncBundledSkills: () => Promise<boolean>;
+    onRestoreDefaultSkills: () => Promise<boolean>;
     onSkillDetail: (path: string) => void;
     onDeleteSkill: (path: string) => Promise<boolean>;
     onOpenSkillDirectory: (path: string) => void;
@@ -264,6 +266,7 @@ export function AssistantsPage(props: {
                         onBack={() => setShowSkills(false)}
                         onRefresh={props.onRefreshSkills}
                         onSyncBundledSkills={props.onSyncBundledSkills}
+                        onRestoreDefaultSkills={props.onRestoreDefaultSkills}
                         onDetail={props.onSkillDetail}
                         onDelete={props.onDeleteSkill}
                         onOpenDirectory={props.onOpenSkillDirectory}
@@ -326,6 +329,7 @@ export function AssistantsPage(props: {
                         onTestModel={props.onTestModel}
                         onSaveSoul={props.onSaveSoul}
                         onDiscardSoul={props.onDiscardSoul}
+                        onRestoreDefaultSoul={props.onRestoreDefaultSoul}
                         onWeixinLogin={props.onWeixinLogin}
                         onCancelWeixin={props.onCancelWeixin}
                         onSaveWeCom={props.onSaveWeCom}
@@ -410,6 +414,7 @@ function SkillsPanel(props: {
     onBack: () => void;
     onRefresh: () => void;
     onSyncBundledSkills: () => Promise<boolean>;
+    onRestoreDefaultSkills: () => Promise<boolean>;
     onDetail: (path: string) => void;
     onDelete: (path: string) => Promise<boolean>;
     onOpenDirectory: (path: string) => void;
@@ -422,6 +427,7 @@ function SkillsPanel(props: {
     const [filter, setFilter] = useState<'all' | 'builtin' | 'custom' | 'conflict'>('all');
     const [detailTab, setDetailTab] = useState<'overview' | 'skill' | 'files'>('overview');
     const [deletePath, setDeletePath] = useState('');
+    const [restoreDefaultOpen, setRestoreDefaultOpen] = useState(false);
     const [hubKeyword, setHubKeyword] = useState('');
     const [hubCategory, setHubCategory] = useState('');
     const skills = props.skillsState?.skills || [];
@@ -487,11 +493,21 @@ function SkillsPanel(props: {
                     </div>
                     <div className="skills-head-actions">
                         {view === 'local' && <button className="ghost" onClick={props.onSyncBundledSkills} disabled={props.busy}><Download size={16}/>同步内置技能</button>}
+                        {view === 'local' && <button className="ghost danger-inline" onClick={() => setRestoreDefaultOpen(true)} disabled={props.busy}><RotateCcw size={16}/>恢复默认技能</button>}
                         <button className="ghost" onClick={() => view === 'local' ? props.onRefresh() : searchHub(hubKeyword, hubCategory, hubPage)} disabled={props.busy}><RefreshCcw size={16}/>刷新</button>
                         <button className="ghost" onClick={props.onBack} disabled={props.busy}><ChevronLeft size={16}/>返回摘要</button>
                     </div>
                 </div>
                 <div className="skills-controls">
+                    {view === 'local' && restoreDefaultOpen && (
+                        <div className="danger-confirm restore-confirm-row">
+                            <span>将删除当前助手的全部技能，并恢复为内置默认技能。操作前会自动备份。</span>
+                            <button className="danger-button compact" onClick={async () => {
+                                if (await props.onRestoreDefaultSkills()) setRestoreDefaultOpen(false);
+                            }} disabled={props.busy}><RotateCcw size={16}/>确认恢复</button>
+                            <button className="ghost" onClick={() => setRestoreDefaultOpen(false)} disabled={props.busy}>取消</button>
+                        </div>
+                    )}
                     {view === 'local' ? (
                         <div className="skills-toolbar">
                             <label className="skills-search">
@@ -925,6 +941,7 @@ function AssistantWizard(props: {
     onTestModel: () => void;
     onSaveSoul: () => Promise<boolean>;
     onDiscardSoul: () => void;
+    onRestoreDefaultSoul: () => Promise<boolean>;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
     onSaveWeCom: () => Promise<boolean>;
@@ -998,6 +1015,7 @@ function AssistantWizard(props: {
                         busy={props.busy}
                         onSave={props.onSaveSoul}
                         onDiscard={props.onDiscardSoul}
+                        onRestoreDefault={props.onRestoreDefaultSoul}
                     />
                     <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={(step) => step && goToStep(step)} onNext={async () => {
                         if (props.soulDirty && !(await props.onSaveSoul())) return;

@@ -94,6 +94,8 @@ export const ListProfileSkills = () => wailsOrRPC<unknown>('ListProfileSkills');
 export const GetSkillDetail = (path: string) => wailsOrRPC<unknown>('GetSkillDetail', [path]);
 export const DeleteSkill = (path: string) => isWebRuntime() ? rpc<void>('DeleteSkill', [{path, confirm: true}]) : wailsOrRPC<void>('DeleteSkill', [path]);
 export const SyncBundledSkills = () => wailsOrRPC<SyncBundledSkillsResult>('SyncBundledSkills');
+export const RestoreDefaultSkills = () => isWebRuntime() ? rpc<SyncBundledSkillsResult>('RestoreDefaultSkills', [{confirm: true}]) : wailsOrRPC<SyncBundledSkillsResult>('RestoreDefaultSkills');
+export const RestoreDefaultSoul = () => isWebRuntime() ? rpc<void>('RestoreDefaultSoul', [{confirm: true}]) : wailsOrRPC<void>('RestoreDefaultSoul');
 export const ListSkillHubSkills = (query: SkillHubQuery) => wailsOrRPC<unknown>('ListSkillHubSkills', [query]);
 export const GetSkillHubDetail = (slug: string) => wailsOrRPC<unknown>('GetSkillHubDetail', [slug]);
 export const InstallSkillHubSkill = (slug: string) => wailsOrRPC<void>('InstallSkillHubSkill', [slug]);

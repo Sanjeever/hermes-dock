@@ -2486,6 +2486,24 @@ textarea:hover:not(:disabled) {
     line-height: 1.45;
 }
 
+.restore-confirm-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.restore-confirm-row span {
+    min-width: min(100%, 280px);
+    flex: 1;
+    color: #7d1b13;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
 .danger-button.compact {
     min-height: 34px;
     margin-top: 0;

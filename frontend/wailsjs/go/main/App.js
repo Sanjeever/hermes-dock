@@ -134,6 +134,14 @@ export function RestartHermes() {
   return window['go']['main']['App']['RestartHermes']();
 }
 
+export function RestoreDefaultSkills() {
+  return window['go']['main']['App']['RestoreDefaultSkills']();
+}
+
+export function RestoreDefaultSoul() {
+  return window['go']['main']['App']['RestoreDefaultSoul']();
+}
+
 export function SaveComposeSettings(arg1) {
   return window['go']['main']['App']['SaveComposeSettings'](arg1);
 }

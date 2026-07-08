@@ -800,6 +800,8 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"GetSkillDetail":       oneArgValue[string, SkillDetail](a.GetSkillDetail),
 		"DeleteSkill":          oneArg[DeleteSkillRequest](a.webDeleteSkill),
 		"SyncBundledSkills":    noParams(func() (interface{}, error) { return a.SyncBundledSkills() }),
+		"RestoreDefaultSkills": oneArgValue[RestoreDefaultRequest, SyncBundledSkillsResult](a.webRestoreDefaultSkills),
+		"RestoreDefaultSoul":   oneArg[RestoreDefaultRequest](a.webRestoreDefaultSoul),
 		"ListSkillHubSkills":   oneArgValue[SkillHubQuery, SkillHubState](a.ListSkillHubSkills),
 		"GetSkillHubDetail":    oneArgValue[string, SkillHubDetail](a.GetSkillHubDetail),
 		"InstallSkillHubSkill": oneArg[string](a.InstallSkillHubSkill),
@@ -967,6 +969,20 @@ func (a *App) webDeleteSkill(req DeleteSkillRequest) error {
 		return fmt.Errorf("请确认删除技能")
 	}
 	return a.DeleteSkill(req.Path)
+}
+
+func (a *App) webRestoreDefaultSkills(req RestoreDefaultRequest) (SyncBundledSkillsResult, error) {
+	if !req.Confirm {
+		return SyncBundledSkillsResult{}, fmt.Errorf("请确认恢复默认技能")
+	}
+	return a.RestoreDefaultSkills()
+}
+
+func (a *App) webRestoreDefaultSoul(req RestoreDefaultRequest) error {
+	if !req.Confirm {
+		return fmt.Errorf("请确认恢复默认人格")
+	}
+	return a.RestoreDefaultSoul()
 }
 
 func (a *App) webReadTextFile(kind string) (string, error) {

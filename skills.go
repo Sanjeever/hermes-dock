@@ -105,12 +105,65 @@ func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
 	targetRoot := a.currentProfileDataDir()
 	skillsDir := filepath.Join(targetRoot, "skills")
 	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}}
-	type seedFile struct {
-		source string
-		rel    string
-		target string
+	files, err := bundledSkillSeedFiles(targetRoot)
+	if err != nil {
+		return result, err
 	}
-	var files []seedFile
+	if len(files) == 0 {
+		return result, nil
+	}
+	if err := a.backupDirectory(skillsDir, "before-sync-bundled-skills"); err != nil {
+		return result, err
+	}
+	return writeBundledSkillSeedFiles(files, result)
+}
+
+func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
+	profileID := a.currentProfileID()
+	targetRoot := a.currentProfileDataDir()
+	skillsDir := filepath.Join(targetRoot, "skills")
+	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}}
+	files, err := bundledSkillSeedFiles(targetRoot)
+	if err != nil {
+		return result, err
+	}
+	if len(files) == 0 {
+		return result, nil
+	}
+	if err := a.backupDirectory(skillsDir, "before-restore-default-skills"); err != nil {
+		return result, err
+	}
+	if err := os.RemoveAll(skillsDir); err != nil {
+		return result, err
+	}
+	return writeBundledSkillSeedFiles(files, result)
+}
+
+func (a *App) RestoreDefaultSoul() error {
+	profileID := a.currentProfileID()
+	target := a.soulPath()
+	data, err := seedData.ReadFile("templates/seed-data/SOUL.md")
+	if err != nil {
+		return err
+	}
+	data = profileSeedData(data, "SOUL.md", profileID)
+	if err := a.backupFile(target, "before-restore-default-soul"); err != nil {
+		return err
+	}
+	if err := ensureDir(filepath.Dir(target)); err != nil {
+		return err
+	}
+	return os.WriteFile(target, data, 0644)
+}
+
+type bundledSkillSeedFile struct {
+	source string
+	rel    string
+	target string
+}
+
+func bundledSkillSeedFiles(targetRoot string) ([]bundledSkillSeedFile, error) {
+	var files []bundledSkillSeedFile
 	err := fs.WalkDir(seedData, "templates/seed-data/skills", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -126,18 +179,16 @@ func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
 			return err
 		}
 		target := filepath.Join(targetRoot, rel)
-		files = append(files, seedFile{source: path, rel: rel, target: target})
+		files = append(files, bundledSkillSeedFile{source: path, rel: rel, target: target})
 		return nil
 	})
 	if err != nil {
-		return result, err
+		return nil, err
 	}
-	if len(files) == 0 {
-		return result, nil
-	}
-	if err := a.backupDirectory(skillsDir, "before-sync-bundled-skills"); err != nil {
-		return result, err
-	}
+	return files, nil
+}
+
+func writeBundledSkillSeedFiles(files []bundledSkillSeedFile, result SyncBundledSkillsResult) (SyncBundledSkillsResult, error) {
 	for _, item := range files {
 		data, err := seedData.ReadFile(item.source)
 		if err != nil {

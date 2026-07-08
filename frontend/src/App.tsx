@@ -24,6 +24,8 @@ import {
     ReadTextFile,
     RebuildHermes,
     RestartHermes,
+    RestoreDefaultSkills,
+    RestoreDefaultSoul,
     SaveComposeSettings,
     SaveProxySettings,
     SaveFeishuConfig,
@@ -419,6 +421,35 @@ function App() {
         }
     }
 
+    async function restoreDefaultSkills() {
+        setBusy('正在恢复默认技能');
+        setNotice({type: 'info', message: '正在恢复默认技能'});
+        setSkillsStatus('正在恢复默认技能');
+        setLastOperationError('');
+        try {
+            const result = await RestoreDefaultSkills();
+            await refresh();
+            await loadSkills();
+            setSkillDetail(null);
+            const summary = restoreDefaultSkillsMessage(result);
+            if (result.syncedFiles > 0) {
+                setNeedsRebuild(true);
+            }
+            setSkillsStatus(summary);
+            setNotice({type: 'ok', message: summary});
+            return true;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setSkillsStatus(message);
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            return false;
+        } finally {
+            setBusy('');
+        }
+    }
+
     async function openSkillDirectory(path: string) {
         try {
             await OpenSkillDirectory(path);
@@ -681,6 +712,30 @@ function App() {
             setNeedsRebuild(true);
             setSoulStatus(`已保存 ${path}`);
             setNotice({type: 'ok', message: '已保存人格文件'});
+            return true;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setSoulStatus(message);
+            setNotice({type: 'error', message});
+            return false;
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function restoreDefaultSoul() {
+        const profileID = state?.activeProfile || 'default';
+        setBusy('正在恢复默认人格');
+        setNotice({type: 'info', message: '正在恢复默认人格'});
+        setSoulStatus('正在恢复默认人格');
+        try {
+            await RestoreDefaultSoul();
+            await loadSoulFile(profileID);
+            setSoulDirty(false);
+            setNeedsRebuild(true);
+            setSoulStatus('已恢复默认人格，应用配置后生效');
+            setNotice({type: 'ok', message: '已恢复默认人格'});
             return true;
         } catch (error) {
             const message = String(error);
@@ -1182,6 +1237,7 @@ function App() {
                         onTestModel={testCurrentModel}
                         onSaveSoul={saveSoulFile}
                         onDiscardSoul={() => loadSoulFile(state?.activeProfile || 'default')}
+                        onRestoreDefaultSoul={restoreDefaultSoul}
                         onWeixinLogin={startWeixinLogin}
                         onCancelWeixin={cancelWeixinLogin}
                         onSaveWeCom={saveWeComConfig}
@@ -1193,6 +1249,7 @@ function App() {
                         onOpenOperations={openOperations}
                         onRefreshSkills={loadSkills}
                         onSyncBundledSkills={syncBundledSkills}
+                        onRestoreDefaultSkills={restoreDefaultSkills}
                         onSkillDetail={loadSkillDetail}
                         onDeleteSkill={deleteSkill}
                         onOpenSkillDirectory={openSkillDirectory}
@@ -1290,6 +1347,13 @@ function syncBundledSkillsMessage(result: SyncBundledSkillsResult) {
     const skillCount = result.syncedSkills.length;
     if (skillCount > 0) return `已同步 ${skillCount} 个内置技能，覆盖/写入 ${result.syncedFiles} 个文件`;
     return `已覆盖/写入内置技能文件 ${result.syncedFiles} 个`;
+}
+
+function restoreDefaultSkillsMessage(result: SyncBundledSkillsResult) {
+    if (result.syncedFiles === 0) return '没有可恢复的默认技能文件';
+    const skillCount = result.syncedSkills.length;
+    if (skillCount > 0) return `已恢复 ${skillCount} 个默认技能，写入 ${result.syncedFiles} 个文件`;
+    return `已恢复默认技能文件 ${result.syncedFiles} 个`;
 }
 
 function platformLabel(platform: PlatformKey) {
