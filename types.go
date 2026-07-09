@@ -74,6 +74,39 @@ type RestoreDefaultRequest struct {
 	Confirm bool `json:"confirm"`
 }
 
+type InstanceBackupManifest struct {
+	Format              string                  `json:"format"`
+	SchemaVersion       int                     `json:"schemaVersion"`
+	AppVersion          string                  `json:"appVersion"`
+	TemplateVersion     string                  `json:"templateVersion"`
+	CreatedAt           string                  `json:"createdAt"`
+	SourceInstanceRoot  string                  `json:"sourceInstanceRoot"`
+	IncludesSecrets     bool                    `json:"includesSecrets"`
+	IncludesWebSettings bool                    `json:"includesWebSettings"`
+	Profiles            []InstanceBackupProfile `json:"profiles"`
+	FileCount           int                     `json:"fileCount"`
+	TotalBytes          int64                   `json:"totalBytes"`
+	ExcludedPaths       []string                `json:"excludedPaths"`
+	Path                string                  `json:"path,omitempty"`
+}
+
+type InstanceBackupProfile struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+type InstanceBackupImportRequest struct {
+	Path    string `json:"path"`
+	Confirm string `json:"confirm"`
+}
+
+type InstanceBackupImportResult struct {
+	Manifest            InstanceBackupManifest `json:"manifest"`
+	PreImportBackupPath string                 `json:"preImportBackupPath"`
+}
+
 type LauncherState struct {
 	SchemaVersion             int               `json:"schemaVersion"`
 	AppVersion                string            `json:"appVersion"`

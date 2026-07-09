@@ -20,6 +20,8 @@ export function DeleteSkill(arg1:string):Promise<void>;
 
 export function DismissUpdate(arg1:string):Promise<void>;
 
+export function ExportInstanceBackup(arg1:string):Promise<main.InstanceBackupManifest>;
+
 export function FactoryResetInstance():Promise<void>;
 
 export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.ModelOption>>;
@@ -42,7 +44,11 @@ export function GetSkillDetail(arg1:string):Promise<main.SkillDetail>;
 
 export function GetSkillHubDetail(arg1:string):Promise<main.SkillHubDetail>;
 
+export function ImportInstanceBackup(arg1:main.InstanceBackupImportRequest):Promise<main.InstanceBackupImportResult>;
+
 export function InitializeInstance(arg1:main.ComposeSettings):Promise<main.LauncherState>;
+
+export function InspectInstanceBackup(arg1:string):Promise<main.InstanceBackupManifest>;
 
 export function InstallSkillHubSkill(arg1:string):Promise<void>;
 

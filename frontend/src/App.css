@@ -2579,6 +2579,79 @@ textarea:hover:not(:disabled) {
     gap: 16px;
 }
 
+.backup-panel {
+    display: grid;
+    gap: 16px;
+}
+
+.backup-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.backup-action {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 8px;
+    background: #f5efe2;
+}
+
+.backup-action strong {
+    color: #1f2522;
+}
+
+.backup-action > span,
+.backup-action label span {
+    color: #596056;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
+.backup-action label {
+    display: grid;
+    gap: 6px;
+}
+
+.backup-button-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.backup-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.backup-summary div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fffaf0;
+}
+
+.backup-summary span {
+    color: #596056;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.backup-summary strong {
+    min-width: 0;
+    color: #1f2522;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
 .danger-confirm {
     background: #fff1ee;
     padding: 10px;
@@ -3581,6 +3654,8 @@ textarea:focus-visible,
     .operations-hero,
     .deploy-grid,
     .advanced-file-grid,
+    .backup-actions-grid,
+    .backup-summary,
     .field-grid,
     .skill-row,
     .skill-meta-list div,

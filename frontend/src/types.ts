@@ -157,6 +157,31 @@ export type UpdateInfo = {
     mirrors: UpdateMirrorLink[];
     checkedAt: string;
 };
+export type InstanceBackupProfile = {
+    id: string;
+    name: string;
+    enabled: boolean;
+    isDefault: boolean;
+};
+export type InstanceBackupManifest = {
+    format: string;
+    schemaVersion: number;
+    appVersion: string;
+    templateVersion: string;
+    createdAt: string;
+    sourceInstanceRoot: string;
+    includesSecrets: boolean;
+    includesWebSettings: boolean;
+    profiles: InstanceBackupProfile[];
+    fileCount: number;
+    totalBytes: number;
+    excludedPaths: string[];
+    path?: string;
+};
+export type InstanceBackupImportResult = {
+    manifest: InstanceBackupManifest;
+    preImportBackupPath: string;
+};
 export type AppState = {
     appVersion: string;
     instanceRoot: string;

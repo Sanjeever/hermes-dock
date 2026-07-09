@@ -10,11 +10,14 @@ import {
     DeleteProfile,
     DismissUpdate,
     DeleteSkill,
+    ExportInstanceBackup,
     FactoryResetInstance,
     FetchProviderConfigModelList,
     GetAppState,
     GetSkillDetail,
     GetSkillHubDetail,
+    ImportInstanceBackup,
+    InspectInstanceBackup,
     InstallSkillHubSkill,
     ListProfileSkills,
     ListSkillHubSkills,
@@ -57,7 +60,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 
 function App() {
@@ -90,6 +93,8 @@ function App() {
     const [advancedStatus, setAdvancedStatus] = useState('');
     const [advancedDirty, setAdvancedDirty] = useState(false);
     const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [backupStatus, setBackupStatus] = useState('');
+    const [backupManifest, setBackupManifest] = useState<InstanceBackupManifest | null>(null);
     const [soulContent, setSoulContent] = useState('');
     const [soulStatus, setSoulStatus] = useState('');
     const [soulDirty, setSoulDirty] = useState(false);
@@ -137,6 +142,11 @@ function App() {
                 refresh();
             }
         });
+        const offBackup = EventsOn('backup:progress', (event: { line?: string }) => {
+            if (!event.line) return;
+            setBackupStatus(event.line);
+            appendLog(event.line);
+        });
         const offLogs = EventsOn('logs:line', (event: { line?: string }) => event.line && appendLog(event.line));
         const isCurrentProfileEvent = (event: { profile_id?: string }) => !event.profile_id || event.profile_id === activeProfileRef.current;
         const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
@@ -171,6 +181,7 @@ function App() {
         });
         return () => {
             offDocker();
+            offBackup();
             offLogs();
             offQR();
             offQRStatus();
@@ -919,6 +930,73 @@ function App() {
         });
     }
 
+    async function exportInstanceBackup(targetPath: string) {
+        setBusy('正在导出备份');
+        setNotice({type: 'info', message: '正在导出备份'});
+        setBackupStatus('正在导出备份');
+        try {
+            const manifest = await ExportInstanceBackup(targetPath);
+            setBackupManifest(manifest);
+            setBackupStatus(`已导出 ${manifest.fileCount} 个文件`);
+            setNotice({type: 'ok', message: `已导出备份：${manifest.path || '已保存'}`});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setBackupStatus(message);
+            setNotice({type: 'error', message});
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function inspectInstanceBackup(path: string) {
+        setBusy('正在检查备份');
+        setNotice({type: 'info', message: '正在检查备份'});
+        setBackupStatus('正在检查备份');
+        try {
+            const manifest = await InspectInstanceBackup(path);
+            setBackupManifest(manifest);
+            setBackupStatus(`已检查 ${manifest.profiles?.length || 0} 个 Profile`);
+            setNotice({type: 'ok', message: '备份检查完成'});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setBackupManifest(null);
+            setBackupStatus(message);
+            setNotice({type: 'error', message});
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function importInstanceBackup(path: string, confirm: string) {
+        setBusy('正在导入备份');
+        setNotice({type: 'info', message: '正在导入备份'});
+        setBackupStatus('正在导入备份');
+        try {
+            const result = await ImportInstanceBackup(path, confirm);
+            setBackupManifest(result.manifest);
+            setLogs([]);
+            setNeedsRebuild(true);
+            setAdvancedDirty(false);
+            setAdvancedOpen(false);
+            setBackupStatus('导入完成，应用配置后生效');
+            const refreshMessage = await refresh();
+            if (refreshMessage) {
+                setNotice({type: 'error', message: `已导入备份，但刷新状态失败：${refreshMessage}`});
+                return;
+            }
+            setNotice({type: 'ok', message: `已导入备份，导入前备份保存在 ${result.preImportBackupPath}`});
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setBackupStatus(message);
+            setNotice({type: 'error', message});
+        } finally {
+            setBusy('');
+        }
+    }
+
     function changeAdvancedPath(path: string) {
         if (path === advancedPath) return;
         if (advancedDirty) {
@@ -1297,6 +1375,9 @@ function App() {
                         }}
                         advancedStatus={advancedStatus}
                         advancedDirty={advancedDirty}
+                        webRuntime={webRuntime}
+                        backupStatus={backupStatus}
+                        backupManifest={backupManifest}
                         autoScrollLogs={autoScrollLogs}
                         setAutoScrollLogs={setAutoScrollLogs}
                         logRef={logRef}
@@ -1321,6 +1402,9 @@ function App() {
                         onHomeChannel={setHomeChannel}
                         onTestChannel={testChannel}
                         onSaveAdvanced={saveAdvancedFile}
+                        onExportBackup={exportInstanceBackup}
+                        onInspectBackup={inspectInstanceBackup}
+                        onImportBackup={importInstanceBackup}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
                         webStatus={state.web}

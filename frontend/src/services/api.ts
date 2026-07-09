@@ -2,6 +2,8 @@ import * as wailsApp from '../../wailsjs/go/main/App';
 import type {
     AppState,
     ComposeSettings,
+    InstanceBackupImportResult,
+    InstanceBackupManifest,
     ModelConfig,
     ProxySettings,
     ProviderConfig,
@@ -109,6 +111,9 @@ export const SaveTextFile = (req: { path: string; content: string; reason?: stri
     return wailsOrRPC<void>('SaveTextFile', [req]);
 };
 export const FactoryResetInstance = () => wailsOrRPC<void>('FactoryResetInstance');
+export const ExportInstanceBackup = (targetPath = '') => wailsOrRPC<InstanceBackupManifest>('ExportInstanceBackup', [targetPath]);
+export const InspectInstanceBackup = (path = '') => wailsOrRPC<InstanceBackupManifest>('InspectInstanceBackup', [path]);
+export const ImportInstanceBackup = (path: string, confirm: string) => wailsOrRPC<InstanceBackupImportResult>('ImportInstanceBackup', [{path, confirm}]);
 export const OpenSkillDirectory = (path: string) => wailsOrRPC<void>('OpenSkillDirectory', [path]);
 export const OpenEndpoint = async (endpoint: string) => {
     if (!isWebRuntime()) return wailsApp.OpenEndpoint(endpoint);

@@ -5,7 +5,7 @@ import {QRCodeSVG} from 'qrcode.react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
-import type {AppState, ComposeSettings, OperationsTab, ProxySettings, WebSettingsRequest, WebStatus} from '../types';
+import type {AppState, ComposeSettings, InstanceBackupManifest, OperationsTab, ProxySettings, WebSettingsRequest, WebStatus} from '../types';
 import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
@@ -35,6 +35,9 @@ export function OperationsPage(props: {
     setAdvancedContent: (value: string) => void;
     advancedStatus: string;
     advancedDirty: boolean;
+    webRuntime: boolean;
+    backupStatus: string;
+    backupManifest: InstanceBackupManifest | null;
     autoScrollLogs: boolean;
     setAutoScrollLogs: (value: boolean) => void;
     logRef: RefObject<HTMLPreElement>;
@@ -56,6 +59,9 @@ export function OperationsPage(props: {
     onHomeChannel: (platform: string, id: string) => void;
     onTestChannel: (platform: string, id: string) => void;
     onSaveAdvanced: () => void;
+    onExportBackup: (targetPath: string) => Promise<void>;
+    onInspectBackup: (path: string) => Promise<void>;
+    onImportBackup: (path: string, confirm: string) => Promise<void>;
     onFactoryReset: () => Promise<void>;
     resetConfirmPhrase: string;
     webStatus: WebStatus;
@@ -166,6 +172,12 @@ export function OperationsPage(props: {
                             status={props.advancedStatus}
                             dirty={props.advancedDirty}
                             busy={!!props.busy}
+                            webRuntime={props.webRuntime}
+                            backupStatus={props.backupStatus}
+                            backupManifest={props.backupManifest}
+                            onExportBackup={props.onExportBackup}
+                            onInspectBackup={props.onInspectBackup}
+                            onImportBackup={props.onImportBackup}
                             onSave={props.onSaveAdvanced}
                             onFactoryReset={props.onFactoryReset}
                             resetConfirmPhrase={props.resetConfirmPhrase}

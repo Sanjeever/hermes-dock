@@ -106,6 +106,8 @@ Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `la
 
 `data/.dock/` 保存 runner 的派生运行清单和运行状态。这里的文件可由 Hermes Dock 重新生成，不是用户业务数据。
 
+设置页的数据迁移功能会导出 `.hdbackup` 单文件，用于把当前实例迁移到其他设备。备份包含 `data/`、profile registry、Web 管理配置、标准 Compose 和 Compose override，因此也包含 `.env` 密钥、平台账号凭据和 Web 访问密码；运行日志、Web 登录会话、旧备份和 `data/.dock/` 派生运行态不会写入备份。导出时如果容器正在运行，会先 `docker compose stop`，导出完成后再 `docker compose start` 恢复原运行状态，避免备份到写入中的文件。导入是整实例覆盖流程：先执行 `docker compose down`，再自动生成当前设备的导入前备份，最后恢复备份内容并重新生成标准 `docker-compose.yaml`。
+
 ## 多 Profile 设计
 
 多 profile 第一版的目标是：在一个 Docker 容器内并行运行多个 Hermes profile gateway worker，让不同 profile 绑定不同的个人微信、企业微信 AI Bot 或飞书 / Lark 应用，并隔离人格、记忆、模型、skills、平台凭据和通道。
@@ -426,6 +428,7 @@ pnpm --dir frontend run build
 - 通道查看、默认通道设置和测试消息发送。
 - UI 输出脱敏。
 - 写入前本地备份。
+- 整实例 `.hdbackup` 导出和覆盖导入，导入前自动备份当前实例。
 
 当前不做：
 

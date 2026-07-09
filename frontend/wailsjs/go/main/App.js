@@ -38,6 +38,10 @@ export function DismissUpdate(arg1) {
   return window['go']['main']['App']['DismissUpdate'](arg1);
 }
 
+export function ExportInstanceBackup(arg1) {
+  return window['go']['main']['App']['ExportInstanceBackup'](arg1);
+}
+
 export function FactoryResetInstance() {
   return window['go']['main']['App']['FactoryResetInstance']();
 }
@@ -82,8 +86,16 @@ export function GetSkillHubDetail(arg1) {
   return window['go']['main']['App']['GetSkillHubDetail'](arg1);
 }
 
+export function ImportInstanceBackup(arg1) {
+  return window['go']['main']['App']['ImportInstanceBackup'](arg1);
+}
+
 export function InitializeInstance(arg1) {
   return window['go']['main']['App']['InitializeInstance'](arg1);
+}
+
+export function InspectInstanceBackup(arg1) {
+  return window['go']['main']['App']['InspectInstanceBackup'](arg1);
 }
 
 export function InstallSkillHubSkill(arg1) {
