@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, SlidersHorizontal, Trash2} from 'lucide-react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, SlidersHorizontal, Trash2, X} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
@@ -104,7 +104,10 @@ export function AssistantsPage(props: {
     const activeWizardStep = activeSetupDone ? props.wizardStep : (props.wizardStep || 'model');
     const profileIDExists = profiles.some((profile) => profile.id === props.newProfileID);
     const profileIDValid = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
-    const canCreate = profileIDValid && !profileIDExists;
+    const profileNameReady = props.newProfileName.trim() !== '';
+    const canCreate = profileNameReady && profileIDValid && !profileIDExists;
+    const createStarted = props.newProfileName.trim() !== '' || props.newProfileID.trim() !== '';
+    const createValidationMessage = createStarted ? createProfileValidationMessage(props.newProfileName, props.newProfileID, profileIDExists) : '';
 
     useEffect(() => {
         props.onSkillsModeChange(showSkills);
@@ -115,6 +118,8 @@ export function AssistantsPage(props: {
         setShowCreate(true);
         props.setNewProfileID('');
         props.setNewProfileName('');
+        props.setNewProfileCopyMode('clean');
+        props.setNewProfileEnabled(true);
     };
 
     const saveRename = async (id: string) => {
@@ -143,8 +148,8 @@ export function AssistantsPage(props: {
                 <div className="assistant-switcher">
                     {activeProfile && (
                         <div>
-                            <p className="eyebrow">当前助手</p>
-                            <h2>{activeProfile.name || activeProfile.id}</h2>
+                            <p className="eyebrow">助手管理</p>
+                            <h2>切换和管理助手</h2>
                         </div>
                     )}
                     {activeProfile && <span className={`profile-status ${assistantStatusClass(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}`}>{assistantStatusLabel(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}</span>}
@@ -193,34 +198,54 @@ export function AssistantsPage(props: {
                 </div>
             )}
             {activeSetupDone && showCreate && (
-                <div className="create-drawer">
-                    <p className="eyebrow">新建助手</p>
-                    <Field label="显示名" value={props.newProfileName} onChange={(value) => {
-                        props.setNewProfileName(value);
-                        if (!props.newProfileID) props.setNewProfileID(suggestProfileID(profiles, value));
-                    }}/>
-                    <Field label="助手 ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
-                    <label className="field">
-                        <span>创建方式</span>
-                        <select value={props.newProfileCopyMode} onChange={(event) => props.setNewProfileCopyMode(event.target.value)}>
-                            <option value="clean">全新配置</option>
-                            <option value="personality-skills">复制当前助手的人格和技能</option>
-                        </select>
-                    </label>
-                    <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后启用助手</label>
-                    {!canCreate && (props.newProfileID || props.newProfileName) && (
-                        <div className="form-warning">{profileIDExists ? '该助手 ID 已存在，请换一个。' : '助手 ID 只能包含小写字母、数字和连字符，且不能使用 default。'}</div>
-                    )}
-                    <div className="actions">
-                        <button className="primary no-margin" onClick={async () => {
-                            if (!(await props.onCreate())) return;
-                            setShowCreate(false);
-                            setShowAdvancedModels(false);
-                            setShowSkills(false);
-                            props.setWizardStep('model');
-                        }} disabled={props.busy || !canCreate}><Save size={16}/>开始配置</button>
-                        <button className="ghost" onClick={() => setShowCreate(false)} disabled={props.busy}>取消</button>
-                    </div>
+                <div className="assistant-create-overlay" role="presentation">
+                    <aside className="assistant-create-drawer" role="dialog" aria-modal="true" aria-labelledby="create-assistant-title">
+                        <div className="assistant-create-head">
+                            <div>
+                                <p className="eyebrow">新建助手</p>
+                                <h2 id="create-assistant-title">创建一个新的助手</h2>
+                            </div>
+                            <button className="icon-button icon-only" type="button" onClick={() => setShowCreate(false)} disabled={props.busy} aria-label="关闭新建助手">
+                                <X size={17}/>
+                            </button>
+                        </div>
+                        <div className="assistant-create-form">
+                            <Field label="显示名" value={props.newProfileName} onChange={(value) => {
+                                props.setNewProfileName(value);
+                                if (!props.newProfileID) props.setNewProfileID(suggestProfileID(profiles, value));
+                            }}/>
+                            <div>
+                                <Field label="助手 ID" value={props.newProfileID} onChange={(value) => props.setNewProfileID(slugProfileID(value))}/>
+                                <div className="field-hint">用于目录名和运行标识，创建后不可修改。</div>
+                            </div>
+                            <div className="create-choice-group" role="radiogroup" aria-label="创建方式">
+                                <span>创建方式</span>
+                                <label className={`create-choice ${props.newProfileCopyMode === 'clean' ? 'selected' : ''}`}>
+                                    <input type="radio" name="profile-copy-mode" value="clean" checked={props.newProfileCopyMode === 'clean'} onChange={() => props.setNewProfileCopyMode('clean')}/>
+                                    <strong>全新助手</strong>
+                                    <em>不复制密钥、平台账号、记忆或会话。</em>
+                                </label>
+                                <label className={`create-choice ${props.newProfileCopyMode === 'personality-skills' ? 'selected' : ''}`}>
+                                    <input type="radio" name="profile-copy-mode" value="personality-skills" checked={props.newProfileCopyMode === 'personality-skills'} onChange={() => props.setNewProfileCopyMode('personality-skills')}/>
+                                    <strong>复制人格和技能</strong>
+                                    <em>只复制 SOUL.md 和 skills，模型、密钥和平台绑定仍需单独配置。</em>
+                                </label>
+                            </div>
+                            <label className="mini-toggle profile-enable"><input type="checkbox" checked={props.newProfileEnabled} onChange={(event) => props.setNewProfileEnabled(event.target.checked)}/>创建后加入运行列表</label>
+                            <div className="field-hint">未绑定平台时不会启动消息入口。</div>
+                            {createValidationMessage && <div className="form-warning">{createValidationMessage}</div>}
+                        </div>
+                        <div className="assistant-create-actions">
+                            <button className="ghost" type="button" onClick={() => setShowCreate(false)} disabled={props.busy}>取消</button>
+                            <button className="primary no-margin" type="button" onClick={async () => {
+                                if (!(await props.onCreate())) return;
+                                setShowCreate(false);
+                                setShowAdvancedModels(false);
+                                setShowSkills(false);
+                                props.setWizardStep('model');
+                            }} disabled={props.busy || !canCreate}><Plus size={16}/>创建助手</button>
+                        </div>
+                    </aside>
                 </div>
             )}
 
@@ -368,7 +393,7 @@ function AssistantSummary(props: {
         <div className="assistant-summary">
             <div className="setup-card">
                 <div>
-                    <p className="eyebrow">助手已就绪</p>
+                    <p className="eyebrow">当前助手</p>
                     <h2>{props.profileName}</h2>
                     <p className="setup-subtitle">需要修改时，直接进入对应配置项；保存后按提示应用即可。</p>
                 </div>
@@ -1264,6 +1289,16 @@ function assistantStatusLabel(setupCompletedAt?: string, status?: RuntimeProfile
 function assistantStatusClass(setupCompletedAt?: string, status?: RuntimeProfileStatus, enabled = true, needsRebuild = false) {
     if (!setupCompletedAt || needsRebuild) return 'warn-status';
     return statusClassName(status?.state, enabled);
+}
+
+function createProfileValidationMessage(name: string, id: string, exists: boolean) {
+    if (!name.trim()) return '请填写显示名。';
+    if (!id.trim()) return '请填写助手 ID。';
+    if (exists) return '该助手 ID 已存在，请换一个。';
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(id) || id === 'default') {
+        return '助手 ID 只能包含小写字母、数字和连字符，且不能使用 default。';
+    }
+    return '';
 }
 
 function wizardStepHelp(step: WizardStep) {
