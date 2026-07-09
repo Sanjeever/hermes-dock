@@ -72,11 +72,26 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
+InstallDir "$PROGRAMFILES64\${INFO_PROJECTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
 ShowInstDetails show # This will always show the installation details.
+
+Function CheckApplicationNotRunning
+check:
+    nsExec::ExecToStack 'cmd /C tasklist /FI "IMAGENAME eq ${PRODUCT_EXECUTABLE}" /NH | findstr /I /C:"${PRODUCT_EXECUTABLE}" >NUL'
+    Pop $0
+    Pop $1
+    StrCmp $0 0 running done
+
+running:
+    MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "${INFO_PRODUCTNAME} 正在运行。请先关闭程序，然后点击“重试”继续安装。" IDRETRY check
+    Abort
+
+done:
+FunctionEnd
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   Call CheckApplicationNotRunning
 FunctionEnd
 
 Section
