@@ -105,7 +105,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 			return err
 		}
 		settings := a.readComposeSettings()
-		if err := a.ensureFeishuDepsHelper(); err != nil {
+		if err := a.ensureContainerInitHelpers(); err != nil {
 			return err
 		}
 		if err := a.migrateComposeIfNeeded(settings); err != nil {
@@ -128,7 +128,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 	if err := ensureDir(a.hermesDockDir()); err != nil {
 		return err
 	}
-	if err := a.ensureFeishuDepsHelper(); err != nil {
+	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
 	if err := a.releaseSeedData(); err != nil {
@@ -193,7 +193,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 	if err := ensureDir(a.hermesDockDir()); err != nil {
 		return LauncherState{}, err
 	}
-	if err := a.ensureFeishuDepsHelper(); err != nil {
+	if err := a.ensureContainerInitHelpers(); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.releaseSeedData(); err != nil {

@@ -35,7 +35,7 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 			t.Fatalf("expected %s: %v", path, err)
 		}
 	}
-	assertFeishuDepsHelper(t, root)
+	assertRuntimeHelpers(t, root)
 	if _, err := os.Stat(filepath.Join(root, ".hermes-dock")); !os.IsNotExist(err) {
 		t.Fatalf("unexpected nested .hermes-dock directory: %v", err)
 	}
@@ -67,6 +67,7 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 		"    depends_on:\n      init-permissions:\n        condition: service_completed_successfully",
 		"    command: /opt/hermes-dock/hermes-profile-runner",
 		"      HERMES_HOME: \"/opt/data\"",
+		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 	} {
@@ -111,9 +112,12 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	if !strings.Contains(string(actual), "/etc/cont-init.d/018-install-feishu-deps") {
 		t.Fatalf("migrated compose missing feishu dependency helper:\n%s", actual)
 	}
+	if !strings.Contains(string(actual), "/etc/cont-init.d/017-patch-wecom-filenames") {
+		t.Fatalf("migrated compose missing wecom filename patch helper:\n%s", actual)
+	}
 }
 
-func TestEnsureInstanceReadyMigratesRunnerComposeMissingFeishuHelper(t *testing.T) {
+func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -153,6 +157,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingFeishuHelper(t *testing.
 	}
 	for _, want := range []string{
 		"command: /opt/hermes-dock/hermes-profile-runner",
+		"./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
@@ -189,7 +194,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingFeishuHelper(t *testing.
 	}
 }
 
-func TestEnsureInstanceReadyRestoresFeishuDepsHelper(t *testing.T) {
+func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -201,14 +206,67 @@ func TestEnsureInstanceReadyRestoresFeishuDepsHelper(t *testing.T) {
 	}
 
 	root := filepath.Join(home, ".hermes-dock")
-	helper := filepath.Join(root, "launcher", "helpers", "install-feishu-deps")
-	if err := os.Remove(helper); err != nil {
+	composePath := filepath.Join(root, "docker-compose.yaml")
+	oldCompose := `services:
+  hermes:
+    image: local/test:latest
+    init: false
+    command: /opt/hermes-dock/hermes-profile-runner
+    volumes:
+      - ./data:/opt/data
+      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
+      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
+`
+	if err := os.WriteFile(composePath, []byte(oldCompose), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.ensureInstanceReady(); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := os.ReadFile(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migratedCompose := string(migrated)
+	if migratedCompose == oldCompose {
+		t.Fatalf("runner compose missing wecom patch helper was not migrated")
+	}
+	if !strings.Contains(migratedCompose, "./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro") {
+		t.Fatalf("migrated compose missing wecom patch helper:\n%s", migratedCompose)
+	}
+}
+
+func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	app := NewApp()
+	app.startup(context.Background())
+	if app.startupErr != nil {
+		t.Fatal(app.startupErr)
+	}
+
+	root := filepath.Join(home, ".hermes-dock")
+	feishuHelper := filepath.Join(root, "launcher", "helpers", "install-feishu-deps")
+	if err := os.Remove(feishuHelper); err != nil {
+		t.Fatal(err)
+	}
+	wecomHelper := filepath.Join(root, "launcher", "helpers", "patch-wecom-filenames")
+	if err := os.Remove(wecomHelper); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.ensureInstanceReady(); err != nil {
 		t.Fatal(err)
 	}
+	assertRuntimeHelpers(t, root)
+}
+
+func assertRuntimeHelpers(t *testing.T, root string) {
+	t.Helper()
 	assertFeishuDepsHelper(t, root)
+	assertWecomFilenamePatchHelper(t, root)
 }
 
 func assertFeishuDepsHelper(t *testing.T, root string) {
@@ -235,6 +293,35 @@ func assertFeishuDepsHelper(t *testing.T, root string) {
 		}
 		if info.Mode()&0111 == 0 {
 			t.Fatalf("install-feishu-deps mode = %v, want executable bit", info.Mode())
+		}
+	}
+}
+
+func assertWecomFilenamePatchHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "patch-wecom-filenames")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected patch-wecom-filenames helper: %v", err)
+	}
+	content := string(data)
+	for _, want := range []string{
+		"/opt/hermes/gateway/platforms/wecom.py",
+		"MAX_WECOM_CACHE_BASENAME_BYTES",
+		"_sanitize_inbound_filename",
+		"unquote",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("patch-wecom-filenames missing %q:\n%s", want, content)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(helper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode()&0111 == 0 {
+			t.Fatalf("patch-wecom-filenames mode = %v, want executable bit", info.Mode())
 		}
 	}
 }

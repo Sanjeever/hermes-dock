@@ -282,6 +282,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	content := string(data)
 	if strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
+		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
 		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") {
 		return nil
 	}
@@ -345,6 +346,7 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
       NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
     volumes:
       - ./data:/opt/data
+      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
     deploy:
@@ -385,7 +387,7 @@ func (a *App) StartHermes() error {
 	if err := a.writeRuntimeManifest(); err != nil {
 		return err
 	}
-	if err := a.ensureFeishuDepsHelper(); err != nil {
+	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
 	if err := a.ensureProfileRunnerHelper(); err != nil {
@@ -420,7 +422,7 @@ func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.writeRuntimeManifest(); err != nil {
 		return err
 	}
-	if err := a.ensureFeishuDepsHelper(); err != nil {
+	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
 	if err := a.ensureProfileRunnerHelper(); err != nil {
