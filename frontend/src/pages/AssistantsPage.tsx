@@ -101,6 +101,7 @@ export function AssistantsPage(props: {
     const activeIndex = activeProfile ? profiles.findIndex((profile) => profile.id === activeProfile.id) : -1;
     const activeStatus = activeProfile ? props.state.profileStatus?.profiles?.[activeProfile.id] : undefined;
     const activeSetupDone = !!activeProfile?.setupCompletedAt;
+    const showAssistantManagement = activeSetupDone || profiles.length > 1;
     const activeWizardStep = activeSetupDone ? props.wizardStep : (props.wizardStep || 'model');
     const profileIDExists = profiles.some((profile) => profile.id === props.newProfileID);
     const profileIDValid = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
@@ -144,15 +145,13 @@ export function AssistantsPage(props: {
 
     return (
         <section className={`assistant-layout ${showSkills ? 'skills-mode' : ''}`}>
-            {activeSetupDone && (
+            {showAssistantManagement && activeProfile && (
                 <div className="assistant-switcher">
-                    {activeProfile && (
-                        <div>
-                            <p className="eyebrow">助手管理</p>
-                            <h2>切换和管理助手</h2>
-                        </div>
-                    )}
-                    {activeProfile && <span className={`profile-status ${assistantStatusClass(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}`}>{assistantStatusLabel(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}</span>}
+                    <div>
+                        <p className="eyebrow">助手管理</p>
+                        <h2>切换和管理助手</h2>
+                    </div>
+                    <span className={`profile-status ${assistantStatusClass(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}`}>{assistantStatusLabel(activeProfile.setupCompletedAt, activeStatus, activeProfile.enabled, props.needsRebuild)}</span>
                     <label className="assistant-select">
                         <span>切换助手</span>
                         <select value={activeProfile?.id || ''} onChange={(event) => selectAssistant(event.target.value)} disabled={props.busy}>
@@ -160,34 +159,32 @@ export function AssistantsPage(props: {
                         </select>
                     </label>
                     <button className="ghost" onClick={startCreate} disabled={props.busy}><Plus size={16}/>新建助手</button>
-                    {activeProfile && (
-                        <details className="more-menu">
-                            <summary title="管理当前助手"><MoreHorizontal size={17}/></summary>
-                            <div className="more-menu-popover">
-                                <button onClick={() => {
-                                    setEditingID(activeProfile.id);
-                                    setEditingName(activeProfile.name || activeProfile.id);
-                                }} disabled={props.busy}>重命名</button>
-                                <button onClick={() => props.onEnabled(activeProfile.id, !activeProfile.enabled)} disabled={props.busy}>{activeProfile.enabled ? '停用助手' : '启用助手'}</button>
-                                <button onClick={() => props.onMove(activeProfile.id, 'up')} disabled={props.busy || activeIndex <= 0}>上移</button>
-                                <button onClick={() => props.onMove(activeProfile.id, 'down')} disabled={props.busy || activeIndex < 0 || activeIndex === profiles.length - 1}>下移</button>
-                                <button className="danger-inline" onClick={() => {
-                                    setDeleteID(activeProfile.id);
-                                    setDeleteConfirmText('');
-                                }} disabled={props.busy || activeProfile.id === 'default'}>删除</button>
-                            </div>
-                        </details>
-                    )}
+                    <details className="more-menu">
+                        <summary title="管理当前助手"><MoreHorizontal size={17}/></summary>
+                        <div className="more-menu-popover">
+                            <button onClick={() => {
+                                setEditingID(activeProfile.id);
+                                setEditingName(activeProfile.name || activeProfile.id);
+                            }} disabled={props.busy}>重命名</button>
+                            <button onClick={() => props.onEnabled(activeProfile.id, !activeProfile.enabled)} disabled={props.busy}>{activeProfile.enabled ? '停用助手' : '启用助手'}</button>
+                            <button onClick={() => props.onMove(activeProfile.id, 'up')} disabled={props.busy || activeIndex <= 0}>上移</button>
+                            <button onClick={() => props.onMove(activeProfile.id, 'down')} disabled={props.busy || activeIndex < 0 || activeIndex === profiles.length - 1}>下移</button>
+                            <button className="danger-inline" onClick={() => {
+                                setDeleteID(activeProfile.id);
+                                setDeleteConfirmText('');
+                            }} disabled={props.busy || activeProfile.id === 'default'}>删除</button>
+                        </div>
+                    </details>
                 </div>
             )}
-            {activeSetupDone && activeProfile && editingID === activeProfile.id && (
+            {showAssistantManagement && activeProfile && editingID === activeProfile.id && (
                 <div className="assistant-inline-editor">
                     <input value={editingName} onChange={(event) => setEditingName(event.target.value)} autoFocus disabled={props.busy}/>
                     <button className="primary inline-primary" onClick={() => saveRename(activeProfile.id)} disabled={props.busy || editingName.trim() === ''}>保存</button>
                     <button className="ghost" onClick={() => setEditingID('')} disabled={props.busy}>取消</button>
                 </div>
             )}
-            {activeSetupDone && activeProfile && deleteID === activeProfile.id && (
+            {showAssistantManagement && activeProfile && deleteID === activeProfile.id && (
                 <div className="assistant-inline-editor danger-confirm">
                     <input value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} placeholder={`输入 ${activeProfile.id} 确认删除`} disabled={props.busy}/>
                     <button className="danger-button compact" onClick={async () => {
@@ -197,7 +194,7 @@ export function AssistantsPage(props: {
                     <button className="ghost" onClick={() => setDeleteID('')} disabled={props.busy}>取消</button>
                 </div>
             )}
-            {activeSetupDone && showCreate && (
+            {showAssistantManagement && showCreate && (
                 <div className="assistant-create-overlay" role="presentation">
                     <aside className="assistant-create-drawer" role="dialog" aria-modal="true" aria-labelledby="create-assistant-title">
                         <div className="assistant-create-head">
