@@ -43,7 +43,18 @@ jobs:
 
       - name: Install NSIS
         shell: pwsh
-        run: choco install nsis -y --no-progress
+        run: |
+          choco install nsis -y --no-progress
+          $makensis = @(
+            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+            "$env:ProgramFiles\NSIS\makensis.exe",
+            "$env:ChocolateyInstall\lib\nsis\tools\makensis.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $makensis) {
+            throw "makensis.exe not found after installing NSIS"
+          }
+          Split-Path $makensis | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $makensis /VERSION
 
       - name: Install Wails CLI
         shell: pwsh
@@ -72,7 +83,12 @@ jobs:
           Copy-Item build/windows/profile-runner/hermes-profile-runner-linux-amd64 dist/windows-portable/hermes-profile-runner-linux-amd64
           Compress-Archive -Path dist/windows-portable/* -DestinationPath "dist/hermes-dock-$version-windows-amd64-portable.zip" -Force
           Remove-Item -Recurse -Force dist/windows-portable
-          Copy-Item build/bin/*-installer.exe "dist/hermes-dock-$version-windows-amd64-installer.exe"
+          $installer = Get-ChildItem build/bin -Filter "*-installer.exe" | Select-Object -First 1
+          if (-not $installer) {
+            Get-ChildItem build/bin | Format-Table Name, Length
+            throw "Windows installer was not generated"
+          }
+          Copy-Item $installer.FullName "dist/hermes-dock-$version-windows-amd64-installer.exe"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
