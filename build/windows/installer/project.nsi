@@ -1,4 +1,5 @@
-Unicode true
+﻿Unicode true
+# Keep this file saved as UTF-8 with BOM. MakeNSIS can parse UTF-8 without BOM as ACP on Windows.
 
 ####
 ## Please note: Template replacements don't work in this file. They are provided with default defines like
