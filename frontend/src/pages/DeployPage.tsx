@@ -1,6 +1,7 @@
-import {useState, type ReactNode} from 'react';
-import {Network, RotateCcw, Save} from 'lucide-react';
+import {useEffect, useRef, useState, type ReactNode} from 'react';
+import {Cpu, Network, RotateCcw, Save} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
+import {GetRecommendedResourceLimits} from '../services/api';
 import type {ComposeSettings, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
@@ -16,11 +17,72 @@ export function DeployPage({section = 'basic', compose, proxy, setCompose, setPr
     onDiscard: () => void;
 }) {
     const [passwordVisible, setPasswordVisible] = useState(false);
+    const [resourceRecommendation, setResourceRecommendation] = useState<{ dockerMemoryGB: number; dockerCPU: number } | null>(null);
+    const [resourceRecommendationBusy, setResourceRecommendationBusy] = useState(false);
+    const [resourceRecommendationError, setResourceRecommendationError] = useState('');
+    const composeRef = useRef(compose);
     const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const updateProxyText = (key: keyof Omit<ProxySettings, 'enabled'>, value: string) => setProxy({...proxy, [key]: value});
     const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     const proxyReady = !proxy.enabled || !!(proxy.httpProxy.trim() || proxy.httpsProxy.trim() || proxy.allProxy.trim());
     const isBasic = section === 'basic';
+    const resourceStatus = resourceRecommendation
+        ? `Docker 可用资源：${resourceRecommendation.dockerMemoryGB}G 内存 / ${resourceRecommendation.dockerCPU} CPU`
+        : resourceRecommendationError || (resourceRecommendationBusy ? '正在读取 Docker 可用资源...' : '推荐值按 Docker 可用资源计算。');
+
+    useEffect(() => {
+        composeRef.current = compose;
+    }, [compose]);
+
+    useEffect(() => {
+        if (isBasic) return;
+        let cancelled = false;
+        setResourceRecommendationBusy(true);
+        setResourceRecommendationError('');
+        GetRecommendedResourceLimits()
+            .then((recommendation) => {
+                if (cancelled) return;
+                setResourceRecommendation({
+                    dockerMemoryGB: recommendation.dockerMemoryGB,
+                    dockerCPU: recommendation.dockerCPU,
+                });
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setResourceRecommendation(null);
+                setResourceRecommendationError(errorMessage(error) || 'Docker 未运行，无法计算推荐值');
+            })
+            .finally(() => {
+                if (!cancelled) setResourceRecommendationBusy(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [isBasic]);
+
+    async function applyRecommendedResourceLimits() {
+        setResourceRecommendationBusy(true);
+        setResourceRecommendationError('');
+        try {
+            const recommendation = await GetRecommendedResourceLimits();
+            setResourceRecommendation({
+                dockerMemoryGB: recommendation.dockerMemoryGB,
+                dockerCPU: recommendation.dockerCPU,
+            });
+            const current = composeRef.current;
+            setCompose({
+                ...current,
+                dashboardEnabled: true,
+                memoryLimit: recommendation.memoryLimit,
+                cpuLimit: recommendation.cpuLimit,
+            });
+        } catch (error) {
+            setResourceRecommendation(null);
+            setResourceRecommendationError(errorMessage(error) || 'Docker 未运行，无法计算推荐值');
+        } finally {
+            setResourceRecommendationBusy(false);
+        }
+    }
 
     return (
         <section className="deploy-stack settings-stack">
@@ -107,11 +169,20 @@ export function DeployPage({section = 'basic', compose, proxy, setCompose, setPr
                         {!portsValid && <div className="form-warning settings-warning">端口必须是 1-65535 的数字。</div>}
                     </div>
                     <div className="panel settings-list">
-                        <SettingRow title="资源配额" description="设备资源紧张时再调整。">
-                            <div className="setting-control-grid three">
-                                <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
-                                <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
-                                <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
+                        <SettingRow title="资源配额" description="默认按 Docker 可用资源计算。">
+                            <div className="setting-control-stack">
+                                <div className="resource-recommendation">
+                                    <span>{resourceStatus}</span>
+                                    <span>内存保留 2G 给系统，CPU 使用全部可用核心。</span>
+                                </div>
+                                <button className="ghost no-margin" type="button" onClick={applyRecommendedResourceLimits} disabled={busy || resourceRecommendationBusy}>
+                                    <Cpu size={16}/>使用推荐值
+                                </button>
+                                <div className="setting-control-grid three">
+                                    <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
+                                    <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
+                                    <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
+                                </div>
                             </div>
                         </SettingRow>
                     </div>
@@ -145,6 +216,10 @@ export function DeployPage({section = 'basic', compose, proxy, setCompose, setPr
             )}
         </section>
     );
+}
+
+function errorMessage(error: unknown) {
+    return error instanceof Error ? error.message : '';
 }
 
 function SettingRow(props: { title: string; description: string; children: ReactNode }) {

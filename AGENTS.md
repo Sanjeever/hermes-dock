@@ -83,6 +83,9 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - 飞书运行依赖通过 `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，由 s6-overlay 在 profile runner 前执行。
 - 单 profile 版本使用 `env_file: ./data/.env`；多 profile runner 版本不能用一个全局 `env_file` 表达 profile 运行态密钥。
 - `volumes: ./data:/opt/data`。
+- 资源配额默认值按 Docker daemon 可用资源计算，不直接读取物理机总资源：内存限制为 `max(floor(Docker MemTotal / GiB) - 2, 1)G`，CPU 限制为 Docker `NCPU` 全量并格式化为一位小数，例如 `8.0`。
+- 资源配额读取 Docker 失败时使用固定 fallback `4G` / `2.0`；只在首次初始化或配置字段缺失时填充，不覆盖用户已保存值，旧用户已有 `4G` / `2.0` 也保持不变。
+- 设置页“使用推荐值”是显式重算入口，按当前 Docker 可用资源填入内存和 CPU，仍需用户保存；`shm_size` 继续默认 `1g`，不动态计算。
 
 容器操作命令约定：
 

@@ -182,6 +182,13 @@ type ComposeSettings struct {
 	ShmSize                 string `json:"shmSize"`
 }
 
+type ResourceLimitsRecommendation struct {
+	MemoryLimit    string `json:"memoryLimit"`
+	CPULimit       string `json:"cpuLimit"`
+	DockerMemoryGB int    `json:"dockerMemoryGB"`
+	DockerCPU      int    `json:"dockerCPU"`
+}
+
 type ProxySettings struct {
 	Enabled    bool   `json:"enabled"`
 	HTTPProxy  string `json:"httpProxy"`

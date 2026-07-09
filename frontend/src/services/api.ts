@@ -6,6 +6,7 @@ import type {
     ProxySettings,
     ProviderConfig,
     ProviderEntry,
+    ResourceLimitsRecommendation,
     SkillHubQuery,
     SyncBundledSkillsResult,
     UpdateInfo,
@@ -80,6 +81,7 @@ export const MoveProfile = (id: string, direction: string) => wailsOrRPC<void>('
 export const UpdateProfileName = (id: string, name: string) => wailsOrRPC<void>('UpdateProfileName', [id, name]);
 export const SetProfileEnabled = (id: string, enabled: boolean) => wailsOrRPC<void>('SetProfileEnabled', [id, enabled]);
 export const SelectProfile = (id: string) => wailsOrRPC<void>('SelectProfile', [id]);
+export const GetRecommendedResourceLimits = () => wailsOrRPC<ResourceLimitsRecommendation>('GetRecommendedResourceLimits');
 export const SaveComposeSettings = (settings: ComposeSettings) => wailsOrRPC<void>('SaveComposeSettings', [settings]);
 export const SaveProxySettings = (settings: ProxySettings) => wailsOrRPC<void>('SaveProxySettings', [settings]);
 export const SaveModelConfig = (model: ModelConfig) => wailsOrRPC<void>('SaveModelConfig', [model]);

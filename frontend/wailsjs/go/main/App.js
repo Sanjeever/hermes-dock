@@ -70,6 +70,10 @@ export function GetProviderConfig() {
   return window['go']['main']['App']['GetProviderConfig']();
 }
 
+export function GetRecommendedResourceLimits() {
+  return window['go']['main']['App']['GetRecommendedResourceLimits']();
+}
+
 export function GetSkillDetail(arg1) {
   return window['go']['main']['App']['GetSkillDetail'](arg1);
 }

@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+const (
+	fallbackMemoryLimit = "4G"
+	fallbackCPULimit    = "2.0"
 )
 
 func defaultComposeSettings() ComposeSettings {
@@ -24,8 +30,8 @@ func defaultComposeSettings() ComposeSettings {
 		GatewayBusyInputMode:    "steer",
 		GatewayBusyAckEnabled:   "false",
 		BackgroundNotifications: "result",
-		MemoryLimit:             "4G",
-		CPULimit:                "2.0",
+		MemoryLimit:             fallbackMemoryLimit,
+		CPULimit:                fallbackCPULimit,
 		ShmSize:                 "1g",
 	}
 }
@@ -87,6 +93,32 @@ func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	return settings
 }
 
+func (a *App) withRecommendedResourceDefaults(settings ComposeSettings) ComposeSettings {
+	recommendation, err := a.recommendedResourceLimits(context.Background())
+	if err != nil {
+		if settings.MemoryLimit == "" {
+			settings.MemoryLimit = fallbackMemoryLimit
+		}
+		if settings.CPULimit == "" {
+			settings.CPULimit = fallbackCPULimit
+		}
+		return settings
+	}
+	if settings.MemoryLimit == "" {
+		settings.MemoryLimit = recommendation.MemoryLimit
+	}
+	if settings.CPULimit == "" {
+		settings.CPULimit = recommendation.CPULimit
+	}
+	return settings
+}
+
+func (a *App) withInitialResourceDefaults(settings ComposeSettings) ComposeSettings {
+	settings.MemoryLimit = ""
+	settings.CPULimit = ""
+	return a.withRecommendedResourceDefaults(settings)
+}
+
 func oneOf(value string, allowed ...string) bool {
 	for _, item := range allowed {
 		if value == item {
@@ -100,7 +132,11 @@ func (a *App) readComposeSettings() ComposeSettings {
 	state, _ := a.readState()
 	settings := defaultComposeSettings()
 	if state.ComposeSettings.Image != "" {
-		settings = withComposeDefaults(state.ComposeSettings)
+		settings = state.ComposeSettings
+		if settings.MemoryLimit == "" || settings.CPULimit == "" {
+			settings = a.withRecommendedResourceDefaults(settings)
+		}
+		settings = withComposeDefaults(settings)
 	}
 	if state.HermesImage != "" {
 		settings.Image = state.HermesImage
@@ -122,6 +158,25 @@ func (a *App) readComposeSettings() ComposeSettings {
 		settings.BackgroundNotifications = value
 	}
 	return withComposeDefaults(settings)
+}
+
+func (a *App) ensureComposeResourceDefaults() error {
+	state, err := a.readState()
+	if err != nil || state.ComposeSettings.Image == "" {
+		return nil
+	}
+	if state.ComposeSettings.MemoryLimit != "" && state.ComposeSettings.CPULimit != "" {
+		return nil
+	}
+	settings := a.withRecommendedResourceDefaults(state.ComposeSettings)
+	settings = withComposeDefaults(settings)
+	if err := a.writeCompose(settings, "before-compose-resource-defaults"); err != nil {
+		return err
+	}
+	state.ComposeSettings = settings
+	state.ComposeHash = fileSHA256(a.composePath())
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
 }
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
@@ -158,6 +213,55 @@ func (a *App) syncComposeEnv(settings ComposeSettings) error {
 		}
 	}
 	return nil
+}
+
+func (a *App) GetRecommendedResourceLimits() (ResourceLimitsRecommendation, error) {
+	return a.recommendedResourceLimits(context.Background())
+}
+
+func (a *App) recommendedResourceLimits(ctx context.Context) (ResourceLimitsRecommendation, error) {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "info", "--format", "{{json .}}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctx.Err() != nil {
+			return ResourceLimitsRecommendation{}, fmt.Errorf("读取 Docker 可用资源超时")
+		}
+		detail := strings.TrimSpace(string(output))
+		if detail != "" {
+			return ResourceLimitsRecommendation{}, fmt.Errorf("无法读取 Docker 可用资源：%w：%s", err, detail)
+		}
+		return ResourceLimitsRecommendation{}, fmt.Errorf("无法读取 Docker 可用资源：%w", err)
+	}
+
+	var info struct {
+		MemTotal int64 `json:"MemTotal"`
+		NCPU     int   `json:"NCPU"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(output))), &info); err != nil {
+		return ResourceLimitsRecommendation{}, fmt.Errorf("无法解析 Docker 可用资源：%w", err)
+	}
+	return calculateRecommendedResourceLimits(info.MemTotal, info.NCPU)
+}
+
+func calculateRecommendedResourceLimits(memTotalBytes int64, ncpu int) (ResourceLimitsRecommendation, error) {
+	if memTotalBytes <= 0 || ncpu <= 0 {
+		return ResourceLimitsRecommendation{}, fmt.Errorf("Docker 可用资源无效")
+	}
+	const gib = int64(1024 * 1024 * 1024)
+	memoryGB := int(memTotalBytes / gib)
+	recommendedMemoryGB := memoryGB - 2
+	if recommendedMemoryGB < 1 {
+		recommendedMemoryGB = 1
+	}
+	return ResourceLimitsRecommendation{
+		MemoryLimit:    fmt.Sprintf("%dG", recommendedMemoryGB),
+		CPULimit:       fmt.Sprintf("%.1f", float64(ncpu)),
+		DockerMemoryGB: memoryGB,
+		DockerCPU:      ncpu,
+	}, nil
 }
 
 func (a *App) writeCompose(settings ComposeSettings, reason string) error {

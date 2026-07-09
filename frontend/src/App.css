@@ -1326,6 +1326,19 @@ button:disabled {
     justify-self: start;
 }
 
+.resource-recommendation {
+    display: grid;
+    gap: 4px;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.45;
+}
+
+.resource-recommendation span:first-child {
+    color: #344054;
+}
+
 .settings-warning {
     margin: 0 18px 16px;
 }

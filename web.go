@@ -769,9 +769,12 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"GetProviderConfig": noParams(func() (interface{}, error) {
 			return a.GetProviderConfig()
 		}),
-		"ListProfiles":         noParams(func() (interface{}, error) { return a.ListProfiles() }),
-		"GetChannels":          noParams(func() (interface{}, error) { return a.GetChannels() }),
-		"GetWebStatus":         noParams(func() (interface{}, error) { return a.webStatus(), nil }),
+		"ListProfiles": noParams(func() (interface{}, error) { return a.ListProfiles() }),
+		"GetChannels":  noParams(func() (interface{}, error) { return a.GetChannels() }),
+		"GetWebStatus": noParams(func() (interface{}, error) { return a.webStatus(), nil }),
+		"GetRecommendedResourceLimits": noParams(func() (interface{}, error) {
+			return a.GetRecommendedResourceLimits()
+		}),
 		"SaveComposeSettings":  oneArg[ComposeSettings](a.SaveComposeSettings),
 		"SaveProxySettings":    oneArg[ProxySettings](a.SaveProxySettings),
 		"SaveModelConfig":      oneArg[ModelConfig](a.SaveModelConfig),

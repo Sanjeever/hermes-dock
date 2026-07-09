@@ -664,11 +664,29 @@ export namespace main {
 	}
 	
 	
-	
-	
-	
-	
-	
+
+
+
+	export class ResourceLimitsRecommendation {
+	    memoryLimit: string;
+	    cpuLimit: string;
+	    dockerMemoryGB: number;
+	    dockerCPU: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ResourceLimitsRecommendation(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.memoryLimit = source["memoryLimit"];
+	        this.cpuLimit = source["cpuLimit"];
+	        this.dockerMemoryGB = source["dockerMemoryGB"];
+	        this.dockerCPU = source["dockerCPU"];
+	    }
+	}
+
+
 	export class SkillFileInfo {
 	    path: string;
 	    sizeBytes: number;
@@ -1205,4 +1223,3 @@ export namespace main {
 	}
 
 }
-

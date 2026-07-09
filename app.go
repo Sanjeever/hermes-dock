@@ -101,6 +101,9 @@ func (a *App) ensureInstanceReady() error {
 
 func (a *App) ensureInstanceReadyLocked() error {
 	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.defaultEnvPath()) && fileExists(a.defaultConfigPath()) {
+		if err := a.ensureComposeResourceDefaults(); err != nil {
+			return err
+		}
 		settings := a.readComposeSettings()
 		if err := a.ensureFeishuDepsHelper(); err != nil {
 			return err
@@ -135,7 +138,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		return err
 	}
 	settings := a.readComposeSettings()
-	if settings.Image == "" {
+	if !fileExists(a.statePath()) && !fileExists(a.composePath()) {
+		settings = a.withInitialResourceDefaults(settings)
+	} else if settings.Image == "" {
 		settings = defaultComposeSettings()
 	}
 	if !fileExists(a.composePath()) {
@@ -152,6 +157,8 @@ func (a *App) ensureInstanceReadyLocked() error {
 		now := time.Now().UTC().Format(time.RFC3339)
 		state := defaultState()
 		state.InstanceID = uuid.NewString()
+		state.HermesImage = settings.Image
+		state.ComposeSettings = settings
 		state.ComposeHash = fileSHA256(a.composePath())
 		state.InitializedAt = now
 		state.UpdatedAt = now
@@ -178,6 +185,7 @@ func (a *App) InitializeInstance(settings ComposeSettings) (LauncherState, error
 }
 
 func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState, error) {
+	settings = a.withRecommendedResourceDefaults(settings)
 	settings = withComposeDefaults(settings)
 	if err := ensureDir(a.instanceRoot); err != nil {
 		return LauncherState{}, err

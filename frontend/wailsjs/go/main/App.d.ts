@@ -36,6 +36,8 @@ export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset
 
 export function GetProviderConfig():Promise<main.ProviderConfig>;
 
+export function GetRecommendedResourceLimits():Promise<main.ResourceLimitsRecommendation>;
+
 export function GetSkillDetail(arg1:string):Promise<main.SkillDetail>;
 
 export function GetSkillHubDetail(arg1:string):Promise<main.SkillHubDetail>;

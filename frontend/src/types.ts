@@ -21,6 +21,12 @@ export type ComposeSettings = {
     cpuLimit: string;
     shmSize: string;
 };
+export type ResourceLimitsRecommendation = {
+    memoryLimit: string;
+    cpuLimit: string;
+    dockerMemoryGB: number;
+    dockerCPU: number;
+};
 export type ProxySettings = {
     enabled: boolean;
     httpProxy: string;

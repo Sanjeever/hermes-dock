@@ -188,6 +188,15 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，在 s6 初始化阶段补齐飞书运行依赖。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。
 
+资源配额默认值按 Docker daemon 可用资源计算，不直接读取物理机总资源：
+
+- 内存限制：`max(floor(Docker MemTotal / GiB) - 2, 1)G`，给系统保留 2G。
+- CPU 限制：使用 Docker `NCPU` 全量，格式化为一位小数，例如 `8.0`。
+- 读取 Docker 失败时使用固定 fallback：`4G` / `2.0`。
+- 只在首次初始化或配置字段缺失时填充，不覆盖用户已保存的资源配额；旧用户已有 `4G` / `2.0` 也保持不变。
+- 设置页提供“使用推荐值”显式按当前 Docker 可用资源重算，点击后仍需保存设置。
+- `shm_size` 继续默认 `1g`，不随宿主机动态计算。
+
 高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。桌面和 Web 高级编辑入口都可以打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`，用于处理结构化页面尚未覆盖的少量配置。
 
 容器操作对应的 Compose 命令：
