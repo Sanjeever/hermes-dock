@@ -89,6 +89,7 @@ fallback_providers: []
 toolsets:
   - hermes-cli
   - messaging
+  - kanban
 agent:
   max_turns: 100
   gateway_timeout: 1200
