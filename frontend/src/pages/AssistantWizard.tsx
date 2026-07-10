@@ -50,6 +50,7 @@ export function AssistantWizard(props: {
     onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
+    onOpenProviders: () => void;
 }) {
     const steps: Array<{ id: WizardStep; label: string }> = [
         {id: 'model', label: '模型服务'},
@@ -100,6 +101,7 @@ export function AssistantWizard(props: {
                     stepLabel={`第 ${index + 1} 步，共 ${steps.length} 步`}
                     stepHelp={wizardStepHelp(props.step)}
                     onNext={() => props.onStep('soul')}
+                    onOpenProviders={props.onOpenProviders}
                 />
             )}
             {props.step === 'soul' && (

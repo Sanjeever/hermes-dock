@@ -63,7 +63,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
@@ -370,6 +370,22 @@ function App() {
         const providerID = model.provider || selectedProvider || firstProviderID(providers);
         const provider = providers.providers[providerID];
         if (!provider) return;
+        const optionsKey = modelOptionKey(providerID);
+        setModelListStatus('正在拉取模型列表');
+        try {
+            const items = await FetchProviderConfigModelList(provider);
+            setModelOptionsKey(optionsKey);
+            setModelOptions(items as ModelOption[]);
+            setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
+        } catch (error) {
+            setModelOptionsKey(optionsKey);
+            setModelOptions([]);
+            setModelListStatus(String(error));
+            appendLog(String(error));
+        }
+    }
+
+    async function fetchProviderModels(providerID: string, provider: ProviderEntry) {
         const optionsKey = modelOptionKey(providerID);
         setModelListStatus('正在拉取模型列表');
         try {
@@ -1075,6 +1091,7 @@ function App() {
                         onDelete={deleteProfile}
                         onSaveModelService={saveModelService}
                         onFetchModels={fetchModels}
+                        onFetchProviderModels={fetchProviderModels}
                         onFetchAuxModels={fetchAuxModels}
                         onTestModel={testCurrentModel}
                         onSaveSoul={saveSoulFile}

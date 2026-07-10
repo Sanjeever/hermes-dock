@@ -24,7 +24,7 @@ export function FeishuGroupPolicySelect({label, value, onChange}: { label: strin
     );
 }
 
-export function SecretField(props: { label: string; value: string; visible: boolean; setVisible: (value: boolean) => void; onChange: (value: string) => void }) {
+export function SecretField(props: { label: string; value: string; visible: boolean; setVisible: (value: boolean) => void; onChange: (value: string) => void; hint?: string }) {
     return (
         <label className="field">
             <span>{props.label}</span>
@@ -34,15 +34,17 @@ export function SecretField(props: { label: string; value: string; visible: bool
                     {props.visible ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
             </div>
+            {props.hint && <div className="field-hint">{props.hint}</div>}
         </label>
     );
 }
 
-export function Field({label, value, onChange, secret = false}: { label: string; value: string; onChange: (value: string) => void; secret?: boolean }) {
+export function Field({label, value, onChange, secret = false, hint}: { label: string; value: string; onChange: (value: string) => void; secret?: boolean; hint?: string }) {
     return (
         <label className="field">
             <span>{label}</span>
             <input type={secret ? 'password' : 'text'} value={value || ''} onChange={(event) => onChange(event.target.value)} autoComplete={secret ? 'off' : undefined}/>
+            {hint && <div className="field-hint">{hint}</div>}
         </label>
     );
 }

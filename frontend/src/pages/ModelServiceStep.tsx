@@ -1,7 +1,7 @@
-import {Activity, ChevronRight, RefreshCcw} from 'lucide-react';
+import {Activity, ChevronRight, RefreshCcw, Server} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import type {ModelConfig, ModelOption, ProviderConfig, ProviderEntry} from '../types';
-import {ensureCurrentModelOption, firstProviderID, nextProviderID, providerIDs, providerReferenceLabels} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, providerIDs, providerReferenceLabels} from '../utils';
 
 export function ModelServiceStep(props: {
     providers: ProviderConfig;
@@ -23,6 +23,7 @@ export function ModelServiceStep(props: {
     stepLabel: string;
     stepHelp: string;
     onNext: () => void;
+    onOpenProviders: () => void;
 }) {
     const ids = providerIDs(props.providers);
     const selectedID = props.providers.providers[props.selectedProvider] ? props.selectedProvider : firstProviderID(props.providers);
@@ -42,29 +43,6 @@ export function ModelServiceStep(props: {
         if (!provider) return;
         props.setSelectedProvider(id);
         props.setModel({...props.model, provider: id, default: props.model.provider === id ? props.model.default : provider.defaultModel});
-    };
-
-    const addProvider = () => {
-        const id = nextProviderID(props.providers, '自定义供应商');
-        const entry = {
-            label: '自定义供应商',
-            provider: 'custom',
-            baseUrl: '',
-            apiMode: 'chat_completions',
-            apiKey: '',
-            modelListUrl: '',
-            defaultModel: '',
-            builtin: false,
-            disabled: false,
-        };
-        props.setProviders({
-            providers: {
-                ...props.providers.providers,
-                [id]: entry,
-            },
-        });
-        props.setSelectedProvider(id);
-        props.setModel({...props.model, provider: id, default: entry.defaultModel});
     };
 
     const deleteSelectedProvider = () => {
@@ -117,7 +95,7 @@ export function ModelServiceStep(props: {
                                 })}
                             </select>
                         </label>
-                        <SecretField label="API 密钥" value={selected.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => updateProvider(selectedID, {...selected, apiKey: value})}/>
+                        <SecretField label="API 密钥" value={selected.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => updateProvider(selectedID, {...selected, apiKey: value})} hint="从供应商控制台获取"/>
                         <label className="field">
                             <span>模型</span>
                             {props.modelOptions.length > 0 ? (
@@ -131,7 +109,7 @@ export function ModelServiceStep(props: {
                         </label>
                         {selected.apiKey.trim() === '' && <div className="form-warning">API 密钥为空时可以保存选择，但不能测试或正常调用。</div>}
                         <div className="actions model-actions">
-                            <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
+                            <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>验证并拉取模型</button>
                             <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>{props.modelDirty ? '保存并测试模型' : '测试模型'}</button>
                             {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
                             {props.modelTestStatus && <span className="inline-status">{props.modelTestStatus}</span>}
@@ -139,7 +117,7 @@ export function ModelServiceStep(props: {
                         <details className="wizard-details">
                             <summary>其他选项</summary>
                             <div className="actions compact detail-provider-actions">
-                                <button className="ghost detail-toggle" onClick={addProvider}>添加自定义服务</button>
+                                <button className="ghost detail-toggle" onClick={props.onOpenProviders}><Server size={16}/>供应商管理</button>
                                 {!selected.builtin && (
                                     <button className="ghost detail-toggle danger-inline" onClick={deleteSelectedProvider} disabled={props.busy || ids.length <= 1}>删除当前自定义服务</button>
                                 )}
@@ -149,15 +127,16 @@ export function ModelServiceStep(props: {
                                 <Field label="显示名称" value={selected.label} onChange={(value) => updateProvider(selectedID, {...selected, label: value})}/>
                                 <Field label="推荐默认模型" value={selected.defaultModel} onChange={(value) => updateProvider(selectedID, {...selected, defaultModel: value})}/>
                             </div>
-                            <Field label="接口地址" value={selected.baseUrl} onChange={(value) => updateProvider(selectedID, {...selected, baseUrl: value})}/>
+                            <Field label="接口地址" value={selected.baseUrl} onChange={(value) => updateProvider(selectedID, {...selected, baseUrl: value})} hint="OpenAI 兼容的 API 端点，如 https://api.example.com/v1"/>
                             <label className="field">
                                 <span>API 模式</span>
                                 <select value={selected.apiMode || 'chat_completions'} onChange={(event) => updateProvider(selectedID, {...selected, apiMode: event.target.value})}>
                                     <option value="chat_completions">OpenAI Chat Completions</option>
                                     <option value="anthropic_messages">Anthropic Messages</option>
                                 </select>
+                                <div className="field-hint">大多数供应商使用 OpenAI Chat Completions</div>
                             </label>
-                            <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateProvider(selectedID, {...selected, modelListUrl: value})}/>
+                            <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateProvider(selectedID, {...selected, modelListUrl: value})} hint="留空时自动使用接口地址 + /models"/>
                         </details>
                         <div className="setting-note">辅助模型保持自动策略，适合大多数新手场景；需要细调时再放到后续高级配置里处理。</div>
                     </>

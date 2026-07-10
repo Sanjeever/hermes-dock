@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, SlidersHorizontal, Trash2, X} from 'lucide-react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, Server, SlidersHorizontal, Trash2, X} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
@@ -9,6 +9,7 @@ import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderI
 import {assistantStatusClass, assistantStatusLabel, createProfileValidationMessage, formatBytes, skillSummaryLabel, suggestProfileID, wizardStepHelp} from './assistantUtils';
 import {AssistantWizard} from './AssistantWizard';
 import {AuxiliaryModelsPanel} from './AuxiliaryModelsPanel';
+import {ProvidersPage} from './ProvidersPage';
 import {SkillsPanel} from './SkillsPanel';
 
 export function AssistantsPage(props: {
@@ -68,6 +69,7 @@ export function AssistantsPage(props: {
     onDelete: (id: string) => Promise<boolean>;
     onSaveModelService: () => Promise<boolean>;
     onFetchModels: () => void;
+    onFetchProviderModels: (providerID: string, provider: ProviderEntry) => void;
     onFetchAuxModels: (providerID: string) => void;
     onTestModel: () => void;
     onSaveSoul: () => Promise<boolean>;
@@ -100,6 +102,7 @@ export function AssistantsPage(props: {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [showAdvancedModels, setShowAdvancedModels] = useState(false);
     const [showSkills, setShowSkills] = useState(false);
+    const [showProviders, setShowProviders] = useState(false);
     const profiles = props.state.profiles?.profiles || [];
     const activeProfile = profiles.find((profile) => profile.id === props.state.activeProfile) || profiles[0];
     const activeIndex = activeProfile ? profiles.findIndex((profile) => profile.id === activeProfile.id) : -1;
@@ -136,7 +139,15 @@ export function AssistantsPage(props: {
     const startWizard = (step: WizardStep) => {
         setShowAdvancedModels(false);
         setShowSkills(false);
+        setShowProviders(false);
         props.setWizardStep(step);
+    };
+
+    const openProviders = () => {
+        setShowAdvancedModels(false);
+        setShowSkills(false);
+        setShowProviders(true);
+        props.setWizardStep(null);
     };
 
     const selectAssistant = async (id: string) => {
@@ -144,6 +155,7 @@ export function AssistantsPage(props: {
         if (!(await props.onSelect(id))) return;
         setShowAdvancedModels(false);
         setShowSkills(false);
+        setShowProviders(false);
         props.setWizardStep(target?.setupCompletedAt ? null : 'model');
     };
 
@@ -243,6 +255,7 @@ export function AssistantsPage(props: {
                                 setShowCreate(false);
                                 setShowAdvancedModels(false);
                                 setShowSkills(false);
+                                setShowProviders(false);
                                 props.setWizardStep('model');
                             }} disabled={props.busy || !canCreate}><Plus size={16}/>创建助手</button>
                         </div>
@@ -252,7 +265,7 @@ export function AssistantsPage(props: {
 
             <div className="assistant-detail">
                 {!activeProfile && <div className="panel">暂无助手。</div>}
-                {activeProfile && !activeWizardStep && !showAdvancedModels && !showSkills && (
+                {activeProfile && !activeWizardStep && !showAdvancedModels && !showSkills && !showProviders && (
                     <AssistantSummary
                         profileName={activeProfile.name || activeProfile.id}
                         setupCompletedAt={activeProfile.setupCompletedAt || ''}
@@ -266,11 +279,13 @@ export function AssistantsPage(props: {
                         busy={props.busy}
                         onStep={startWizard}
                         onAdvancedModels={() => setShowAdvancedModels(true)}
+                        onProviders={openProviders}
                         onSkills={() => {
                             setShowCreate(false);
                             setEditingID('');
                             setDeleteID('');
                             setShowAdvancedModels(false);
+                            setShowProviders(false);
                             setShowSkills(true);
                             props.onRefreshSkills();
                         }}
@@ -315,6 +330,26 @@ export function AssistantsPage(props: {
                         onFetchAuxModels={props.onFetchAuxModels}
                         onSave={props.onSaveModelService}
                         onBack={() => setShowAdvancedModels(false)}
+                    />
+                )}
+                {activeProfile && !activeWizardStep && showProviders && (
+                    <ProvidersPage
+                        providers={props.providers}
+                        setProviders={props.setProviders}
+                        selectedProvider={props.selectedProvider}
+                        setSelectedProvider={props.setSelectedProvider}
+                        model={props.model}
+                        busy={props.busy}
+                        showApiKey={props.showApiKey}
+                        setShowApiKey={props.setShowApiKey}
+                        modelOptions={props.modelOptions}
+                        modelListStatus={props.modelListStatus}
+                        onFetchModels={(provider) => {
+                            const id = Object.entries(props.providers.providers).find(([, p]) => p === provider)?.[0] || props.selectedProvider;
+                            props.onFetchProviderModels(id, provider);
+                        }}
+                        onSave={props.onSaveModelService}
+                        onBack={() => setShowProviders(false)}
                     />
                 )}
                 {activeProfile && activeWizardStep && (
@@ -363,6 +398,7 @@ export function AssistantsPage(props: {
                         onUnbindPlatform={props.onUnbindPlatform}
                         onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}
+                        onOpenProviders={openProviders}
                     />
                 )}
             </div>
@@ -384,6 +420,7 @@ function AssistantSummary(props: {
     onStep: (step: WizardStep) => void;
     onAdvancedModels: () => void;
     onSkills: () => void;
+    onProviders: () => void;
     onEnabled: (enabled: boolean) => void;
     onRebuild: () => void;
     onOpenOperations: (tab: OperationsTab) => void;
@@ -419,6 +456,7 @@ function AssistantSummary(props: {
                 <div className="setup-actions">
                     <label className="mini-toggle"><input type="checkbox" checked={props.enabled} onChange={(event) => props.onEnabled(event.target.checked)} disabled={props.busy}/>启用助手</label>
                     <button className="ghost" onClick={props.onAdvancedModels} disabled={props.busy}><SlidersHorizontal size={16}/>高级模型设置</button>
+                    <button className="ghost" onClick={props.onProviders} disabled={props.busy}><Server size={16}/>供应商管理</button>
                     <button className="ghost" onClick={() => props.onOpenOperations('runtime')} disabled={props.busy}>运行状态：{profileStatusText(props.status?.state, props.enabled)}</button>
                     <button className="primary no-margin" onClick={() => props.onStep('model')} disabled={props.busy}>重新配置</button>
                     {props.needsRebuild && <button className="primary no-margin" onClick={props.onRebuild} disabled={props.busy}><RefreshCcw size={16}/>应用配置</button>}
