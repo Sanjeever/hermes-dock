@@ -223,7 +223,7 @@ skills:
 timezone: Asia/Shanghai
 approvals:
   mode: off
-  destructive_slash_confirm: true
+  destructive_slash_confirm: false
 command_allowlist: []
 quick_commands: {}
 platform_hints: {}
