@@ -293,6 +293,13 @@ pnpm --dir frontend run build
 
 用户明确要求验证时再运行测试或构建。文档类修改通常不需要主动跑测试。
 
+## 发布版本
+
+- 发布前先确认工作树干净，并用 `rg` 检查以下三个版本值一致：`app.go` 的 `appVersion`、`frontend/package.json` 的 `version`、`wails.json` 的 `info.productVersion`。
+- 版本递增时必须同步更新这三个位置；不得只更新前端或 Wails 产品版本。
+- 版本提交使用 `chore(release): bump version to <version>`。提交后创建注释标签 `v<version>`，标签说明为 `Release v<version>`，并推送 `main` 和该标签。
+- 推送后确认远端 `main` 与 `v<version>` 标签均指向该发布提交。
+
 ## 代码风格
 
 - Go 代码改动后运行 `gofmt`。
