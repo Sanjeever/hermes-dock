@@ -35,15 +35,17 @@ func (a *App) backupFile(path string, reason string) error {
 	if _, err := io.Copy(dst, src); err != nil {
 		return err
 	}
-	state, _ := a.readState()
+	state, err := a.readState()
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	state.Backups = append(state.Backups, BackupRecord{
 		ID:     id,
 		Reason: reason,
 		Path:   strings.TrimPrefix(target, a.instanceRoot+string(os.PathSeparator)),
 	})
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	_ = a.writeState(state)
-	return nil
+	return a.writeState(state)
 }
 
 func sanitizeName(value string) string {

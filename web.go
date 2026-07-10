@@ -209,7 +209,7 @@ func readJSONFile(path string, out interface{}) ([]byte, error) {
 }
 
 func writeFilePrivate(path string, data []byte) error {
-	return os.WriteFile(path, data, 0600)
+	return atomicWriteFile(path, data, 0600)
 }
 
 func (a *App) startWebServer() {
@@ -650,7 +650,12 @@ func (a *App) currentWebSession(r *http.Request) (webSession, bool) {
 	if err != nil {
 		return webSession{}, false
 	}
-	file, _ := a.readWebSessions()
+	a.webSessionMu.RLock()
+	file, err := a.readWebSessions()
+	a.webSessionMu.RUnlock()
+	if err != nil {
+		return webSession{}, false
+	}
 	now := time.Now().UTC()
 	target := hashSessionID(cookie.Value, cfg.SessionSecret)
 	for _, session := range file.Sessions {
@@ -683,7 +688,12 @@ func (a *App) writeWebSessions(file webSessionFile) error {
 }
 
 func (a *App) addWebSession(session webSession) error {
-	file, _ := a.readWebSessions()
+	a.webSessionMu.Lock()
+	defer a.webSessionMu.Unlock()
+	file, err := a.readWebSessions()
+	if err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 	var kept []webSession
 	for _, item := range file.Sessions {
@@ -697,12 +707,17 @@ func (a *App) addWebSession(session webSession) error {
 }
 
 func (a *App) removeWebSession(rawID string) error {
+	a.webSessionMu.Lock()
+	defer a.webSessionMu.Unlock()
 	cfg, err := a.readWebConfig()
 	if err != nil {
 		return err
 	}
 	target := hashSessionID(rawID, cfg.SessionSecret)
-	file, _ := a.readWebSessions()
+	file, err := a.readWebSessions()
+	if err != nil {
+		return err
+	}
 	var kept []webSession
 	for _, session := range file.Sessions {
 		if session.IDHash != target {
@@ -714,6 +729,8 @@ func (a *App) removeWebSession(rawID string) error {
 }
 
 func (a *App) clearWebSessions() error {
+	a.webSessionMu.Lock()
+	defer a.webSessionMu.Unlock()
 	return a.writeWebSessions(webSessionFile{})
 }
 
@@ -738,17 +755,6 @@ func writeJSON(w http.ResponseWriter, status int, value interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
-}
-
-func decodeParam[T any](params []json.RawMessage, index int) (T, error) {
-	var zero T
-	if index >= len(params) {
-		return zero, fmt.Errorf("缺少参数 %d", index+1)
-	}
-	if err := json.Unmarshal(params[index], &zero); err != nil {
-		return zero, err
-	}
-	return zero, nil
 }
 
 func (a *App) webRPCHandlers() map[string]webRPCHandler {
@@ -823,91 +829,6 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"DismissUpdate":         oneArg[string](a.DismissUpdate),
 		"OpenUpdateURL":         oneArg[string](a.OpenUpdateURL),
 		"OpenWebManagement":     noResult(a.OpenWebManagement),
-	}
-}
-
-func noResult(fn func() error) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) { return nil, fn() }
-}
-
-func (a *App) webLocked(fn func() error) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) {
-		if a.web == nil {
-			return nil, fn()
-		}
-		a.web.mu.Lock()
-		if a.web.operationBusy {
-			a.web.mu.Unlock()
-			return nil, fmt.Errorf("已有操作正在执行，请稍后再试")
-		}
-		a.web.operationBusy = true
-		a.web.mu.Unlock()
-		defer func() {
-			a.web.mu.Lock()
-			a.web.operationBusy = false
-			a.web.mu.Unlock()
-		}()
-		return nil, fn()
-	}
-}
-
-func noParams(fn func() (interface{}, error)) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) { return fn() }
-}
-
-func oneArg[T any](fn func(T) error) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) {
-		arg, err := decodeParam[T](params, 0)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fn(arg)
-	}
-}
-
-func oneArgValue[T any, R any](fn func(T) (R, error)) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) {
-		arg, err := decodeParam[T](params, 0)
-		if err != nil {
-			return nil, err
-		}
-		return fn(arg)
-	}
-}
-
-func noResultValue[T any, R any](fn func(T) (R, error)) webRPCHandler {
-	return oneArgValue(fn)
-}
-
-func twoArgs[A any, B any](fn func(A, B) error) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) {
-		a1, err := decodeParam[A](params, 0)
-		if err != nil {
-			return nil, err
-		}
-		a2, err := decodeParam[B](params, 1)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fn(a1, a2)
-	}
-}
-
-func threeArgs[A any, B any, C any](fn func(A, B, C) error) webRPCHandler {
-	return func(params []json.RawMessage) (interface{}, error) {
-		a1, err := decodeParam[A](params, 0)
-		if err != nil {
-			return nil, err
-		}
-		a2, err := decodeParam[B](params, 1)
-		if err != nil {
-			return nil, err
-		}
-		a3, err := decodeParam[C](params, 2)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fn(a1, a2, a3)
 	}
 }
 

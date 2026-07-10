@@ -146,11 +146,14 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		return InstanceBackupImportResult{}, err
 	}
 	settings := a.readComposeSettings()
-	if err := os.WriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
+	if err := atomicWriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
 	now := time.Now().UTC()
-	state, _ := a.readState()
+	state, err := a.readState()
+	if err != nil {
+		return InstanceBackupImportResult{}, err
+	}
 	state.AppVersion = appVersion
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.Backups = append(state.Backups, BackupRecord{
@@ -159,8 +162,12 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		Path:   strings.TrimPrefix(preImportPath, a.instanceRoot+string(os.PathSeparator)),
 	})
 	state.UpdatedAt = now.Format(time.RFC3339)
-	_ = a.writeState(state)
-	_ = a.clearWebSessions()
+	if err := a.writeState(state); err != nil {
+		return InstanceBackupImportResult{}, err
+	}
+	if err := a.clearWebSessions(); err != nil {
+		return InstanceBackupImportResult{}, err
+	}
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		a.stopWebServer(context.Background())

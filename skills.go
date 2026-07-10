@@ -153,7 +153,7 @@ func (a *App) RestoreDefaultSoul() error {
 	if err := ensureDir(filepath.Dir(target)); err != nil {
 		return err
 	}
-	return os.WriteFile(target, data, 0644)
+	return atomicWriteFile(target, data, 0644)
 }
 
 type bundledSkillSeedFile struct {
@@ -197,7 +197,7 @@ func writeBundledSkillSeedFiles(files []bundledSkillSeedFile, result SyncBundled
 		if err := ensureDir(filepath.Dir(item.target)); err != nil {
 			return result, err
 		}
-		if err := os.WriteFile(item.target, data, 0644); err != nil {
+		if err := atomicWriteFile(item.target, data, 0644); err != nil {
 			return result, err
 		}
 		result.SyncedFiles++

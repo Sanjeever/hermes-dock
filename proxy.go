@@ -60,7 +60,7 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(a.proxyPath(), append(data, '\n'), 0600); err != nil {
+	if err := atomicWriteFile(a.proxyPath(), append(data, '\n'), 0600); err != nil {
 		return err
 	}
 	compose := a.readComposeSettings()

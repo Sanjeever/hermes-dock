@@ -18,6 +18,7 @@ func newTestApp(t *testing.T) *App {
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
+	app.ctx = nil
 	return app
 }
 

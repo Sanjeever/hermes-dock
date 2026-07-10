@@ -68,7 +68,7 @@ func writeEnvFile(path string, vars []EnvVar) error {
 		b.WriteString(quoteEnv(item.Value))
 		b.WriteString("\n")
 	}
-	return os.WriteFile(path, []byte(b.String()), 0600)
+	return atomicWriteFile(path, []byte(b.String()), 0600)
 }
 
 func mergeEnv(existing []EnvVar, updates []EnvVar) []EnvVar {

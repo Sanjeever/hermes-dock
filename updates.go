@@ -200,7 +200,7 @@ func (a *App) writeUpdateState(state updateState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.updateStatePath(), append(data, '\n'), 0644)
+	return atomicWriteFile(a.updateStatePath(), append(data, '\n'), 0644)
 }
 
 func selectReleaseAsset(tagName string, assets []githubReleaseAsset) githubReleaseAsset {

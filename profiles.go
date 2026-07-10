@@ -105,7 +105,7 @@ func (a *App) writeProfileRegistry(registry ProfileRegistry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.profilesPath(), append(data, '\n'), 0644)
+	return atomicWriteFile(a.profilesPath(), append(data, '\n'), 0644)
 }
 
 func validateProfileRegistry(registry ProfileRegistry) error {
@@ -207,7 +207,10 @@ func (a *App) SelectProfile(id string) error {
 	if !profileExists(registry, id) {
 		return fmt.Errorf("profile 不存在：%s", id)
 	}
-	state, _ := a.readState()
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
 	state.UI.LastProfile = id
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
@@ -397,7 +400,7 @@ func (a *App) copyProfilePersonality(sourceID string, targetID string) error {
 			return err
 		}
 		text := strings.ReplaceAll(string(data), profileContainerHome(sourceID), profileContainerHome(targetID))
-		if err := os.WriteFile(targetSoul, []byte(text), 0644); err != nil {
+		if err := atomicWriteFile(targetSoul, []byte(text), 0644); err != nil {
 			return err
 		}
 	}
@@ -443,7 +446,7 @@ func (a *App) writeRuntimeManifest() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.runtimeManifestPath(), append(data, '\n'), 0644)
+	return atomicWriteFile(a.runtimeManifestPath(), append(data, '\n'), 0644)
 }
 
 func (a *App) syncAllProfileProviderEnv(registry ProfileRegistry) error {
@@ -735,15 +738,17 @@ func (a *App) backupDirectory(path string, reason string) error {
 	}); err != nil {
 		return err
 	}
-	state, _ := a.readState()
+	state, err := a.readState()
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	state.Backups = append(state.Backups, BackupRecord{
 		ID:     id,
 		Reason: reason,
 		Path:   strings.TrimPrefix(target, a.instanceRoot+string(os.PathSeparator)),
 	})
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	_ = a.writeState(state)
-	return nil
+	return a.writeState(state)
 }
 
 func copyDir(source string, target string) error {

@@ -271,7 +271,7 @@ func (a *App) writeCompose(settings ComposeSettings, reason string) error {
 		}
 	}
 	content := renderCompose(settings, a.readProxySettings())
-	return os.WriteFile(a.composePath(), []byte(content), 0644)
+	return atomicWriteFile(a.composePath(), []byte(content), 0644)
 }
 
 func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {

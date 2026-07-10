@@ -24,6 +24,7 @@ type App struct {
 	ctx          context.Context
 	instanceRoot string
 	mu           sync.Mutex
+	webSessionMu sync.RWMutex
 	logCancel    context.CancelFunc
 	loginCancel  context.CancelFunc
 	startupErr   error
@@ -144,7 +145,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 		settings = defaultComposeSettings()
 	}
 	if !fileExists(a.composePath()) {
-		if err := os.WriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
+		if err := atomicWriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
 			return err
 		}
 	} else if err := a.migrateComposeIfNeeded(settings); err != nil {
@@ -248,7 +249,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 
 func (a *App) writeOverrideIfMissing() error {
 	if _, err := os.Stat(a.overridePath()); errors.Is(err, os.ErrNotExist) {
-		return os.WriteFile(a.overridePath(), []byte("# 在这里添加高级 Docker Compose 覆盖配置。\n"), 0644)
+		return atomicWriteFile(a.overridePath(), []byte("# 在这里添加高级 Docker Compose 覆盖配置。\n"), 0644)
 	}
 	return nil
 }
@@ -343,7 +344,7 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	if filepath.Base(resolved) == ".env" {
 		mode = 0600
 	}
-	return os.WriteFile(resolved, []byte(req.Content), mode)
+	return atomicWriteFile(resolved, []byte(req.Content), mode)
 }
 
 func (a *App) emit(event string, payload interface{}) {

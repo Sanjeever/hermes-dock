@@ -154,7 +154,7 @@ func (a *App) writeState(state LauncherState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.statePath(), append(data, '\n'), 0644)
+	return atomicWriteFile(a.statePath(), append(data, '\n'), 0644)
 }
 
 func defaultState() LauncherState {
