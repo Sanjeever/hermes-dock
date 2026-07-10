@@ -195,7 +195,7 @@ UI 和功能边界：
 - 标准 compose 生成和 override 入口。
 - 启动、停止、重启、重建、状态和日志。
 - 部署配置、主模型和 auxiliary 模型配置，平台配置通过结构化页面写入 `.env`。
-- DashScope 按量计费、OpenCode Go、DeepSeek 和 Agnes AI 供应商预设及模型列表拉取。
+- 百炼按量计费、百炼 Coding Plan、百炼 Token Plan 团队版、智谱按量计费、智谱 Coding Plan、OpenCode Go、DeepSeek 和 Agnes AI 供应商预设及模型列表拉取。
 - 个人微信扫码登录。
 - 企业微信 AI Bot WebSocket 配置。
 - 飞书 / Lark WebSocket 配置。
@@ -220,7 +220,11 @@ UI 和功能边界：
 
 内置供应商实例：
 
-- `dashscope-payg`：DashScope 按量计费，`provider: custom`，默认模型 `qwen3.7-max`，模型列表 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`。
+- `dashscope-payg`：百炼按量计费，`provider: custom`，默认模型 `qwen3.7-max`，模型列表 `https://dashscope.aliyuncs.com/compatible-mode/v1/models`。
+- `bailian-coding-plan`：百炼 Coding Plan，`provider: custom`，默认模型 `qwen3.7-max`，模型列表 `https://coding.dashscope.aliyuncs.com/v1/models`。
+- `bailian-token-plan-team`：百炼 Token Plan 团队版，`provider: custom`，OpenAI 兼容地址 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，模型名手动填写。
+- `zhipu-payg`：智谱按量计费，`provider: custom`，默认模型 `glm-5.2`，模型列表 `https://open.bigmodel.cn/api/paas/v4/models`。
+- `zhipu-coding-plan`：智谱 Coding Plan，`provider: custom`，默认模型 `glm-5.2`，模型列表 `https://open.bigmodel.cn/api/coding/paas/v4/models`。
 - `opencode-go`：OpenCode Go，`provider: custom`，默认模型 `deepseek-v4-flash`，模型列表 `https://opencode.ai/zen/go/v1/models`。
 - `deepseek`：DeepSeek，`provider: deepseek`，默认模型 `deepseek-v4-flash`，模型列表 `https://api.deepseek.com/models`。
 - `agnes`：Agnes AI，`provider: custom`，默认模型 `agnes-2.0-flash`，模型列表 `https://apihub.agnes-ai.com/v1/models`。

@@ -74,6 +74,47 @@ func TestNormalizeAgnesDefaults(t *testing.T) {
 	}
 }
 
+func TestNormalizeProviderConfigAddsBailianPlansAndRenamesPayg(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{Providers: map[string]ProviderConfigEntry{
+		"dashscope-payg": {Label: "DashScope 按量计费"},
+	}})
+
+	if got := providers.Providers["dashscope-payg"].Label; got != "百炼按量计费" {
+		t.Fatalf("dashscope-payg label = %q", got)
+	}
+	if got := providers.Providers["bailian-coding-plan"].BaseURL; got != "https://coding.dashscope.aliyuncs.com/v1" {
+		t.Fatalf("bailian-coding-plan base URL = %q", got)
+	}
+	if got := providers.Providers["bailian-token-plan-team"].BaseURL; got != "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" {
+		t.Fatalf("bailian-token-plan-team base URL = %q", got)
+	}
+}
+
+func TestBailianTokenPlanAPIKeyEnv(t *testing.T) {
+	key := modelProviderAPIKeyEnv("custom", "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
+	if key != "DASHSCOPE_API_KEY" {
+		t.Fatalf("env key = %q, want DASHSCOPE_API_KEY", key)
+	}
+}
+
+func TestZhipuProviderAPIKeyEnv(t *testing.T) {
+	key := modelProviderAPIKeyEnv("custom", "https://open.bigmodel.cn/api/paas/v4")
+	if key != "ZHIPU_API_KEY" {
+		t.Fatalf("env key = %q, want ZHIPU_API_KEY", key)
+	}
+}
+
+func TestNormalizeProviderConfigAddsZhipuPresets(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{Providers: map[string]ProviderConfigEntry{}})
+
+	if got := providers.Providers["zhipu-payg"].BaseURL; got != "https://open.bigmodel.cn/api/paas/v4" {
+		t.Fatalf("zhipu-payg base URL = %q", got)
+	}
+	if got := providers.Providers["zhipu-coding-plan"].BaseURL; got != "https://open.bigmodel.cn/api/coding/paas/v4" {
+		t.Fatalf("zhipu-coding-plan base URL = %q", got)
+	}
+}
+
 func TestAgnesProviderAPIKeyEnv(t *testing.T) {
 	key := modelProviderAPIKeyEnv("custom", "https://apihub.agnes-ai.com/v1")
 	if key != "AGNES_API_KEY" {

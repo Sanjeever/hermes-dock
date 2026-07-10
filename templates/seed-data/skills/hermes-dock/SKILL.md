@@ -118,7 +118,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 **第 1 步：模型服务**
 
-- 选择模型服务商：DashScope 按量计费、OpenCode Go、DeepSeek、Agnes AI，或添加自定义服务
+- 选择模型服务商：百炼按量计费、百炼 Coding Plan、百炼 Token Plan 团队版、智谱按量计费、智谱 Coding Plan、OpenCode Go、DeepSeek、Agnes AI，或添加自定义服务
 - 填写 API 密钥
 - 选择模型，可手填，也可点击「拉取模型列表」
 - 可点击「测试模型」

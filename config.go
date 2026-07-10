@@ -504,6 +504,9 @@ func normalizeProviderEntry(entry ProviderConfigEntry, preset ModelProviderPrese
 			Disabled:     false,
 		}
 	}
+	if preset.Key == "dashscope-payg" && entry.Label == "DashScope 按量计费" {
+		entry.Label = preset.Label
+	}
 	entry.Label = firstNonEmpty(entry.Label, preset.Label)
 	entry.Provider = firstNonEmpty(entry.Provider, preset.Provider)
 	entry.BaseURL = firstNonEmpty(entry.BaseURL, preset.BaseURL)
@@ -833,10 +836,12 @@ func modelProviderAPIKeyEnv(provider string, baseURL string) string {
 		return "DEEPSEEK_API_KEY"
 	case provider == "opencode" || provider == "opencode-go" || strings.Contains(baseURL, "opencode.ai/zen/go"):
 		return "OPENCODE_GO_API_KEY"
-	case provider == "custom" && strings.Contains(baseURL, "dashscope.aliyuncs.com"):
+	case provider == "custom" && (strings.Contains(baseURL, "dashscope.aliyuncs.com") || strings.Contains(baseURL, "maas.aliyuncs.com")):
 		return "DASHSCOPE_API_KEY"
 	case provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope":
 		return "DASHSCOPE_API_KEY"
+	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
+		return "ZHIPU_API_KEY"
 	default:
 		return ""
 	}
@@ -856,6 +861,8 @@ func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {
 		return modelProviderPresetByKey("dashscope-payg")
 	case provider == "dashscope" || provider == "alibaba" || provider == "alibaba-cloud" || provider == "qwen-dashscope":
 		return modelProviderPresetByKey("dashscope-payg")
+	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
+		return modelProviderPresetByKey("zhipu-payg")
 	default:
 		return nil
 	}

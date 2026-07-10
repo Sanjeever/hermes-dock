@@ -6,13 +6,53 @@ model:
   api_key: ''
 providers:
   dashscope-payg:
-    label: DashScope 按量计费
+    label: 百炼按量计费
     provider: custom
     base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_mode: chat_completions
     api_key: ''
     model_list_url: https://dashscope.aliyuncs.com/compatible-mode/v1/models
     default_model: qwen3.7-max
+    builtin: true
+    disabled: false
+  bailian-coding-plan:
+    label: 百炼 Coding Plan
+    provider: custom
+    base_url: https://coding.dashscope.aliyuncs.com/v1
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: 'https://coding.dashscope.aliyuncs.com/v1/models'
+    default_model: 'qwen3.7-max'
+    builtin: true
+    disabled: false
+  bailian-token-plan-team:
+    label: 百炼 Token Plan 团队版
+    provider: custom
+    base_url: https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/models'
+    default_model: 'qwen3.7-max'
+    builtin: true
+    disabled: false
+  zhipu-payg:
+    label: 智谱按量计费
+    provider: custom
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: 'https://open.bigmodel.cn/api/paas/v4/models'
+    default_model: 'glm-5.2'
+    builtin: true
+    disabled: false
+  zhipu-coding-plan:
+    label: 智谱 Coding Plan
+    provider: custom
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: 'https://open.bigmodel.cn/api/coding/paas/v4/models'
+    default_model: 'glm-5.2'
     builtin: true
     disabled: false
   opencode-go:
