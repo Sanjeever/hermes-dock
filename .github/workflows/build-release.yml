@@ -14,8 +14,36 @@ env:
   NODE_VERSION: 23
 
 jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+      - name: Test Go packages
+        run: go test ./...
+      - name: Test frontend
+        run: pnpm --dir frontend test
+      - name: Build frontend
+        run: pnpm --dir frontend run build
+
   build-windows:
     name: Windows x64
+    needs: verify
     runs-on: windows-latest
 
     steps:
@@ -99,6 +127,7 @@ jobs:
 
   build-macos:
     name: macOS arm64
+    needs: verify
     runs-on: macos-15
     timeout-minutes: 20
 
@@ -150,6 +179,7 @@ jobs:
 
   build-linux:
     name: Linux amd64 Debian 13
+    needs: verify
     runs-on: ubuntu-latest
     container:
       image: debian:13
