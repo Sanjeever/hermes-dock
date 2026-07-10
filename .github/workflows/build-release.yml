@@ -290,6 +290,11 @@ jobs:
       - build-linux
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -301,8 +306,17 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS.txt
 
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --current --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          body_path: RELEASE_NOTES.md
           fail_on_unmatched_files: true

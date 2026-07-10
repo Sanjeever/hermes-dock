@@ -1,0 +1,33 @@
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+
+{% for commit in commits %}\
+- {% if commit.scope %}**{{ commit.scope }}：** {% endif %}{{ commit.message }}
+{% endfor %}
+{% endfor %}\
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->新功能" },
+  { message = "^fix", group = "<!-- 1 -->问题修复" },
+  { message = "^perf", group = "<!-- 2 -->性能优化" },
+  { message = "^refactor", group = "<!-- 3 -->代码重构" },
+  { message = "^docs", group = "<!-- 4 -->文档" },
+  { message = "^test", group = "<!-- 5 -->测试" },
+  { message = "^ci", group = "<!-- 6 -->持续集成" },
+  { message = "^build", group = "<!-- 7 -->构建" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore", group = "<!-- 8 -->其他改进" },
+  { message = ".*", group = "<!-- 9 -->其他变更" },
+]
