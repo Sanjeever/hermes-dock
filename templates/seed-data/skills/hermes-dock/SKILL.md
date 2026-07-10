@@ -1,7 +1,7 @@
 ---
 name: hermes-dock
 description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher and Web management UI: first-run setup, assistant profiles, model configuration, platform binding, personality editing, default personality restore, skills management, bundled skill sync/default restore, service status, logs, deployment settings, Web management, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
-version: 1.3.0
+version: 1.3.1
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -118,12 +118,14 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 **第 1 步：模型服务**
 
-- 选择模型服务商：百炼按量计费、百炼 Coding Plan、百炼 Token Plan 团队版、智谱按量计费、智谱 Coding Plan、OpenCode Go、DeepSeek、Agnes AI，或添加自定义服务
+- 选择模型服务商：百炼按量计费、百炼 Coding Plan、百炼 Token Plan 团队版、智谱按量计费、智谱 Coding Plan、OpenCode Go、DeepSeek、Agnes AI
 - 填写 API 密钥
-- 选择模型，可手填，也可点击「拉取模型列表」
+- 选择模型，可手填，也可点击「验证并拉取模型」
 - 可点击「测试模型」
 - API 密钥为空时可以保存选择，但不能测试或正常调用
 - 主操作：「保存并下一步」
+
+需要新增、编辑、启用或禁用供应商时，展开「其他选项」并点击「供应商管理」。在供应商管理页可点击「新增」创建自定义供应商；填写接口地址、API 模式、API 密钥和模型列表地址后，点击「保存供应商配置」。
 
 界面提示语：`填写 API 密钥后，Hermes 才能调用模型。`
 
@@ -169,6 +171,7 @@ Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `
 
 - 「启用助手」开关：控制是否参与运行
 - 「高级模型设置」：配置辅助模型策略
+- 「供应商管理」：集中管理内置和自定义供应商，可新增、编辑、启用或禁用供应商
 - 「技能管理」：查看本地 skills、安装技能中心技能、同步内置技能
 - 「重新配置」：重新进入四步向导
 - 「应用配置」：有未应用配置时出现
