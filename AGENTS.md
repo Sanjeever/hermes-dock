@@ -261,11 +261,12 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 
 飞书 / Lark：
 
-- 只支持 WebSocket 模式，手动填写 App ID 和 App Secret，不做 webhook。
-- 默认 `FEISHU_DOMAIN=feishu`，可切换 `lark`。
+- 只支持 WebSocket 模式。默认通过扫码自动创建并绑定机器人；根据扫码账号自动识别 `FEISHU_DOMAIN=feishu` 或 `lark`。已有应用在“使用已有应用（高级）”中手动填写 App ID 和 App Secret，不做 webhook。
 - 固定写入 `FEISHU_CONNECTION_MODE=websocket`。
+- 默认 `FEISHU_ALLOW_ALL_USERS=true`。
 - 默认 `FEISHU_GROUP_POLICY=open`。
 - 群聊策略只支持 `open` 和 `disabled`，界面显示为“开放”和“关闭”；保存飞书配置时清空旧版本名单字段。
+- 整个 Dock 同时只允许一个微信或飞书 / Lark 扫码绑定会话。重新扫码只在成功后替换当前 profile 的凭据，旧飞书应用不自动删除。
 - 多 profile 版本中 `FEISHU_APP_ID` 在 enabled profiles 中必须唯一。
 - 飞书 Python 依赖由 `/etc/cont-init.d/018-install-feishu-deps` 自动安装固定版本，不读取或输出 App Secret。
 

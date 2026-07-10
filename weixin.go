@@ -24,14 +24,16 @@ type weixinEvent struct {
 }
 
 func (a *App) StartWeixinLogin() error {
-	a.CancelWeixinLogin()
 	if err := ensureDir(a.currentProfileDataDir()); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	a.loginCancel = cancel
+	ctx, err := a.startLoginSession("weixin", 10*time.Minute)
+	if err != nil {
+		return err
+	}
 	helperPath, err := a.writeWeixinHelper()
 	if err != nil {
+		a.finishLoginSession("weixin")
 		return err
 	}
 	settings := a.readComposeSettings()
@@ -41,13 +43,11 @@ func (a *App) StartWeixinLogin() error {
 }
 
 func (a *App) CancelWeixinLogin() {
-	if a.loginCancel != nil {
-		a.loginCancel()
-		a.loginCancel = nil
-	}
+	a.cancelLoginSession("weixin")
 }
 
 func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image string, profileID string) {
+	defer a.finishLoginSession("weixin")
 	profileHome := "/opt/data"
 	if profileID != defaultProfileID {
 		profileHome = "/opt/data/profiles/" + profileID

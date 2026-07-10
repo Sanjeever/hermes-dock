@@ -7,6 +7,7 @@ import './styles/responsive.css';
 import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
+    CancelFeishuLogin,
     CheckForUpdates,
     CompleteProfileSetup,
     CreateProfile,
@@ -45,6 +46,7 @@ import {
     SetProfileEnabled,
     StartHermes,
     StartWeixinLogin,
+    StartFeishuLogin,
     StopHermes,
     StopTailLogs,
     SyncBundledSkills,
@@ -92,6 +94,7 @@ function App() {
     const [needsRebuild, setNeedsRebuild] = useState(false);
     const [qrData, setQrData] = useState('');
     const [qrStatus, setQrStatus] = useState('');
+	const [qrPlatform, setQrPlatform] = useState<PlatformKey | ''>('');
     const [advancedPath, setAdvancedPath] = useState('data/config.yaml');
     const [advancedContent, setAdvancedContent] = useState('');
     const [advancedStatus, setAdvancedStatus] = useState('');
@@ -124,7 +127,7 @@ function App() {
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformKey>('weixin');
     const [deployDirty, setDeployDirty] = useState(false);
     const deployDirtyRef = useRef(false);
-    const [weixinLoginProfile, setWeixinLoginProfile] = useState('');
+    const [platformLoginProfile, setPlatformLoginProfile] = useState('');
     const [channelActionStatus, setChannelActionStatus] = useState<Record<string, string>>({});
     const [lastOperationError, setLastOperationError] = useState('');
     const [assistantSkillsMode, setAssistantSkillsMode] = useState(false);
@@ -152,7 +155,8 @@ function App() {
         const isCurrentProfileEvent = (event: { profile_id?: string }) => !event.profile_id || event.profile_id === activeProfileRef.current;
         const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) return;
-            setWeixinLoginProfile(event.profile_id || activeProfileRef.current);
+            setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
+            setQrPlatform('weixin');
             setQrData(event.scan_data);
             setQrStatus('等待微信扫码');
         });
@@ -162,7 +166,7 @@ function App() {
         });
         const offQRDone = EventsOn('weixin-login:confirmed', (event: { account_id: string; user_id: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) {
-                setWeixinLoginProfile((current) => current === event.profile_id ? '' : current);
+                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
                 setNeedsRebuild(true);
                 const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
                 setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的微信已绑定成功，重建后生效`});
@@ -171,14 +175,42 @@ function App() {
             }
             setQrStatus(`绑定成功 ${event.user_id || event.account_id}`);
             setQrData('');
-            setWeixinLoginProfile('');
+            setPlatformLoginProfile('');
             setNeedsRebuild(true);
             refresh();
         });
         const offQRError = EventsOn('weixin-login:error', (event: { message: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) return;
             setQrStatus(event.message);
-            setWeixinLoginProfile('');
+            setPlatformLoginProfile('');
+        });
+        const offFeishuQR = EventsOn('feishu-login:qr', (event: { scan_data: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
+            setQrPlatform('feishu');
+            setQrData(event.scan_data);
+            setQrStatus('等待飞书扫码');
+        });
+        const offFeishuDone = EventsOn('feishu-login:confirmed', (event: { status?: string; bot_name?: string; domain?: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) {
+                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
+                setNeedsRebuild(true);
+                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
+                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的飞书 / Lark 已绑定成功，重建后生效`});
+                refresh();
+                return;
+            }
+            const platform = event.domain === 'lark' ? 'Lark' : '飞书';
+            setQrStatus(event.status || `${platform} 已绑定成功${event.bot_name ? `：${event.bot_name}` : ''}`);
+            setQrData('');
+            setPlatformLoginProfile('');
+            setNeedsRebuild(true);
+            refresh();
+        });
+        const offFeishuError = EventsOn('feishu-login:error', (event: { message: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setQrStatus(event.message);
+            setPlatformLoginProfile('');
         });
         return () => {
             offDocker();
@@ -188,6 +220,9 @@ function App() {
             offQRStatus();
             offQRDone();
             offQRError();
+            offFeishuQR();
+            offFeishuDone();
+            offFeishuError();
         };
     }, []);
 
@@ -306,8 +341,8 @@ function App() {
 
     async function selectProfile(id: string) {
         if (id === state?.activeProfile) return true;
-        if (weixinLoginProfile && weixinLoginProfile !== id) {
-            setNotice({type: 'error', message: '微信扫码登录进行中，请先完成或取消后再切换助手'});
+        if (platformLoginProfile && platformLoginProfile !== id) {
+            setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消后再切换助手'});
             return false;
         }
         if (hasUnsavedChanges()) {
@@ -594,10 +629,11 @@ function App() {
 
     async function startWeixinLogin() {
         const profileID = state?.activeProfile || 'default';
-        setWeixinLoginProfile(profileID);
+        setPlatformLoginProfile(profileID);
+        setQrPlatform('weixin');
         const ok = await run('正在启动微信扫码登录', StartWeixinLogin);
         if (!ok) {
-            setWeixinLoginProfile('');
+            setPlatformLoginProfile('');
         }
     }
 
@@ -606,7 +642,29 @@ function App() {
         if (!ok) return;
         setQrData('');
         setQrStatus('');
-        setWeixinLoginProfile('');
+        setQrPlatform('');
+        setPlatformLoginProfile('');
+    }
+
+    async function startFeishuLogin() {
+        const profileID = state?.activeProfile || 'default';
+        const replacing = !!envValue(env, 'FEISHU_APP_ID') && !!envValue(env, 'FEISHU_APP_SECRET');
+        if (replacing && !window.confirm('扫码创建的新机器人会替换当前飞书 / Lark 绑定；旧飞书应用不会被自动删除。是否继续？')) return;
+        setPlatformLoginProfile(profileID);
+        setQrPlatform('feishu');
+		setQrData('');
+		setQrStatus('正在生成飞书二维码');
+        const ok = await run('正在启动飞书扫码绑定', StartFeishuLogin);
+        if (!ok) setPlatformLoginProfile('');
+    }
+
+    async function cancelFeishuLogin() {
+        const ok = await run('正在取消飞书扫码绑定', CancelFeishuLogin);
+        if (!ok) return;
+        setQrData('');
+        setQrStatus('');
+        setQrPlatform('');
+        setPlatformLoginProfile('');
     }
 
     async function saveWeComConfig() {
@@ -652,7 +710,7 @@ function App() {
                 if (platform === 'weixin') {
                     setQrData('');
                     setQrStatus('');
-                    setWeixinLoginProfile('');
+                    setPlatformLoginProfile('');
                 }
             },
         });
@@ -1071,6 +1129,7 @@ function App() {
                         setSoulDirty={setSoulDirty}
                         qrData={qrData}
                         qrStatus={qrStatus}
+						qrPlatform={qrPlatform}
                         modelDirty={modelDirty}
                         platformDirty={platformDirty}
                         selectedPlatform={selectedPlatform}
@@ -1099,6 +1158,8 @@ function App() {
                         onRestoreDefaultSoul={restoreDefaultSoul}
                         onWeixinLogin={startWeixinLogin}
                         onCancelWeixin={cancelWeixinLogin}
+						onFeishuLogin={startFeishuLogin}
+						onCancelFeishu={cancelFeishuLogin}
                         onSaveWeCom={saveWeComConfig}
                         onSaveFeishu={saveFeishuConfig}
                         onUnbindPlatform={unbindPlatform}

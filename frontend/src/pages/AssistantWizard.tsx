@@ -30,6 +30,7 @@ export function AssistantWizard(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+	qrPlatform: PlatformKey | '';
     modelDirty: boolean;
     platformDirty: boolean;
     selectedPlatform: PlatformKey;
@@ -45,6 +46,8 @@ export function AssistantWizard(props: {
     onRestoreDefaultSoul: () => Promise<boolean>;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
+	onFeishuLogin: () => void;
+	onCancelFeishu: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
     onUnbindPlatform: (platform: PlatformKey) => void;
@@ -133,11 +136,14 @@ export function AssistantWizard(props: {
                         setEnv={props.setEnv}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
+						qrPlatform={props.qrPlatform}
                         selected={props.selectedPlatform}
                         setSelected={props.setSelectedPlatform}
                         busy={props.busy}
                         onWeixinLogin={props.onWeixinLogin}
                         onCancelWeixin={props.onCancelWeixin}
+						onFeishuLogin={props.onFeishuLogin}
+						onCancelFeishu={props.onCancelFeishu}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
                         onUnbind={props.onUnbindPlatform}

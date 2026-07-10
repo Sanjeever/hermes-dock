@@ -75,6 +75,8 @@ export const TailLogs = () => isWebRuntime() ? rpc<void>('TailLogs', [webClientI
 export const StopTailLogs = () => isWebRuntime() ? rpc<void>('StopTailLogs', [webClientID]) : wailsOrRPC<void>('StopTailLogs');
 export const StartWeixinLogin = () => wailsOrRPC<void>('StartWeixinLogin');
 export const CancelWeixinLogin = () => wailsOrRPC<void>('CancelWeixinLogin');
+export const StartFeishuLogin = () => wailsOrRPC<void>('StartFeishuLogin');
+export const CancelFeishuLogin = () => wailsOrRPC<void>('CancelFeishuLogin');
 export const TestModel = () => wailsOrRPC<void>('TestModel');
 export const CompleteProfileSetup = (id: string) => wailsOrRPC<void>('CompleteProfileSetup', [id]);
 export const CreateProfile = (req: unknown) => wailsOrRPC<void>('CreateProfile', [req]);

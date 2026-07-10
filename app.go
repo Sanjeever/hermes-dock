@@ -21,14 +21,16 @@ const (
 )
 
 type App struct {
-	ctx          context.Context
-	instanceRoot string
-	mu           sync.Mutex
-	webSessionMu sync.RWMutex
-	logCancel    context.CancelFunc
-	loginCancel  context.CancelFunc
-	startupErr   error
-	web          *webRuntime
+	ctx           context.Context
+	instanceRoot  string
+	mu            sync.Mutex
+	webSessionMu  sync.RWMutex
+	loginMu       sync.Mutex
+	logCancel     context.CancelFunc
+	loginCancel   context.CancelFunc
+	loginPlatform string
+	startupErr    error
+	web           *webRuntime
 }
 
 func NewApp() *App {
@@ -48,10 +50,7 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) shutdown(ctx context.Context) {
 	a.stopTray()
 	a.stopWebServer(ctx)
-	if a.loginCancel != nil {
-		a.loginCancel()
-		a.loginCancel = nil
-	}
+	a.cancelLoginSession("")
 	a.StopTailLogs()
 }
 

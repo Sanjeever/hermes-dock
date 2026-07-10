@@ -49,6 +49,7 @@ export function AssistantsPage(props: {
     setSoulDirty: (value: boolean) => void;
     qrData: string;
     qrStatus: string;
+	qrPlatform: PlatformKey | '';
     modelDirty: boolean;
     platformDirty: boolean;
     selectedPlatform: PlatformKey;
@@ -77,6 +78,8 @@ export function AssistantsPage(props: {
     onRestoreDefaultSoul: () => Promise<boolean>;
     onWeixinLogin: () => void;
     onCancelWeixin: () => void;
+	onFeishuLogin: () => void;
+	onCancelFeishu: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
     onUnbindPlatform: (platform: PlatformKey) => void;
@@ -378,6 +381,7 @@ export function AssistantsPage(props: {
                         setSoulDirty={props.setSoulDirty}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
+						qrPlatform={props.qrPlatform}
                         modelDirty={props.modelDirty}
                         platformDirty={props.platformDirty}
                         selectedPlatform={props.selectedPlatform}
@@ -393,6 +397,8 @@ export function AssistantsPage(props: {
                         onRestoreDefaultSoul={props.onRestoreDefaultSoul}
                         onWeixinLogin={props.onWeixinLogin}
                         onCancelWeixin={props.onCancelWeixin}
+						onFeishuLogin={props.onFeishuLogin}
+						onCancelFeishu={props.onCancelFeishu}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
                         onUnbindPlatform={props.onUnbindPlatform}

@@ -770,6 +770,8 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"StopTailLogs":            oneArg[string](a.webStopLogTail),
 		"StartWeixinLogin":        noResult(a.StartWeixinLogin),
 		"CancelWeixinLogin":       noResult(func() error { a.CancelWeixinLogin(); return nil }),
+		"StartFeishuLogin":        noResult(a.StartFeishuLogin),
+		"CancelFeishuLogin":       noResult(func() error { a.CancelFeishuLogin(); return nil }),
 		"TestModel":               a.webLocked(a.TestModel),
 		"GetModelProviderPresets": noParams(func() (interface{}, error) { return a.GetModelProviderPresets(), nil }),
 		"GetProviderConfig": noParams(func() (interface{}, error) {
