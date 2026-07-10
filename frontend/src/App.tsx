@@ -1,6 +1,9 @@
 import {useEffect, useRef, useState} from 'react';
 import {CheckCircle2, CircleAlert, Clipboard, ExternalLink, RefreshCcw, RotateCcw} from 'lucide-react';
+import './styles/tokens.css';
 import './App.css';
+import './styles/refresh.css';
+import './styles/responsive.css';
 import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
@@ -60,8 +63,12 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, SyncBundledSkillsResult, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
+import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, syncBundledSkillsMessage} from './appPolicies';
+import {useOperationRunner} from './hooks/useOperationRunner';
+import {useSkills} from './hooks/useSkills';
+import {useUpdates} from './hooks/useUpdates';
 
 function App() {
     const webRuntime = isWebRuntime();
@@ -82,9 +89,6 @@ function App() {
     const [busy, setBusy] = useState('');
     const [notice, setNotice] = useState<Notice | null>(null);
     const [refreshError, setRefreshError] = useState('');
-    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-    const [updateBusy, setUpdateBusy] = useState(false);
-    const updateCheckedRef = useRef(false);
     const [needsRebuild, setNeedsRebuild] = useState(false);
     const [qrData, setQrData] = useState('');
     const [qrStatus, setQrStatus] = useState('');
@@ -123,14 +127,11 @@ function App() {
     const [weixinLoginProfile, setWeixinLoginProfile] = useState('');
     const [channelActionStatus, setChannelActionStatus] = useState<Record<string, string>>({});
     const [lastOperationError, setLastOperationError] = useState('');
-    const [skillsState, setSkillsState] = useState<SkillsState | null>(null);
-    const [skillDetail, setSkillDetail] = useState<SkillDetail | null>(null);
-    const [skillsStatus, setSkillsStatus] = useState('');
-    const [skillHubState, setSkillHubState] = useState<SkillHubState | null>(null);
-    const [skillHubDetail, setSkillHubDetail] = useState<SkillHubDetail | null>(null);
-    const [skillHubStatus, setSkillHubStatus] = useState('');
     const [assistantSkillsMode, setAssistantSkillsMode] = useState(false);
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
+    const run = useOperationRunner({refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
+    const skills = useSkills({run, refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
+    const updates = useUpdates({appVersion: state?.appVersion, appendLog, setNotice});
 
     useEffect(() => {
         refresh();
@@ -227,11 +228,8 @@ function App() {
 
     useEffect(() => {
         if (!state?.activeProfile) return;
-        setSkillDetail(null);
-        setSkillHubDetail(null);
-        setSkillHubState(null);
-        setSkillHubStatus('');
-        loadSkills();
+        skills.resetForProfile();
+        skills.loadSkills();
     }, [state?.activeProfile]);
 
     useEffect(() => {
@@ -257,12 +255,6 @@ function App() {
         }, 1500);
         return () => window.clearTimeout(timer);
     }, [state, busy]);
-
-    useEffect(() => {
-        if (!state?.appVersion || updateCheckedRef.current) return;
-        updateCheckedRef.current = true;
-        checkForUpdates(false);
-    }, [state?.appVersion]);
 
     async function refresh() {
         let next: unknown;
@@ -368,144 +360,6 @@ function App() {
         return await run('正在删除助手', () => DeleteProfile(id, id), {rebuildRequired: true});
     }
 
-    async function loadSkills() {
-        setSkillsStatus('正在读取技能');
-        try {
-            const next = await ListProfileSkills();
-            setSkillsState(next as SkillsState);
-            setSkillsStatus('');
-        } catch (error) {
-            const message = String(error);
-            setSkillsStatus(message);
-            appendLog(message);
-        }
-    }
-
-    async function loadSkillDetail(path: string) {
-        setSkillsStatus('正在读取技能详情');
-        try {
-            const next = await GetSkillDetail(path);
-            setSkillDetail(next as SkillDetail);
-            setSkillsStatus('');
-        } catch (error) {
-            const message = String(error);
-            setSkillDetail(null);
-            setSkillsStatus(message);
-            appendLog(message);
-        }
-    }
-
-    async function deleteSkill(path: string) {
-        const ok = await run('正在删除技能', () => DeleteSkill(path), {rebuildRequired: true});
-        if (!ok) return false;
-        setSkillDetail(null);
-        await loadSkills();
-        setNotice({type: 'ok', message: '已删除技能并创建备份，重建后生效'});
-        return true;
-    }
-
-    async function syncBundledSkills() {
-        setBusy('正在同步内置技能');
-        setNotice({type: 'info', message: '正在同步内置技能'});
-        setSkillsStatus('正在同步内置技能');
-        setLastOperationError('');
-        try {
-            const result = await SyncBundledSkills();
-            await refresh();
-            await loadSkills();
-            const summary = syncBundledSkillsMessage(result);
-            if (result.syncedFiles > 0) {
-                setNeedsRebuild(true);
-            }
-            setSkillsStatus(summary);
-            setNotice({type: 'ok', message: summary});
-            return true;
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setSkillsStatus(message);
-            setNotice({type: 'error', message});
-            setLastOperationError(message);
-            return false;
-        } finally {
-            setBusy('');
-        }
-    }
-
-    async function restoreDefaultSkills() {
-        setBusy('正在恢复默认技能');
-        setNotice({type: 'info', message: '正在恢复默认技能'});
-        setSkillsStatus('正在恢复默认技能');
-        setLastOperationError('');
-        try {
-            const result = await RestoreDefaultSkills();
-            await refresh();
-            await loadSkills();
-            setSkillDetail(null);
-            const summary = restoreDefaultSkillsMessage(result);
-            if (result.syncedFiles > 0) {
-                setNeedsRebuild(true);
-            }
-            setSkillsStatus(summary);
-            setNotice({type: 'ok', message: summary});
-            return true;
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setSkillsStatus(message);
-            setNotice({type: 'error', message});
-            setLastOperationError(message);
-            return false;
-        } finally {
-            setBusy('');
-        }
-    }
-
-    async function openSkillDirectory(path: string) {
-        try {
-            await OpenSkillDirectory(path);
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setNotice({type: 'error', message});
-        }
-    }
-
-    async function loadSkillHubSkills(query: SkillHubQuery) {
-        setSkillHubStatus('正在读取技能中心');
-        try {
-            const next = await ListSkillHubSkills(query);
-            setSkillHubState(next as SkillHubState);
-            setSkillHubStatus('');
-        } catch (error) {
-            const message = String(error);
-            setSkillHubStatus(message);
-            appendLog(message);
-        }
-    }
-
-    async function loadSkillHubDetail(slug: string) {
-        setSkillHubStatus('正在读取技能详情');
-        try {
-            const next = await GetSkillHubDetail(slug);
-            setSkillHubDetail(next as SkillHubDetail);
-            setSkillHubStatus('');
-        } catch (error) {
-            const message = String(error);
-            setSkillHubDetail(null);
-            setSkillHubStatus(message);
-            appendLog(message);
-        }
-    }
-
-    async function installSkillHubSkill(slug: string) {
-        const ok = await run('正在安装技能', () => InstallSkillHubSkill(slug), {rebuildRequired: true});
-        if (!ok) return false;
-        await loadSkills();
-        await loadSkillHubDetail(slug);
-        setNotice({type: 'ok', message: '已安装技能，重建后生效'});
-        return true;
-    }
 
     function appendLog(line: string) {
         setLogs((current) => [...current.slice(-300), line]);
@@ -554,98 +408,7 @@ function App() {
         }
     }
 
-    async function run(label: string, action: () => Promise<unknown>, options: RunOptions = {}) {
-        setBusy(label);
-        setNotice({type: 'info', message: label});
-        setLastOperationError('');
-        try {
-            await action();
-            options.beforeRefresh?.();
-            const refreshMessage = await refresh();
-            if (options.rebuildRequired) {
-                setNeedsRebuild(true);
-            }
-            options.afterSuccess?.();
-            if (refreshMessage) {
-                const message = `${doneLabel(label)}，但刷新状态失败：${refreshMessage}`;
-                setNotice({type: 'error', message});
-                setLastOperationError(message);
-                return true;
-            }
-            setNotice({type: 'ok', message: doneLabel(label)});
-            return true;
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setNotice({type: 'error', message});
-            setLastOperationError(message);
-            return false;
-        } finally {
-            setBusy('');
-        }
-    }
 
-    async function checkForUpdates(force: boolean) {
-        setUpdateBusy(true);
-        try {
-            const info = await CheckForUpdates(force);
-            setUpdateInfo(info);
-            if (force) {
-                if (info.available && !info.dismissed) {
-                    setNotice({type: 'ok', message: `发现新版本 v${info.latestVersion}`});
-                } else if (info.available && info.dismissed) {
-                    setNotice({type: 'info', message: `v${info.latestVersion} 已忽略`});
-                } else {
-                    setNotice({type: 'ok', message: '当前已是最新版本'});
-                }
-            }
-        } catch (error) {
-            const message = String(error);
-            if (force) {
-                appendLog(message);
-                setNotice({type: 'error', message});
-            }
-        } finally {
-            setUpdateBusy(false);
-        }
-    }
-
-    async function dismissUpdate() {
-        if (!updateInfo?.latestVersion) return;
-        try {
-            await DismissUpdate(updateInfo.latestVersion);
-            setUpdateInfo({...updateInfo, dismissed: true});
-            setNotice({type: 'ok', message: `已忽略 v${updateInfo.latestVersion}`});
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setNotice({type: 'error', message});
-        }
-    }
-
-    async function openUpdateURL(url: string) {
-        if (!url) return;
-        try {
-            await OpenUpdateURL(url);
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setNotice({type: 'error', message});
-        }
-    }
-
-    async function copyUpdateCommand(url: string) {
-        if (!updateInfo?.assetName || !url) return;
-        const command = `curl -L -o ${updateInfo.assetName} ${url}\nsudo apt install -y ./${updateInfo.assetName}`;
-        try {
-            await navigator.clipboard.writeText(command);
-            setNotice({type: 'ok', message: '已复制安装命令'});
-        } catch (error) {
-            const message = String(error);
-            appendLog(message);
-            setNotice({type: 'error', message});
-        }
-    }
 
     async function loadAdvancedFile(path: string) {
         setAdvancedStatus('正在读取文件');
@@ -1116,6 +879,7 @@ function App() {
     const showContainerStatus = page !== 'assistants' || activeSetupDone;
     const showRebuildBanner = needsRebuild && (page !== 'assistants' || activeSetupDone);
     const unsavedChanges = hasUnsavedChanges();
+    const updateInfo = updates.info;
     const showUpdateBanner = !!updateInfo?.available && !updateInfo.dismissed;
     const updateAssetIsDeb = !!updateInfo?.assetName?.endsWith('.deb');
     const updateBannerDetail = updateAssetIsDeb ? 'Debian 13 可下载新的 deb 包后安装。' : '可在发布页下载适合当前系统的安装包。';
@@ -1170,8 +934,8 @@ function App() {
                                 {containerStatusText(state?.containerStatus)}
                             </div>
                         )}
-                        <button className="ghost topbar-update-button" onClick={() => checkForUpdates(true)} disabled={updateBusy}>
-                            <RefreshCcw size={15}/>{updateBusy ? '检查中' : '检查更新'}
+                        <button className="ghost topbar-update-button" onClick={() => updates.check(true)} disabled={updates.busy}>
+                            <RefreshCcw size={15}/>{updates.busy ? '检查中' : '检查更新'}
                         </button>
                     </div>
                 </header>
@@ -1183,16 +947,16 @@ function App() {
                             <span>当前版本 v{updateInfo.currentVersion}，{updateBannerDetail}</span>
                         </div>
                         <div className="update-actions">
-                            {updateInfo.releaseUrl && <button onClick={() => openUpdateURL(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
-                            {updateInfo.assetUrl && updateAssetIsDeb && <button onClick={() => copyUpdateCommand(updateInfo.assetUrl)}><Clipboard size={15}/>复制安装命令</button>}
-                            {updateInfo.assetUrl && !updateAssetIsDeb && <button onClick={() => openUpdateURL(updateInfo.assetUrl)}><ExternalLink size={15}/>下载安装包</button>}
+                            {updateInfo.releaseUrl && <button onClick={() => updates.open(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
+                            {updateInfo.assetUrl && updateAssetIsDeb && <button onClick={() => updates.copyInstallCommand(updateInfo.assetUrl)}><Clipboard size={15}/>复制安装命令</button>}
+                            {updateInfo.assetUrl && !updateAssetIsDeb && <button onClick={() => updates.open(updateInfo.assetUrl)}><ExternalLink size={15}/>下载安装包</button>}
                             {updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
-                                <button key={mirror.label} onClick={() => copyUpdateCommand(mirror.url)}><Clipboard size={15}/>{mirror.label}</button>
+                                <button key={mirror.label} onClick={() => updates.copyInstallCommand(mirror.url)}><Clipboard size={15}/>{mirror.label}</button>
                             ))}
                             {!updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
-                                <button key={mirror.label} onClick={() => openUpdateURL(mirror.url)}><ExternalLink size={15}/>{mirror.label}</button>
+                                <button key={mirror.label} onClick={() => updates.open(mirror.url)}><ExternalLink size={15}/>{mirror.label}</button>
                             ))}
-                            <button onClick={dismissUpdate}>忽略</button>
+                            <button onClick={updates.dismiss}>忽略</button>
                         </div>
                     </div>
                 )}
@@ -1297,12 +1061,12 @@ function App() {
                         setSelectedPlatform={selectPlatform}
                         needsRebuild={needsRebuild}
                         hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound}
-                        skillsState={skillsState}
-                        skillDetail={skillDetail}
-                        skillsStatus={skillsStatus}
-                        skillHubState={skillHubState}
-                        skillHubDetail={skillHubDetail}
-                        skillHubStatus={skillHubStatus}
+                        skillsState={skills.skillsState}
+                        skillDetail={skills.skillDetail}
+                        skillsStatus={skills.skillsStatus}
+                        skillHubState={skills.skillHubState}
+                        skillHubDetail={skills.skillHubDetail}
+                        skillHubStatus={skills.skillHubStatus}
                         onSelect={selectProfile}
                         onCreate={createProfile}
                         onRename={(id, name) => run('正在更新助手', () => UpdateProfileName(id, name))}
@@ -1325,15 +1089,15 @@ function App() {
                         onFinishSetup={finishProfileSetup}
                         onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
                         onOpenOperations={openOperations}
-                        onRefreshSkills={loadSkills}
-                        onSyncBundledSkills={syncBundledSkills}
-                        onRestoreDefaultSkills={restoreDefaultSkills}
-                        onSkillDetail={loadSkillDetail}
-                        onDeleteSkill={deleteSkill}
-                        onOpenSkillDirectory={openSkillDirectory}
-                        onSearchSkillHub={loadSkillHubSkills}
-                        onSkillHubDetail={loadSkillHubDetail}
-                        onInstallSkillHubSkill={installSkillHubSkill}
+                        onRefreshSkills={skills.loadSkills}
+                        onSyncBundledSkills={skills.syncBundledSkills}
+                        onRestoreDefaultSkills={skills.restoreDefaultSkills}
+                        onSkillDetail={skills.loadSkillDetail}
+                        onDeleteSkill={skills.deleteSkill}
+                        onOpenSkillDirectory={skills.openSkillDirectory}
+                        onSearchSkillHub={skills.loadSkillHubSkills}
+                        onSkillHubDetail={skills.loadSkillHubDetail}
+                        onInstallSkillHubSkill={skills.installSkillHubSkill}
                         onSkillsModeChange={setAssistantSkillsMode}
                     />
                 )}
@@ -1416,52 +1180,6 @@ function App() {
             </main>
         </div>
     );
-}
-
-function closedPolicyValue(value: string) {
-    return value === 'open' || value === '' ? 'open' : 'closed';
-}
-
-function disabledPolicyValue(value: string) {
-    return value === 'open' || value === '' ? 'open' : 'disabled';
-}
-
-function syncBundledSkillsMessage(result: SyncBundledSkillsResult) {
-    if (result.syncedFiles === 0) return '没有可同步的内置技能文件';
-    const skillCount = result.syncedSkills.length;
-    if (skillCount > 0) return `已同步 ${skillCount} 个内置技能，覆盖/写入 ${result.syncedFiles} 个文件`;
-    return `已覆盖/写入内置技能文件 ${result.syncedFiles} 个`;
-}
-
-function restoreDefaultSkillsMessage(result: SyncBundledSkillsResult) {
-    if (result.syncedFiles === 0) return '没有可恢复的默认技能文件';
-    const skillCount = result.syncedSkills.length;
-    if (skillCount > 0) return `已恢复 ${skillCount} 个默认技能，写入 ${result.syncedFiles} 个文件`;
-    return `已恢复默认技能文件 ${result.syncedFiles} 个`;
-}
-
-function platformLabel(platform: PlatformKey) {
-    switch (platform) {
-        case 'weixin':
-            return '个人微信';
-        case 'wecom':
-            return '企业微信';
-        case 'feishu':
-            return '飞书 / Lark';
-        default:
-            return platform;
-    }
-}
-
-function firstBoundPlatform(env: EnvVar[]): PlatformKey {
-    if (envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN')) return 'weixin';
-    if (envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET')) return 'wecom';
-    if (envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET')) return 'feishu';
-    return 'weixin';
-}
-
-function channelStatusKey(platform: string, id: string, action: string) {
-    return `${platform}:${id}:${action}`;
 }
 
 export default App;

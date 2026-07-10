@@ -1,0 +1,247 @@
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (max-width: 980px) {
+    .shell {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .rail {
+        position: static;
+        overflow: visible;
+    }
+
+    .grid.two,
+    .assistant-layout,
+    .skills-panel,
+    .assistant-switcher,
+    .assistant-inline-editor,
+    .operations-control,
+    .operations-hero,
+    .deploy-grid,
+    .advanced-file-grid,
+    .backup-actions-grid,
+    .backup-summary,
+    .field-grid,
+    .skill-row,
+    .skill-meta-list div,
+    .skill-files div,
+    .skill-danger-zone,
+    .endpoint-grid,
+    .provider-grid,
+    .platform-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .assistant-create-overlay {
+        justify-content: stretch;
+    }
+
+    .assistant-create-drawer {
+        width: 100%;
+        padding: 20px;
+    }
+
+    .web-management-header,
+    .web-management-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .web-management-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .web-settings-row,
+    .web-password-row,
+    .web-address-row,
+    .platform-unbind-confirm,
+    .runtime-endpoint-row,
+    .runtime-table-row,
+    .runtime-workbench-footer,
+    .overview-grid,
+    .service-hero,
+    .next-error {
+        grid-template-columns: 1fr;
+    }
+
+    .overview-stack {
+        max-width: none;
+    }
+
+    .setting-row,
+    .setting-control-grid,
+    .setting-control-grid.three {
+        grid-template-columns: 1fr;
+    }
+
+    .service-actions {
+        justify-content: flex-start;
+    }
+
+    .status-line {
+        grid-template-columns: auto minmax(70px, auto) minmax(0, 1fr);
+    }
+
+    .runtime-workbench-head {
+        flex-direction: column;
+    }
+
+    .runtime-workbench-counts {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .runtime-check-strip {
+        justify-content: flex-start;
+    }
+
+    .runtime-table-head {
+        display: none;
+    }
+
+    .web-qr {
+        justify-items: start;
+    }
+
+    .ops-tabs {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .wizard-steps {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .table-row {
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+
+    .table-head {
+        display: none;
+    }
+
+    .table-row > [data-label] {
+        display: grid;
+        grid-template-columns: 86px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .table-row > [data-label]::before {
+        content: attr(data-label);
+        color: #596056;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .profile-rename {
+        grid-template-columns: 1fr;
+    }
+
+    .log-head,
+    .deploy-summary,
+    .channel-head,
+    .update-banner,
+    .rebuild-banner,
+    .topbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .setup-status-list button {
+        grid-template-columns: 1fr;
+        gap: 4px;
+        padding: 10px 12px;
+    }
+
+    .topbar-actions {
+        justify-content: flex-start;
+    }
+
+    .advanced-toolbar select,
+    .segmented.compact,
+    .editor-actions {
+        width: 100%;
+    }
+
+    .segmented.compact {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .skills-toolbar {
+        align-items: stretch;
+        grid-template-columns: 1fr;
+    }
+
+    .hub-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .skills-shell {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .skills-head,
+    .skills-head-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .skills-view-toggle {
+        width: 100%;
+    }
+
+    .skills-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(150px, 38%) minmax(0, 1fr);
+        min-height: 0;
+    }
+
+    .skill-detail-head {
+        grid-template-columns: 1fr;
+    }
+
+    .skill-detail-head .ghost {
+        min-width: 0;
+        width: max-content;
+    }
+
+    .assistant-layout.skills-mode {
+        max-width: 980px;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .assistant-layout.skills-mode .assistant-detail {
+        overflow: hidden;
+    }
+
+    .skill-list-pane {
+        min-height: 0;
+        max-height: 52vh;
+    }
+
+    .editor-actions {
+        justify-content: flex-start;
+    }
+
+    .code-editor {
+        height: 62vh;
+    }
+}

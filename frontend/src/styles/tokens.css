@@ -1,0 +1,26 @@
+.shell,
+.web-login-screen {
+    --surface: #fffaf0;
+    --surface-raised: #fcfbf4;
+    --surface-muted: #f0eadc;
+    --surface-control: #e5dfd1;
+    --surface-control-hover: #d8cfbd;
+    --ink: #1f2522;
+    --ink-soft: #596056;
+    --ink-muted: #6f756d;
+    --rail: #151916;
+    --rail-hover: #293027;
+    --accent: #cce86a;
+    --accent-strong: #abc83d;
+    --focus: #729431;
+    --danger: #9d241a;
+    --danger-bg: #fff1ee;
+    --warning: #8a520d;
+    --warning-bg: #fff6d8;
+    --ok: #1f6f43;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-panel: 0 18px 48px rgba(55, 45, 25, 0.1);
+    --shadow-popover: 0 18px 44px rgba(32, 37, 31, 0.18);
+}
