@@ -34,12 +34,12 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
-      - name: Test Go packages
-        run: go test ./...
       - name: Test frontend
         run: pnpm --dir frontend test
       - name: Build frontend
         run: pnpm --dir frontend run build
+      - name: Test Go packages
+        run: go test ./...
 
   build-windows:
     name: Windows x64
