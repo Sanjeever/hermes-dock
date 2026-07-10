@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -21,6 +22,8 @@ const (
 	manifestPath = "/opt/data/.dock/profiles-runtime.json"
 	statusPath   = "/opt/data/.dock/profile-status.json"
 )
+
+var envKeyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type RuntimeManifest struct {
 	SchemaVersion int                      `json:"schemaVersion"`
@@ -163,7 +166,7 @@ func (s *supervisor) runProfile(ctx context.Context, profile RuntimeManifestProf
 			}
 		}
 		failures = kept
-		if len(failures) >= 5 {
+		if tooManyRecentFailures(failures, now) {
 			s.update(profile.ID, RuntimeProfileStatus{
 				Enabled:      true,
 				State:        "failed",
@@ -177,6 +180,17 @@ func (s *supervisor) runProfile(ctx context.Context, profile RuntimeManifestProf
 		restarts++
 		time.Sleep(time.Duration(restarts) * time.Second)
 	}
+}
+
+func tooManyRecentFailures(failures []time.Time, now time.Time) bool {
+	cutoff := now.Add(-5 * time.Minute)
+	count := 0
+	for _, failure := range failures {
+		if failure.After(cutoff) {
+			count++
+		}
+	}
+	return count >= 5
 }
 
 func (s *supervisor) runOnce(ctx context.Context, profile RuntimeManifestProfile, restarts int) (int, error) {
@@ -278,8 +292,8 @@ func readEnvFile(path string) (map[string]string, error) {
 		}
 		parts := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(parts[0])
-		if key == "" {
-			continue
+		if !envKeyPattern.MatchString(key) {
+			return nil, fmt.Errorf("环境变量名称无效：%q", key)
 		}
 		out[key] = unquoteEnv(strings.TrimSpace(parts[1]))
 	}
@@ -309,13 +323,17 @@ func setEnv(env []string, key string, value string) []string {
 
 func prefixLines(profileID string, reader io.Reader, wg *sync.WaitGroup) {
 	defer wg.Done()
+	prefixLinesTo(os.Stdout, profileID, reader)
+}
+
+func prefixLinesTo(writer io.Writer, profileID string, reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
-		fmt.Printf("[%s] %s\n", profileID, redact(line))
+		fmt.Fprintf(writer, "[%s] %s\n", profileID, redact(line))
 	}
 }
 
@@ -357,7 +375,32 @@ func (s *supervisor) writeStatusLocked() {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(statusPath, append(data, '\n'), 0644)
+	_ = atomicWriteStatus(append(data, '\n'))
+}
+
+func atomicWriteStatus(data []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(statusPath), ".profile-status-*")
+	if err != nil {
+		return err
+	}
+	tmp := file.Name()
+	defer os.Remove(tmp)
+	if err := file.Chmod(0644); err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, statusPath)
 }
 
 func (s *supervisor) markStopped() {
