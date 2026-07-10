@@ -102,7 +102,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 
 `launcher/` 是启动器自己的元数据目录。这里保存状态、profile registry、备份和临时 helper，不应该放用户业务数据或密钥。
 
-Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `launcher/web-sessions.json`，访问日志保存在 `launcher/logs/web-server.log`。首次创建时 Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码为 `123456`。界面会提示用户修改默认密码；关闭窗口会退出桌面主进程并停止 Web 管理。
+Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `launcher/web-sessions.json`，访问日志保存在 `launcher/logs/web-server.log`。首次创建时 Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码为 `123456`；用户可在设置页修改密码。关闭窗口会退出桌面主进程并停止 Web 管理。
 
 `data/.dock/` 保存 runner 的派生运行清单和运行状态。这里的文件可由 Hermes Dock 重新生成，不是用户业务数据。
 
@@ -110,7 +110,7 @@ Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `la
 
 ## 多 Profile 设计
 
-多 profile 第一版的目标是：在一个 Docker 容器内并行运行多个 Hermes profile gateway worker，让不同 profile 绑定不同的个人微信、企业微信 AI Bot 或飞书 / Lark 应用，并隔离人格、记忆、模型、skills、平台凭据和通道。
+当前多 profile 实现会在一个 Docker 容器内并行运行多个 Hermes profile gateway worker，让不同 profile 绑定不同的个人微信、企业微信 AI Bot 或飞书 / Lark 应用，并隔离人格、记忆、模型、skills、平台凭据和通道。
 
 运行规则：
 
@@ -411,6 +411,14 @@ go test ./...
 pnpm --dir frontend run build
 ```
 
+前端单元测试：
+
+```bash
+pnpm --dir frontend test
+```
+
+测试必须使用临时目录，不能读写真实的 `~/.hermes-dock`。文件与配置测试优先调用真实解析和持久化逻辑；Docker、网络、Wails runtime 和系统命令只在边界处替换。`cmd/hermes-profile-runner` 的测试应覆盖 `.env` 安全解析、日志前缀与脱敏、重启限制和状态写入。CI 会执行 Go 测试、前端测试、前端构建，并校验生成的 Wails bindings 是否与 Go 方法保持同步。
+
 ## MVP 范围
 
 当前包含：
@@ -435,7 +443,7 @@ pnpm --dir frontend run build
 - 不安装 Docker。
 - 不做系统服务安装。
 - 不做多实例管理。
-- 当前稳定版本不做多账号平台管理；下一阶段通过单容器多 profile 支持多个平台身份并行。
+- 不做单 profile 多账号平台管理；多个平台身份通过单容器多 profile 隔离运行。
 - 不内置真实运行态、日志、会话、缓存、数据库或用户凭据。
 - 不做完整 Hermes 平台配置器，只覆盖 MVP 指定平台。
 - 不做内置聊天客户端，聊天仍使用 Hermes 控制台。
