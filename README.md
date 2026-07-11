@@ -287,6 +287,27 @@ wails dev
 
 本仓库当前包含以下开发期 Agent 技能，文件位于 `.agents/skills/`，来源记录在 `skills-lock.json`。这些技能用于辅助维护 Hermes Dock 本身，不同于 Hermes 运行时放在 `templates/seed-data/skills/` 里的 Agent skills。
 
+### 营销文案技能
+
+本项目通过 [`npx skills add`](https://github.com/vercel-labs/skills) 安装了 [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) 的两个文案技能。它们适合官网、产品介绍页、功能页、定价页和发布页等需要说明价值并引导行动的内容；不应用于日常的技术文档、界面字段文案或与转化无关的代码注释。
+
+| 技能 | 用途 | 适合在 Hermes Dock 中使用的场景 |
+| --- | --- | --- |
+| `copywriting` | 从零起草或重写营销文案 | 为官网、产品介绍页、版本发布页或功能专题页编写标题、副标题、价值主张、正文和行动按钮。使用时先提供页面目标、目标读者、核心问题、产品差异、可核实的证明材料和流量来源；技能会优先清晰、具体的用户收益和可执行的 CTA，不应编造数据、客户评价或案例。 |
+| `copy-editing` | 审校、润色和刷新已有营销文案 | 改进已有官网、发布页、功能页或产品手册文案，同时保留原有事实和核心信息。它按“清晰度、语气、用户收益、证据、具体性、情感、行动风险”七个维度逐轮检查，适合处理文案生硬、冗长、卖点不清、证据不足或内容过时等问题。 |
+
+两个技能的分工很明确：需要新文案时先用 `copywriting`；已有初稿或线上内容需要改进时用 `copy-editing`。前者完成初稿后，可再用后者进行审校。若仓库存在 `.agents/product-marketing.md`，两个技能都会先读取它，确保产出符合已有的产品定位、品牌语气和用户语言。
+
+示例提示词：
+
+```text
+使用 copywriting 为 Hermes Dock 的产品介绍页撰写中文文案。目标是让已安装 Docker、但不熟悉命令行的个人用户开始配置本地 Hermes Agent；主要 CTA 是“下载并开始配置”。突出可视化管理、个人微信/企业微信/飞书接入和本地数据控制。不要虚构用户数量、性能数据或客户评价；为标题和 CTA 各提供 3 个备选方案。
+```
+
+```text
+使用 copy-editing 审校以下 Hermes Dock 版本发布页文案。保留所有已有事实，不新增未经证实的数据；按七轮检查指出问题、给出可替换的具体修改，并重点检查中文表述是否清晰、功能是否解释为用户收益、CTA 是否明确。
+```
+
 ### Taste Skill 系列
 
 本项目通过 [`npx skills add`](https://github.com/vercel-labs/skills) 安装了 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) 的 13 个开发期技能。该系列的目标是让 Agent 先理解页面目标、受众和已有品牌资产，再选择有意图的排版、字体、留白和动效，避免把渐变、玻璃效果、三列等高卡片等模板化视觉模式当作默认答案。
@@ -592,6 +613,8 @@ uv run --no-project python .agents/skills/ui-ux-pro-max/scripts/search.py "react
 更新单个技能：
 
 ```bash
+npx -y skills update copywriting --project --yes
+npx -y skills update copy-editing --project --yes
 npx -y skills update ui-ux-pro-max --project --yes
 npx -y skills update vercel-react-best-practices --project --yes
 ```
