@@ -151,7 +151,7 @@ profile registry 和运行态文件：
 
 - 新建 profile 默认创建干净 profile，不复制密钥、平台账号、记忆、会话或通道目录。
 - 第一版可提供“从当前 profile 复制人格和 skills”，不做完整 profile 克隆。
-- 非 default profile 可以删除，但删除前必须整体打包备份；`default` profile 不允许删除，只允许停用。
+- 非 default profile 可以删除；如果容器正在运行，删除前先停止整个容器，再整体打包备份，删除后由用户通过“应用并重建”重新启动；`default` profile 不允许删除，只允许停用。
 - 删除后允许再次创建同名 profile，但如果残留目录仍存在，不自动复用或覆盖。
 
 暂不做：

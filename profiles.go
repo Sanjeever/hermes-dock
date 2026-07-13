@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -350,10 +351,15 @@ func (a *App) DeleteProfile(id string) error {
 	if idx < 0 {
 		return fmt.Errorf("profile 不存在：%s", id)
 	}
+	if fileExists(a.composePath()) && a.containerStatus(context.Background()) == "running" {
+		if err := a.StopHermes(); err != nil {
+			return fmt.Errorf("停止 Hermes 容器失败：%w", err)
+		}
+	}
 	dir := a.profileDataDir(id)
 	if fileExists(dir) {
 		if err := a.backupDirectory(dir, "before-profile-delete-"+id); err != nil {
-			return err
+			return fmt.Errorf("备份 profile 失败：%w", err)
 		}
 	}
 	next := append([]ProfileEntry{}, registry.Profiles[:idx]...)
@@ -700,20 +706,32 @@ func (a *App) backupDirectory(path string, reason string) error {
 	if err := ensureDir(filepath.Dir(target)); err != nil {
 		return err
 	}
-	file, err := os.Create(target)
+	file, err := os.CreateTemp(filepath.Dir(target), ".directory-backup-*.tmp")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	tmpPath := file.Name()
+	committed := false
+	defer func() {
+		_ = file.Close()
+		if !committed {
+			_ = os.Remove(tmpPath)
+		}
+	}()
 	gz := gzip.NewWriter(file)
-	defer gz.Close()
 	tw := tar.NewWriter(gz)
-	defer tw.Close()
 	if err := filepath.Walk(path, func(item string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		header, err := tar.FileInfoHeader(info, "")
+		linkTarget := ""
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err = os.Readlink(item)
+			if err != nil {
+				return err
+			}
+		}
+		header, err := tar.FileInfoHeader(info, linkTarget)
 		if err != nil {
 			return err
 		}
@@ -725,19 +743,38 @@ func (a *App) backupDirectory(path string, reason string) error {
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 		src, err := os.Open(item)
 		if err != nil {
 			return err
 		}
-		defer src.Close()
-		_, err = io.Copy(tw, src)
-		return err
+		_, copyErr := io.CopyN(tw, src, info.Size())
+		closeErr := src.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
 	}); err != nil {
+		_ = tw.Close()
+		_ = gz.Close()
 		return err
 	}
+	if err := tw.Close(); err != nil {
+		_ = gz.Close()
+		return err
+	}
+	if err := gz.Close(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, target); err != nil {
+		return err
+	}
+	committed = true
 	state, err := a.readState()
 	if err != nil && !os.IsNotExist(err) {
 		return err

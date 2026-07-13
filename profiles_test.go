@@ -1,9 +1,13 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -101,6 +105,95 @@ func TestCreateProfileCopyPersonalityRewritesSoulHome(t *testing.T) {
 	}
 	if !strings.Contains(string(soul), "/opt/data/profiles/writer/tmp") {
 		t.Fatalf("copied SOUL does not point at writer tmp")
+	}
+}
+
+func TestDeleteProfileStopsContainerAndBacksUpSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink test is unix-only")
+	}
+	app := newTestApp(t)
+	if err := app.CreateProfile(CreateProfileRequest{ID: "guest-002", Name: "访客", Enabled: true, CopyMode: "clean"}); err != nil {
+		t.Fatal(err)
+	}
+	dir := app.profileDataDir("guest-002")
+	if err := os.WriteFile(filepath.Join(dir, "python3"), []byte("python"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("python3", filepath.Join(dir, "python")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/container-only/python3", filepath.Join(dir, "python-container")); err != nil {
+		t.Fatal(err)
+	}
+	installFakeDocker(t, true)
+
+	if err := app.DeleteProfile("guest-002"); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(dir) {
+		t.Fatalf("profile directory still exists")
+	}
+	registry, err := app.readProfileRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profileExists(registry, "guest-002") {
+		t.Fatalf("deleted profile remains in registry")
+	}
+	logData, err := os.ReadFile(fakeDockerLogPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(logData), "compose stop") {
+		t.Fatalf("docker compose stop was not called: %s", logData)
+	}
+	if strings.Contains(string(logData), "compose start") || strings.Contains(string(logData), "compose up") {
+		t.Fatalf("container was restarted during profile deletion: %s", logData)
+	}
+
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var backupPath string
+	for _, backup := range state.Backups {
+		if backup.Reason == "before-profile-delete-guest-002" {
+			backupPath = filepath.Join(app.instanceRoot, filepath.FromSlash(backup.Path))
+		}
+	}
+	if backupPath == "" {
+		t.Fatalf("profile backup was not recorded")
+	}
+	file, err := os.Open(backupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	gz, err := gzip.NewReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	found := map[string]string{}
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeSymlink {
+			found[filepath.Base(header.Name)] = header.Linkname
+		}
+	}
+	if found["python"] != "python3" {
+		t.Fatalf("python symlink target = %q", found["python"])
+	}
+	if found["python-container"] != "/container-only/python3" {
+		t.Fatalf("broken symlink target = %q", found["python-container"])
 	}
 }
 

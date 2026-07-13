@@ -61,7 +61,7 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - `releaseSeedData` 只能创建缺失文件，不能覆盖已有文件。
 - 写入 `config.yaml`、`.env`、`docker-compose.yaml` 或高级编辑文件前，应保留备份。
 - 写入 profile 的 `config.yaml`、`.env`、`SOUL.md`、`skills/` 或 `launcher/profiles.json` 前，应保留备份。
-- 删除非 default profile 前，必须先整体打包备份 profile 目录；备份失败则中止删除。
+- 删除非 default profile 时，如果容器正在运行，必须先 `docker compose stop`，再整体打包备份 profile 目录；停止或备份失败则中止删除，删除成功后由用户通过“应用并重建”重新启动。
 - 整实例 `.hdbackup` 导出用于设备迁移，包含 `.env` 密钥、平台账号凭据和 Web 管理配置；UI 必须明确提示备份文件包含敏感信息。
 - 整实例导出如果容器正在运行，应先 `docker compose stop`，导出结束后 `docker compose start` 恢复，避免备份写入中的用户数据；不要用 `down + up` 做导出恢复，避免意外应用未重建配置。
 - 整实例导入是覆盖导入，必须先校验备份、执行 `docker compose down`，再生成当前设备的 pre-import `.hdbackup`；任一步失败都中止导入。
