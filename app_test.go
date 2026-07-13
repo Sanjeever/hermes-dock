@@ -293,11 +293,13 @@ func assertHostctlHelper(t *testing.T, root string) {
 	if err != nil {
 		t.Fatalf("expected hostctl helper: %v", err)
 	}
-	if !strings.Contains(string(data), "host.docker.internal:9877") {
+	content := string(data)
+	assertUnixRuntimeHelper(t, "hostctl", content)
+	if !strings.Contains(content, "host.docker.internal:9877") {
 		t.Fatalf("hostctl helper missing Host Bridge address")
 	}
 	for _, command := range []string{"/v1/files/read", "/v1/clipboard/text", "/v1/processes", "/v1/screenshot", "/v1/rpa/windows", "/v1/rpa/mouse", "/v1/rpa/keyboard"} {
-		if !strings.Contains(string(data), command) {
+		if !strings.Contains(content, command) {
 			t.Fatalf("hostctl helper missing %q", command)
 		}
 	}
@@ -341,6 +343,7 @@ func assertFeishuDepsHelper(t *testing.T, root string) {
 		t.Fatalf("expected install-feishu-deps helper: %v", err)
 	}
 	content := string(data)
+	assertUnixRuntimeHelper(t, "install-feishu-deps", content)
 	for _, want := range []string{
 		"lark-oapi==1.5.3",
 		"qrcode==7.4.2",
@@ -369,6 +372,7 @@ func assertWecomFilenamePatchHelper(t *testing.T, root string) {
 		t.Fatalf("expected patch-wecom-filenames helper: %v", err)
 	}
 	content := string(data)
+	assertUnixRuntimeHelper(t, "patch-wecom-filenames", content)
 	for _, want := range []string{
 		"/opt/hermes/gateway/platforms/wecom.py",
 		"MAX_WECOM_CACHE_BASENAME_BYTES",
@@ -387,6 +391,16 @@ func assertWecomFilenamePatchHelper(t *testing.T, root string) {
 		if info.Mode()&0111 == 0 {
 			t.Fatalf("patch-wecom-filenames mode = %v, want executable bit", info.Mode())
 		}
+	}
+}
+
+func assertUnixRuntimeHelper(t *testing.T, name string, content string) {
+	t.Helper()
+	if !strings.HasPrefix(content, "#!") {
+		t.Fatalf("%s helper missing shebang", name)
+	}
+	if strings.Contains(content, "\r\n") {
+		t.Fatalf("%s helper contains CRLF line endings", name)
 	}
 }
 
