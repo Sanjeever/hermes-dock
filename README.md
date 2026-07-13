@@ -21,7 +21,7 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 - 支持飞书 / Lark WebSocket 配置。
 - 支持查看通道目录、设置默认通道、发送测试消息。
 - 内置 Web 管理界面，随桌面主进程启动，默认局域网可访问。
-- 内置宿主机控制服务，Hermes 可通过 `hostctl` 以当前用户身份静默执行 Windows、macOS 或 Linux 宿主机命令。
+- 内置宿主机控制服务，Hermes 可通过 `hostctl` 以当前用户身份静默读写文件、发送通知、操作文本剪贴板、查询进程和端口、截取屏幕、启动应用及执行 Windows、macOS 或 Linux 宿主机命令。
 - 写入托管文件前自动备份。
 - UI 日志和事件会脱敏敏感字段。
 
@@ -205,7 +205,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 
 高级用户如需自定义 Docker 行为，应使用 `~/.hermes-dock/docker-compose.override.yaml`，不要直接依赖手改标准 compose 文件。桌面和 Web 高级编辑入口都可以打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`，用于处理结构化页面尚未覆盖的少量配置。
 
-宿主机控制默认开启，不做逐次审批。Host Bridge 只接受持有随机 Token 的请求，命令以启动 Hermes Dock 的当前用户身份执行，不自动提权；单次默认超时 120 秒，最长 1800 秒，stdout 和 stderr 分别最多返回 1 MiB。关闭 Hermes Dock 后 Host Bridge 随主进程停止。该能力会把来自模型和平台消息的指令转化为宿主机操作，设置页会持续显示风险提示。
+宿主机控制默认开启，不做逐次审批。Host Bridge 只接受持有随机 Token 的请求，所有操作以启动 Hermes Dock 的当前用户身份执行，不自动提权。结构化能力包括最大 16 MiB 的文件读写、最大 1 MiB 的文本剪贴板、进程和网络连接查询、系统通知、默认应用打开、应用启动，以及最大 25 MiB 的多显示器 PNG 截图；Shell 命令默认超时 120 秒、最长 1800 秒，stdout 和 stderr 分别最多返回 1 MiB。macOS 截图和通知仍受系统权限控制，Linux Wayland 或 headless 环境可能无法截图。关闭 Hermes Dock 后 Host Bridge 随主进程停止。该能力会把来自模型和平台消息的指令转化为宿主机操作，设置页会持续显示风险提示。
 
 容器操作对应的 Compose 命令：
 

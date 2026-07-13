@@ -123,7 +123,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
                                     允许宿主机操作
                                 </label>
                                 {compose.hostControlEnabled !== 'false' && (
-                                    <div className="form-warning">Hermes 可以静默运行宿主机命令、访问文件和启动应用，不会逐次请求确认。</div>
+                                    <div className="form-warning">Hermes 可以静默运行宿主机命令、访问文件、剪贴板和屏幕并启动应用，不会逐次请求确认。</div>
                                 )}
                                 {hostBridge.error && <div className="form-warning">启动失败：{hostBridge.error}</div>}
                                 {!hostBridge.error && hostBridge.enabled && <div className="setting-note">{hostBridge.running ? '宿主机控制服务正在运行。' : '保存后启动宿主机控制服务。'}</div>}

@@ -98,6 +98,20 @@ func (a *App) startHostBridge() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/info", a.requireHostBridgeToken(a.handleHostInfo))
 	mux.HandleFunc("/v1/exec", a.requireHostBridgeToken(a.handleHostExec(runtimeState)))
+	mux.HandleFunc("/v1/files/read", a.requireHostBridgeToken(a.handleHostFileRead))
+	mux.HandleFunc("/v1/files/write", a.requireHostBridgeToken(a.handleHostFileWrite))
+	mux.HandleFunc("/v1/files/stat", a.requireHostBridgeToken(a.handleHostFileStat))
+	mux.HandleFunc("/v1/files/list", a.requireHostBridgeToken(a.handleHostFileList))
+	mux.HandleFunc("/v1/files/mkdir", a.requireHostBridgeToken(a.handleHostFileMkdir))
+	mux.HandleFunc("/v1/files/move", a.requireHostBridgeToken(a.handleHostFileMove))
+	mux.HandleFunc("/v1/notify", a.requireHostBridgeToken(a.handleHostNotify))
+	mux.HandleFunc("/v1/clipboard/text", a.requireHostBridgeToken(a.handleHostClipboardText))
+	mux.HandleFunc("/v1/processes", a.requireHostBridgeToken(a.handleHostProcesses))
+	mux.HandleFunc("/v1/ports", a.requireHostBridgeToken(a.handleHostPorts))
+	mux.HandleFunc("/v1/displays", a.requireHostBridgeToken(a.handleHostDisplays))
+	mux.HandleFunc("/v1/screenshot", a.requireHostBridgeToken(a.handleHostScreenshot))
+	mux.HandleFunc("/v1/open", a.requireHostBridgeToken(a.handleHostOpen))
+	mux.HandleFunc("/v1/launch", a.requireHostBridgeToken(a.handleHostLaunch))
 	runtimeState.server = &http.Server{
 		Handler:           mux,
 		BaseContext:       func(net.Listener) context.Context { return bridgeCtx },
