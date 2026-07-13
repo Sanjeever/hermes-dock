@@ -296,7 +296,7 @@ func assertHostctlHelper(t *testing.T, root string) {
 	if !strings.Contains(string(data), "host.docker.internal:9877") {
 		t.Fatalf("hostctl helper missing Host Bridge address")
 	}
-	for _, command := range []string{"/v1/files/read", "/v1/clipboard/text", "/v1/processes", "/v1/screenshot"} {
+	for _, command := range []string{"/v1/files/read", "/v1/clipboard/text", "/v1/processes", "/v1/screenshot", "/v1/rpa/windows", "/v1/rpa/mouse", "/v1/rpa/keyboard"} {
 		if !strings.Contains(string(data), command) {
 			t.Fatalf("hostctl helper missing %q", command)
 		}

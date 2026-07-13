@@ -26,12 +26,13 @@ def raw_request(path, payload=None, method=None):
         headers={
             "Authorization": "Bearer " + token,
             "Content-Type": "application/json",
+            "X-Hermes-Profile": os.environ.get("HERMES_DOCK_PROFILE", "default"),
         },
         method=method or ("GET" if payload is None else "POST"),
     )
     try:
         with urllib.request.urlopen(req) as response:
-            return response.read(), response.headers.get("Content-Type", "")
+            return response.read(), response.headers.get("Content-Type", ""), dict(response.headers.items())
     except urllib.error.HTTPError as error:
         try:
             detail = json.loads(error.read()).get("error", str(error))
@@ -43,15 +44,15 @@ def raw_request(path, payload=None, method=None):
 
 
 def request_json(path, payload=None, method=None):
-    data, _ = raw_request(path, payload, method)
+    data, _, _ = raw_request(path, payload, method)
     return json.loads(data)
 
 
 def request_bytes(path, payload):
-    data, content_type = raw_request(path, payload)
+    data, content_type, headers = raw_request(path, payload)
     if content_type.split(";", 1)[0] != "image/png":
         raise RuntimeError("宿主机没有返回 PNG 截图")
-    return data
+    return data, headers
 
 
 def print_json(value):
@@ -141,6 +142,7 @@ def add_desktop_commands(subparsers):
     screenshot_parser = subparsers.add_parser("screenshot", help="截取宿主机屏幕")
     screenshot_parser.add_argument("--display", type=int, default=0)
     screenshot_parser.add_argument("--output")
+    screenshot_parser.add_argument("--json", action="store_true", dest="json_output")
 
     open_parser = subparsers.add_parser("open", help="使用宿主机默认应用打开目标")
     open_parser.add_argument("target")
@@ -149,6 +151,74 @@ def add_desktop_commands(subparsers):
     launch_parser.add_argument("--cwd", default="")
     launch_parser.add_argument("program")
     launch_parser.add_argument("args", nargs=argparse.REMAINDER)
+
+
+def add_rpa_commands(subparsers):
+    rpa_parser = subparsers.add_parser("rpa", help="查询和释放桌面自动化能力")
+    rpa_actions = rpa_parser.add_subparsers(dest="rpa_action", required=True)
+    rpa_actions.add_parser("info")
+    rpa_actions.add_parser("release")
+
+    window_parser = subparsers.add_parser("window", help="查询和激活宿主机窗口")
+    window_actions = window_parser.add_subparsers(dest="window_action", required=True)
+    window_actions.add_parser("list")
+    window_actions.add_parser("active")
+    window_activate = window_actions.add_parser("activate")
+    window_activate.add_argument("id")
+
+    mouse_parser = subparsers.add_parser("mouse", help="操作宿主机鼠标")
+    mouse_actions = mouse_parser.add_subparsers(dest="mouse_action", required=True)
+    mouse_actions.add_parser("position")
+    mouse_move = mouse_actions.add_parser("move")
+    add_mouse_point(mouse_move)
+    mouse_move.add_argument("--duration", type=int, default=0)
+
+    mouse_click = mouse_actions.add_parser("click")
+    add_mouse_point(mouse_click)
+    mouse_click.add_argument("--button", choices=("left", "right", "middle"), default="left")
+    mouse_click.add_argument("--count", type=int, default=1)
+    mouse_click.add_argument("--duration", type=int, default=0)
+    mouse_click.add_argument("--expect-window", required=True)
+
+    mouse_drag = mouse_actions.add_parser("drag")
+    mouse_drag.add_argument("--display", type=int, default=0)
+    mouse_drag.add_argument("--from-x", type=int, required=True)
+    mouse_drag.add_argument("--from-y", type=int, required=True)
+    mouse_drag.add_argument("--to-x", type=int, required=True)
+    mouse_drag.add_argument("--to-y", type=int, required=True)
+    mouse_drag.add_argument("--button", choices=("left", "right", "middle"), default="left")
+    mouse_drag.add_argument("--duration", type=int, default=0)
+    mouse_drag.add_argument("--expect-window", required=True)
+
+    mouse_scroll = mouse_actions.add_parser("scroll")
+    add_mouse_point(mouse_scroll)
+    mouse_scroll.add_argument("--dx", type=int, default=0)
+    mouse_scroll.add_argument("--dy", type=int, default=0)
+    mouse_scroll.add_argument("--expect-window", required=True)
+
+    keyboard_parser = subparsers.add_parser("keyboard", help="操作宿主机键盘")
+    keyboard_actions = keyboard_parser.add_subparsers(dest="keyboard_action", required=True)
+    keyboard_press = keyboard_actions.add_parser("press")
+    keyboard_press.add_argument("key")
+    keyboard_press.add_argument("--count", type=int, default=1)
+    keyboard_press.add_argument("--interval", type=int, default=0)
+    keyboard_press.add_argument("--expect-window", required=True)
+
+    keyboard_hotkey = keyboard_actions.add_parser("hotkey")
+    keyboard_hotkey.add_argument("keys", nargs="+")
+    keyboard_hotkey.add_argument("--expect-window", required=True)
+
+    keyboard_type = keyboard_actions.add_parser("type")
+    keyboard_type.add_argument("text", nargs="?")
+    keyboard_type.add_argument("--stdin", action="store_true")
+    keyboard_type.add_argument("--interval", type=int, default=0)
+    keyboard_type.add_argument("--expect-window", required=True)
+
+
+def add_mouse_point(parser):
+    parser.add_argument("--display", type=int, default=0)
+    parser.add_argument("--x", type=int, required=True)
+    parser.add_argument("--y", type=int, required=True)
 
 
 def add_system_commands(subparsers):
@@ -186,6 +256,7 @@ def build_parser():
     add_file_commands(subparsers)
     add_desktop_commands(subparsers)
     add_system_commands(subparsers)
+    add_rpa_commands(subparsers)
     return parser
 
 
@@ -245,8 +316,17 @@ def handle_desktop(args):
     if args.action == "screenshot":
         profile_home = os.environ.get("HERMES_DOCK_PROFILE_HOME", "/opt/data")
         output = args.output or os.path.join(profile_home, "tmp", "host-screen.png")
-        write_container_file(output, request_bytes("/v1/screenshot", {"display": args.display}))
-        print(output)
+        data, headers = request_bytes("/v1/screenshot", {"display": args.display})
+        write_container_file(output, data)
+        if args.json_output:
+            print_json({
+                "path": output,
+                "display": int(headers["X-Screenshot-Display"]),
+                "width": int(headers["X-Screenshot-Width"]),
+                "height": int(headers["X-Screenshot-Height"]),
+            })
+        else:
+            print(output)
         return 0
     if args.action == "open":
         print_json(request_json("/v1/open", {"target": args.target}))
@@ -273,6 +353,64 @@ def handle_system(args):
     return None
 
 
+def handle_rpa(args):
+    if args.action == "rpa":
+        if args.rpa_action == "info":
+            print_json(request_json("/v1/rpa/info"))
+        else:
+            print_json(request_json("/v1/rpa/release", {}))
+        return 0
+    if args.action == "window":
+        if args.window_action == "list":
+            print_json(request_json("/v1/rpa/windows"))
+        elif args.window_action == "active":
+            print_json(request_json("/v1/rpa/windows/active"))
+        else:
+            print_json(request_json("/v1/rpa/windows/activate", {"id": args.id}))
+        return 0
+    if args.action == "mouse":
+        if args.mouse_action == "position":
+            print_json(request_json("/v1/rpa/mouse"))
+            return 0
+        payload = {
+            "action": args.mouse_action,
+            "display": args.display,
+            "duration_ms": getattr(args, "duration", 0),
+            "expected_window_id": getattr(args, "expect_window", ""),
+        }
+        if args.mouse_action == "drag":
+            payload.update({
+                "from_x": args.from_x,
+                "from_y": args.from_y,
+                "to_x": args.to_x,
+                "to_y": args.to_y,
+                "button": args.button,
+            })
+        else:
+            payload.update({"x": args.x, "y": args.y})
+            if args.mouse_action == "click":
+                payload.update({"button": args.button, "count": args.count})
+            elif args.mouse_action == "scroll":
+                payload.update({"dx": args.dx, "dy": args.dy})
+        print_json(request_json("/v1/rpa/mouse", payload))
+        return 0
+    if args.action == "keyboard":
+        payload = {
+            "action": args.keyboard_action,
+            "expected_window_id": args.expect_window,
+        }
+        if args.keyboard_action == "press":
+            payload.update({"key": args.key, "count": args.count, "interval_ms": args.interval})
+        elif args.keyboard_action == "hotkey":
+            payload["keys"] = args.keys
+        else:
+            text = sys.stdin.read() if args.stdin or args.text is None else args.text
+            payload.update({"text": text, "interval_ms": args.interval})
+        print_json(request_json("/v1/rpa/keyboard", payload))
+        return 0
+    return None
+
+
 def main():
     args = build_parser().parse_args()
     try:
@@ -289,6 +427,9 @@ def main():
         if result is not None:
             return result
         result = handle_system(args)
+        if result is not None:
+            return result
+        result = handle_rpa(args)
         if result is not None:
             return result
         raise RuntimeError("未知操作")

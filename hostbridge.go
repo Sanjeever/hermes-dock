@@ -112,6 +112,13 @@ func (a *App) startHostBridge() error {
 	mux.HandleFunc("/v1/screenshot", a.requireHostBridgeToken(a.handleHostScreenshot))
 	mux.HandleFunc("/v1/open", a.requireHostBridgeToken(a.handleHostOpen))
 	mux.HandleFunc("/v1/launch", a.requireHostBridgeToken(a.handleHostLaunch))
+	mux.HandleFunc("/v1/rpa/info", a.requireHostBridgeToken(a.handleHostRPAInfo))
+	mux.HandleFunc("/v1/rpa/release", a.requireHostBridgeToken(a.handleHostRPARelease))
+	mux.HandleFunc("/v1/rpa/windows", a.requireHostBridgeToken(a.handleHostRPAWindows))
+	mux.HandleFunc("/v1/rpa/windows/active", a.requireHostBridgeToken(a.handleHostRPAActiveWindow))
+	mux.HandleFunc("/v1/rpa/windows/activate", a.requireHostBridgeToken(a.handleHostRPAActivateWindow))
+	mux.HandleFunc("/v1/rpa/mouse", a.requireHostBridgeToken(a.handleHostRPAMouse))
+	mux.HandleFunc("/v1/rpa/keyboard", a.requireHostBridgeToken(a.handleHostRPAKeyboard))
 	runtimeState.server = &http.Server{
 		Handler:           mux,
 		BaseContext:       func(net.Listener) context.Context { return bridgeCtx },
@@ -145,6 +152,10 @@ func (a *App) stopHostBridge(ctx context.Context) {
 		runtimeState.cancel()
 		_ = runtimeState.server.Shutdown(ctx)
 	}
+	a.hostRPAMu.Lock()
+	a.hostRPAOwner = ""
+	a.hostRPAExpiresAt = time.Time{}
+	a.hostRPAMu.Unlock()
 }
 
 func (a *App) syncHostBridge(enabled bool) error {

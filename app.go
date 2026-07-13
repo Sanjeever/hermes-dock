@@ -34,6 +34,9 @@ type App struct {
 	hostBridge        *hostBridgeRuntime
 	hostBridgeMu      sync.RWMutex
 	hostBridgeAddr    string
+	hostRPAMu         sync.Mutex
+	hostRPAOwner      string
+	hostRPAExpiresAt  time.Time
 	notificationMu    sync.Mutex
 	notificationReady bool
 }

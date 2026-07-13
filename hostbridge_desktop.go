@@ -201,6 +201,7 @@ func (a *App) handleHostScreenshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("X-Screenshot-Display", fmt.Sprintf("%d", req.Display))
 	w.Header().Set("X-Screenshot-Width", fmt.Sprintf("%d", bounds.Dx()))
 	w.Header().Set("X-Screenshot-Height", fmt.Sprintf("%d", bounds.Dy()))
 	w.WriteHeader(http.StatusOK)
