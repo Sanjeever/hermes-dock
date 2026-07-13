@@ -30,6 +30,7 @@ func defaultComposeSettings() ComposeSettings {
 		GatewayBusyInputMode:    "steer",
 		GatewayBusyAckEnabled:   "false",
 		BackgroundNotifications: "result",
+		HostControlEnabled:      "true",
 		MemoryLimit:             fallbackMemoryLimit,
 		CPULimit:                fallbackCPULimit,
 		ShmSize:                 "1g",
@@ -77,6 +78,12 @@ func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	}
 	if settings.BackgroundNotifications == "" {
 		settings.BackgroundNotifications = defaults.BackgroundNotifications
+	}
+	if settings.HostControlEnabled == "" {
+		settings.HostControlEnabled = defaults.HostControlEnabled
+	}
+	if !oneOf(settings.HostControlEnabled, "true", "false") {
+		settings.HostControlEnabled = defaults.HostControlEnabled
 	}
 	if !oneOf(settings.BackgroundNotifications, "all", "result", "error", "off") {
 		settings.BackgroundNotifications = defaults.BackgroundNotifications
@@ -193,7 +200,10 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	state.ComposeSettings = settings
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	if err := a.writeState(state); err != nil {
+		return err
+	}
+	return a.syncHostBridge(settings.HostControlEnabled == "true")
 }
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
@@ -282,6 +292,8 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	content := string(data)
 	if strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
+		strings.Contains(content, "host-bridge.token") &&
+		strings.Contains(content, "/usr/local/bin/hostctl") &&
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
 		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") {
 		return nil
@@ -293,7 +305,6 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
 	settings = withComposeDefaults(settings)
 	proxy = withProxyDefaults(proxy)
 	dashboard := "1"
-	proxyHosts := renderComposeProxyHosts(proxy)
 	proxyEnv := renderComposeProxyEnvironment(proxy)
 	return fmt.Sprintf(`services:
   init-permissions:
@@ -322,7 +333,8 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
     dns:
       - 223.5.5.5
       - 119.29.29.29
-%s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     shm_size: %s
     ports:
       - "%s:%s:8642"
@@ -349,22 +361,14 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
       - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
+      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro
+      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro
     deploy:
       resources:
         limits:
           memory: %s
           cpus: "%s"
-`, settings.Image, settings.ContainerName, proxyHosts, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, settings.MemoryLimit, settings.CPULimit)
-}
-
-func renderComposeProxyHosts(proxy ProxySettings) string {
-	proxy = withProxyDefaults(proxy)
-	if !proxy.Enabled {
-		return ""
-	}
-	return `    extra_hosts:
-      - "host.docker.internal:host-gateway"
-`
+`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, settings.MemoryLimit, settings.CPULimit)
 }
 
 func renderComposeProxyEnvironment(proxy ProxySettings) string {

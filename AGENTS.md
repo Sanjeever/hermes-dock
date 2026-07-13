@@ -39,6 +39,7 @@ platforms.go               企业微信、飞书和通道相关操作
 paths.go                   实例路径和 safePath 限制
 backup.go                  写入前备份
 web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
+hostbridge.go              宿主机命令执行、Token 认证、超时和输出限制
 ```
 
 多 profile 相关路径约定：
@@ -50,6 +51,7 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 ~/.hermes-dock/launcher/web-server.json  Web 管理配置
 ~/.hermes-dock/launcher/web-sessions.json Web 登录会话
 ~/.hermes-dock/launcher/logs/web-server.log Web 访问日志
+~/.hermes-dock/launcher/host-bridge.token Host Bridge 随机认证 Token
 ~/.hermes-dock/data/.dock/               runner 派生运行态
 ```
 
@@ -65,8 +67,9 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - 整实例 `.hdbackup` 导出用于设备迁移，包含 `.env` 密钥、平台账号凭据和 Web 管理配置；UI 必须明确提示备份文件包含敏感信息。
 - 整实例导出如果容器正在运行，应先 `docker compose stop`，导出结束后 `docker compose start` 恢复，避免备份写入中的用户数据；不要用 `down + up` 做导出恢复，避免意外应用未重建配置。
 - 整实例导入是覆盖导入，必须先校验备份、执行 `docker compose down`，再生成当前设备的 pre-import `.hdbackup`；任一步失败都中止导入。
-- 整实例备份不包含 `launcher/backups`、`launcher/logs`、`launcher/web-sessions.json` 或 `data/.dock` 派生运行态。
+- 整实例备份不包含 `launcher/backups`、`launcher/logs`、`launcher/web-sessions.json`、`launcher/host-bridge.token` 或 `data/.dock` 派生运行态；导入后为当前设备重新生成 Host Bridge Token。
 - 不要把密钥写入 `launcher/state.json`。
+- Host Bridge Token 只保存在 `launcher/host-bridge.token`，权限为 `0600`，不得返回 UI、写入日志、profile registry 或 runtime manifest。
 - 不要把密钥写入 `launcher/profiles.json`、`data/.dock/profiles-runtime.json` 或 `data/.dock/profile-status.json`。
 - UI 日志、事件、错误信息中不要输出完整 token、API key、secret。
 - Web 管理与桌面端保持同等管理能力，会返回和编辑当前 profile 的完整环境配置；访问密码是远程管理边界。
@@ -85,6 +88,8 @@ web.go                     内置 Web 管理、登录会话、RPC 和 WebSocket
 - 控制台认证环境变量，控制台固定启用。
 - 中国大陆友好的 pip、uv、npm 镜像源。
 - 飞书运行依赖通过 `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，由 s6-overlay 在 profile runner 前执行。
+- 宿主机控制 helper 通过 `launcher/helpers/hostctl` 挂载到 `/usr/local/bin/hostctl`，容器使用 `host.docker.internal:9877` 访问桌面主进程内的 Host Bridge。
+- Host Bridge 默认开启、静默执行且不逐次审批；使用随机 Token 认证，以当前宿主机用户身份运行，不自动提权，Dock 退出时停止。
 - 单 profile 版本使用 `env_file: ./data/.env`；多 profile runner 版本不能用一个全局 `env_file` 表达 profile 运行态密钥。
 - `volumes: ./data:/opt/data`。
 - 资源配额默认值按 Docker daemon 可用资源计算，不直接读取物理机总资源：内存限制为 `max(floor(Docker MemTotal / GiB) - 2, 1)G`，CPU 限制为 Docker `NCPU` 全量并格式化为一位小数，例如 `8.0`。

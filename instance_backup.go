@@ -168,6 +168,9 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 	if err := a.clearWebSessions(); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
+	if err := a.syncHostBridge(settings.HostControlEnabled == "true"); err != nil {
+		return InstanceBackupImportResult{}, err
+	}
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		a.stopWebServer(context.Background())

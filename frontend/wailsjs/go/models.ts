@@ -1,5 +1,23 @@
 export namespace main {
 	
+	export class HostBridgeStatus {
+	    enabled: boolean;
+	    running: boolean;
+	    address: string;
+	    error: string;
+
+	    static createFrom(source: any = {}) {
+	        return new HostBridgeStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.running = source["running"];
+	        this.address = source["address"];
+	        this.error = source["error"];
+	    }
+	}
 	export class WebStatus {
 	    enabled: boolean;
 	    running: boolean;
@@ -391,6 +409,7 @@ export namespace main {
 	    gatewayBusyInputMode: string;
 	    gatewayBusyAckEnabled: string;
 	    backgroundNotifications: string;
+	    hostControlEnabled: string;
 	    memoryLimit: string;
 	    cpuLimit: string;
 	    shmSize: string;
@@ -413,6 +432,7 @@ export namespace main {
 	        this.gatewayBusyInputMode = source["gatewayBusyInputMode"];
 	        this.gatewayBusyAckEnabled = source["gatewayBusyAckEnabled"];
 	        this.backgroundNotifications = source["backgroundNotifications"];
+	        this.hostControlEnabled = source["hostControlEnabled"];
 	        this.memoryLimit = source["memoryLimit"];
 	        this.cpuLimit = source["cpuLimit"];
 	        this.shmSize = source["shmSize"];
@@ -497,6 +517,7 @@ export namespace main {
 	    composeAvailable: boolean;
 	    containerStatus: string;
 	    web: WebStatus;
+	    hostBridge: HostBridgeStatus;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -520,6 +541,7 @@ export namespace main {
 	        this.composeAvailable = source["composeAvailable"];
 	        this.containerStatus = source["containerStatus"];
 	        this.web = this.convertValues(source["web"], WebStatus);
+	        this.hostBridge = this.convertValues(source["hostBridge"], HostBridgeStatus);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -603,6 +625,7 @@ export namespace main {
 	        this.groupPolicy = source["groupPolicy"];
 	    }
 	}
+
 	export class InstanceBackupImportRequest {
 	    path: string;
 	    confirm: string;
@@ -1343,4 +1366,3 @@ export namespace main {
 	}
 
 }
-

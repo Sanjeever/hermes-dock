@@ -96,6 +96,10 @@ func (a *App) profilesPath() string {
 	return filepath.Join(a.hermesDockDir(), "profiles.json")
 }
 
+func (a *App) hostBridgeTokenPath() string {
+	return filepath.Join(a.hermesDockDir(), "host-bridge.token")
+}
+
 func (a *App) updateStatePath() string {
 	return filepath.Join(a.hermesDockDir(), "update.json")
 }

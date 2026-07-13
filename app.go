@@ -16,7 +16,7 @@ import (
 
 const (
 	appVersion      = "1.8.0"
-	templateVersion = "2026.07.08"
+	templateVersion = "2026.07.13"
 	defaultImage    = "nousresearch/hermes-agent:v2026.6.19"
 )
 
@@ -31,6 +31,8 @@ type App struct {
 	loginPlatform string
 	startupErr    error
 	web           *webRuntime
+	hostBridge    *hostBridgeRuntime
+	hostBridgeMu  sync.RWMutex
 }
 
 func NewApp() *App {
@@ -42,6 +44,7 @@ func (a *App) startup(ctx context.Context) {
 	a.instanceRoot = detectInstanceRoot()
 	a.startupErr = a.ensureInstanceReady()
 	if a.startupErr == nil {
+		a.startHostBridge()
 		a.startWebServer()
 		a.startTray()
 	}
@@ -49,6 +52,7 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) shutdown(ctx context.Context) {
 	a.stopTray()
+	a.stopHostBridge(ctx)
 	a.stopWebServer(ctx)
 	a.cancelLoginSession("")
 	a.StopTailLogs()
@@ -90,6 +94,7 @@ func (a *App) GetAppState() (AppState, error) {
 		ComposeAvailable: a.composeAvailable(context.Background()),
 		ContainerStatus:  containerStatus,
 		Web:              a.webStatus(),
+		HostBridge:       a.hostBridgeStatus(),
 	}, nil
 }
 
@@ -260,6 +265,7 @@ func (a *App) FactoryResetInstance() error {
 	if err := a.validateResetRoot(); err != nil {
 		return err
 	}
+	a.stopHostBridge(context.Background())
 	a.StopTailLogs()
 	if a.loginCancel != nil {
 		a.loginCancel()
@@ -275,7 +281,10 @@ func (a *App) FactoryResetInstance() error {
 		return err
 	}
 	a.startupErr = nil
-	return a.ensureInstanceReadyLocked()
+	if err := a.ensureInstanceReadyLocked(); err != nil {
+		return err
+	}
+	return a.startHostBridge()
 }
 
 func (a *App) validateResetRoot() error {

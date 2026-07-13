@@ -149,12 +149,12 @@ export function OperationsPage(props: {
             )}
             {activeTab === 'basic' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'network' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'advanced' && (

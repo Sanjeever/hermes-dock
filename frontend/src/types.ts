@@ -17,6 +17,7 @@ export type ComposeSettings = {
     gatewayBusyInputMode: string;
     gatewayBusyAckEnabled: string;
     backgroundNotifications: string;
+    hostControlEnabled: string;
     memoryLimit: string;
     cpuLimit: string;
     shmSize: string;
@@ -198,6 +199,14 @@ export type AppState = {
     composeAvailable: boolean;
     containerStatus: string;
     web: WebStatus;
+    hostBridge: HostBridgeStatus;
+};
+
+export type HostBridgeStatus = {
+    enabled: boolean;
+    running: boolean;
+    address: string;
+    error: string;
 };
 
 export type WebStatus = {

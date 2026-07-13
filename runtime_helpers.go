@@ -1,13 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
-//go:embed scripts/install-feishu-deps.sh scripts/patch-wecom-filenames.sh
+//go:embed scripts/hostctl.py scripts/install-feishu-deps.sh scripts/patch-wecom-filenames.sh
 var runtimeHelperFS embed.FS
 
 func (a *App) feishuDepsHelperPath() string {
@@ -18,6 +20,10 @@ func (a *App) wecomFilenamePatchHelperPath() string {
 	return filepath.Join(a.hermesDockDir(), "helpers", "patch-wecom-filenames")
 }
 
+func (a *App) hostctlHelperPath() string {
+	return filepath.Join(a.hermesDockDir(), "helpers", "hostctl")
+}
+
 func (a *App) ensureFeishuDepsHelper() error {
 	return a.ensureRuntimeHelper("scripts/install-feishu-deps.sh", a.feishuDepsHelperPath(), "飞书依赖 helper")
 }
@@ -26,11 +32,36 @@ func (a *App) ensureWecomFilenamePatchHelper() error {
 	return a.ensureRuntimeHelper("scripts/patch-wecom-filenames.sh", a.wecomFilenamePatchHelperPath(), "企业微信文件名修复 helper")
 }
 
+func (a *App) ensureHostctlHelper() error {
+	return a.ensureRuntimeHelper("scripts/hostctl.py", a.hostctlHelperPath(), "宿主机控制 helper")
+}
+
 func (a *App) ensureContainerInitHelpers() error {
+	if err := a.ensureHostBridgeToken(); err != nil {
+		return err
+	}
 	if err := a.ensureFeishuDepsHelper(); err != nil {
 		return err
 	}
-	return a.ensureWecomFilenamePatchHelper()
+	if err := a.ensureWecomFilenamePatchHelper(); err != nil {
+		return err
+	}
+	return a.ensureHostctlHelper()
+}
+
+func (a *App) ensureHostBridgeToken() error {
+	path := a.hostBridgeTokenPath()
+	if data, err := os.ReadFile(path); err == nil && len(data) >= 64 {
+		return os.Chmod(path, 0600)
+	}
+	if err := ensureDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return fmt.Errorf("生成宿主机控制令牌失败：%w", err)
+	}
+	return atomicWriteFile(path, []byte(hex.EncodeToString(raw)+"\n"), 0600)
 }
 
 func (a *App) ensureRuntimeHelper(source string, target string, label string) error {

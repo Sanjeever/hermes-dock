@@ -1,12 +1,12 @@
 ---
 name: hermes-dock
 description: "Guide users through the 企智盒 (Hermes Dock) desktop launcher and Web management UI: first-run setup, assistant profiles, model configuration, platform binding, personality editing, default personality restore, skills management, bundled skill sync/default restore, service status, logs, deployment settings, Web management, and troubleshooting. Use when users ask about configuring or operating 企智盒, or when you need to self-diagnose your own runtime configuration."
-version: 1.3.1
+version: 1.4.0
 platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [hermes-dock, 企智盒, docker, 配置, 运维, gui-guide, 桌面启动器]
-    related_skills: [hermes-agent]
+    related_skills: [hermes-agent, hermes-dock-host]
 ---
 
 # 企智盒操作指引
@@ -15,9 +15,9 @@ metadata:
 
 你运行在企智盒（Hermes Dock）管理的 Docker 实例中。企智盒是一个桌面启动器，用桌面 GUI 和内置 Web 管理界面管理本机单个 Hermes Agent Docker 容器。用户通过界面完成助手配置、模型服务、平台绑定、skills 管理、服务启停、配置应用和日志诊断。
 
-**重要限制**：你运行在容器内部，无法执行 Docker 启动、停止、重建等宿主机操作。所有服务操作必须由用户在企智盒 GUI 中完成。当用户要求你执行容器操作时，请说明限制，并给出具体入口。例如：
+你运行在容器内部，但企智盒提供 `hostctl` 操作宿主机。需要读取宿主机信息、运行宿主机命令、打开应用或处理宿主机文件时，使用 `hermes-dock-host` skill。宿主机操作已经由用户统一授权，无需逐次确认。
 
-> 我无法从容器内重启服务。请打开企智盒，在「运行 → 服务状态」里点击「重启服务」或「应用配置」。
+涉及当前 Hermes 容器自身的停止、重建或恢复出厂设置时，优先引导用户使用企智盒界面，避免执行过程中连接中断或破坏用户数据。
 
 Hermes 本身的功能（CLI、工具、记忆、Kanban、cron 等）请参考 `hermes-agent` skill。本 skill 只覆盖企智盒界面操作和自查运行态。
 

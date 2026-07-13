@@ -1,22 +1,30 @@
 package main
 
 type AppState struct {
-	AppVersion       string          `json:"appVersion"`
-	InstanceRoot     string          `json:"instanceRoot"`
-	State            LauncherState   `json:"state"`
-	Profiles         ProfileRegistry `json:"profiles"`
-	ActiveProfile    string          `json:"activeProfile"`
-	ProfileStatus    RuntimeStatus   `json:"profileStatus"`
-	Compose          ComposeSettings `json:"compose"`
-	Proxy            ProxySettings   `json:"proxy"`
-	Environment      []EnvVar        `json:"environment"`
-	Model            ModelConfig     `json:"model"`
-	Providers        ProviderConfig  `json:"providers"`
-	Channels         ChannelFile     `json:"channels"`
-	DockerAvailable  bool            `json:"dockerAvailable"`
-	ComposeAvailable bool            `json:"composeAvailable"`
-	ContainerStatus  string          `json:"containerStatus"`
-	Web              WebStatus       `json:"web"`
+	AppVersion       string           `json:"appVersion"`
+	InstanceRoot     string           `json:"instanceRoot"`
+	State            LauncherState    `json:"state"`
+	Profiles         ProfileRegistry  `json:"profiles"`
+	ActiveProfile    string           `json:"activeProfile"`
+	ProfileStatus    RuntimeStatus    `json:"profileStatus"`
+	Compose          ComposeSettings  `json:"compose"`
+	Proxy            ProxySettings    `json:"proxy"`
+	Environment      []EnvVar         `json:"environment"`
+	Model            ModelConfig      `json:"model"`
+	Providers        ProviderConfig   `json:"providers"`
+	Channels         ChannelFile      `json:"channels"`
+	DockerAvailable  bool             `json:"dockerAvailable"`
+	ComposeAvailable bool             `json:"composeAvailable"`
+	ContainerStatus  string           `json:"containerStatus"`
+	Web              WebStatus        `json:"web"`
+	HostBridge       HostBridgeStatus `json:"hostBridge"`
+}
+
+type HostBridgeStatus struct {
+	Enabled bool   `json:"enabled"`
+	Running bool   `json:"running"`
+	Address string `json:"address"`
+	Error   string `json:"error"`
 }
 
 type WebStatus struct {
@@ -210,6 +218,7 @@ type ComposeSettings struct {
 	GatewayBusyInputMode    string `json:"gatewayBusyInputMode"`
 	GatewayBusyAckEnabled   string `json:"gatewayBusyAckEnabled"`
 	BackgroundNotifications string `json:"backgroundNotifications"`
+	HostControlEnabled      string `json:"hostControlEnabled"`
 	MemoryLimit             string `json:"memoryLimit"`
 	CPULimit                string `json:"cpuLimit"`
 	ShmSize                 string `json:"shmSize"`

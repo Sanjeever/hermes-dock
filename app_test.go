@@ -70,6 +70,9 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
+		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
+		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
+		"      - \"host.docker.internal:host-gateway\"",
 	} {
 		if !strings.Contains(compose, want) {
 			t.Fatalf("compose missing %q:\n%s", want, compose)
@@ -267,6 +270,50 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	t.Helper()
 	assertFeishuDepsHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
+	assertHostctlHelper(t, root)
+	assertHostBridgeToken(t, root)
+}
+
+func assertHostctlHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "hostctl")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected hostctl helper: %v", err)
+	}
+	if !strings.Contains(string(data), "host.docker.internal:9877") {
+		t.Fatalf("hostctl helper missing Host Bridge address")
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(helper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode()&0111 == 0 {
+			t.Fatalf("hostctl mode = %v, want executable bit", info.Mode())
+		}
+	}
+}
+
+func assertHostBridgeToken(t *testing.T, root string) {
+	t.Helper()
+	token := filepath.Join(root, "launcher", "host-bridge.token")
+	data, err := os.ReadFile(token)
+	if err != nil {
+		t.Fatalf("expected Host Bridge token: %v", err)
+	}
+	if len(strings.TrimSpace(string(data))) != 64 {
+		t.Fatalf("Host Bridge token length = %d, want 64", len(strings.TrimSpace(string(data))))
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(token)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("Host Bridge token mode = %v, want 0600", info.Mode().Perm())
+		}
+	}
 }
 
 func assertFeishuDepsHelper(t *testing.T, root string) {

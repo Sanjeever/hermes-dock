@@ -2,13 +2,14 @@ import {useEffect, useRef, useState, type ReactNode} from 'react';
 import {Cpu, Network, RotateCcw, Save} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {GetRecommendedResourceLimits} from '../services/api';
-import type {ComposeSettings, ProxySettings} from '../types';
+import type {ComposeSettings, HostBridgeStatus, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
-export function DeployPage({section = 'basic', compose, proxy, setCompose, setProxy, dirty, busy, onSave, onDiscard}: {
+export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCompose, setProxy, dirty, busy, onSave, onDiscard}: {
     section?: 'basic' | 'network';
     compose: ComposeSettings;
     proxy: ProxySettings;
+    hostBridge: HostBridgeStatus;
     setCompose: (value: ComposeSettings) => void;
     setProxy: (value: ProxySettings) => void;
     dirty: boolean;
@@ -109,6 +110,23 @@ export function DeployPage({section = 'basic', compose, proxy, setCompose, setPr
                                 <Field label="用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
                                 <SecretField label="密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
                                 {compose.dashboardPassword === '123456' && <div className="form-warning">仍在使用默认密码，建议修改。</div>}
+                            </div>
+                        </SettingRow>
+                        <SettingRow title="宿主机控制" description="允许 Hermes 以当前用户身份静默操作这台电脑。">
+                            <div className="setting-control-stack">
+                                <label className="toggle">
+                                    <input
+                                        type="checkbox"
+                                        checked={compose.hostControlEnabled !== 'false'}
+                                        onChange={(event) => setCompose({...compose, dashboardEnabled: true, hostControlEnabled: event.target.checked ? 'true' : 'false'})}
+                                    />
+                                    允许宿主机操作
+                                </label>
+                                {compose.hostControlEnabled !== 'false' && (
+                                    <div className="form-warning">Hermes 可以静默运行宿主机命令、访问文件和启动应用，不会逐次请求确认。</div>
+                                )}
+                                {hostBridge.error && <div className="form-warning">启动失败：{hostBridge.error}</div>}
+                                {!hostBridge.error && hostBridge.enabled && <div className="setting-note">{hostBridge.running ? '宿主机控制服务正在运行。' : '保存后启动宿主机控制服务。'}</div>}
                             </div>
                         </SettingRow>
                     </div>
