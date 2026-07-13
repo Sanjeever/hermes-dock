@@ -33,12 +33,13 @@ type App struct {
 	web               *webRuntime
 	hostBridge        *hostBridgeRuntime
 	hostBridgeMu      sync.RWMutex
+	hostBridgeAddr    string
 	notificationMu    sync.Mutex
 	notificationReady bool
 }
 
 func NewApp() *App {
-	return &App{}
+	return &App{hostBridgeAddr: hostBridgeAddress}
 }
 
 func (a *App) startup(ctx context.Context) {

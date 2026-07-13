@@ -14,7 +14,9 @@ func TestSaveProxySettingsWritesConfigAndCompose(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -58,7 +60,9 @@ func TestSaveProxySettingsBacksUpExistingConfig(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}

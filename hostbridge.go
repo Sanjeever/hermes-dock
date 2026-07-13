@@ -87,7 +87,7 @@ func (a *App) startHostBridge() error {
 	if a.hostBridge != nil && a.hostBridge.running {
 		return nil
 	}
-	listener, err := net.Listen("tcp", hostBridgeAddress)
+	listener, err := net.Listen("tcp", a.hostBridgeAddr)
 	if err != nil {
 		a.hostBridge = &hostBridgeRuntime{err: err.Error()}
 		return fmt.Errorf("启动宿主机控制服务失败：%w", err)
@@ -160,7 +160,7 @@ func (a *App) hostBridgeStatus() HostBridgeStatus {
 	defer a.hostBridgeMu.RUnlock()
 	status := HostBridgeStatus{
 		Enabled: a.readComposeSettings().HostControlEnabled == "true",
-		Address: hostBridgeAddress,
+		Address: a.hostBridgeAddr,
 	}
 	if a.hostBridge != nil {
 		status.Running = a.hostBridge.running

@@ -5,11 +5,11 @@ export namespace main {
 	    running: boolean;
 	    address: string;
 	    error: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new HostBridgeStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.enabled = source["enabled"];
@@ -625,7 +625,7 @@ export namespace main {
 	        this.groupPolicy = source["groupPolicy"];
 	    }
 	}
-
+	
 	export class InstanceBackupImportRequest {
 	    path: string;
 	    confirm: string;
@@ -1366,3 +1366,4 @@ export namespace main {
 	}
 
 }
+

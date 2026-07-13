@@ -15,7 +15,9 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -47,7 +49,9 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -89,7 +93,9 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -126,7 +132,9 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -203,7 +211,9 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *test
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
@@ -246,7 +256,9 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	app := NewApp()
+	app.hostBridgeAddr = "127.0.0.1:0"
 	app.startup(context.Background())
+	t.Cleanup(func() { app.stopHostBridge(context.Background()) })
 	if app.startupErr != nil {
 		t.Fatal(app.startupErr)
 	}
