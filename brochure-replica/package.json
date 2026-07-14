@@ -1,0 +1,8 @@
+{
+	"dependencies": {
+		"lucide": "0.468.0"
+	},
+	"devDependencies": {
+		"qrcode": "1.5.4"
+	}
+}
