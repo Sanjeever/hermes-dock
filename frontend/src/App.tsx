@@ -89,6 +89,7 @@ function App() {
     const logRef = useRef<HTMLPreElement>(null!);
     const [logsFollowing, setLogsFollowing] = useState(false);
     const [busy, setBusy] = useState('');
+    const [statusRefreshing, setStatusRefreshing] = useState(false);
     const [notice, setNotice] = useState<Notice | null>(null);
     const [refreshError, setRefreshError] = useState('');
     const [needsRebuild, setNeedsRebuild] = useState(false);
@@ -337,6 +338,18 @@ function App() {
         }
         setRefreshError('');
         return '';
+    }
+
+    async function refreshStatus() {
+        setStatusRefreshing(true);
+        try {
+            const message = await refresh();
+            setNotice(message
+                ? {type: 'error', message: `刷新状态失败：${message}`}
+                : {type: 'ok', message: '总览、助手和运行状态已刷新'});
+        } finally {
+            setStatusRefreshing(false);
+        }
     }
 
     async function selectProfile(id: string) {
@@ -1008,7 +1021,10 @@ function App() {
                                 {containerStatusText(state?.containerStatus)}
                             </div>
                         )}
-                        <button className="ghost topbar-update-button" onClick={() => updates.check(true)} disabled={updates.busy}>
+                        <button className="ghost topbar-action-button" onClick={refreshStatus} disabled={statusRefreshing} aria-busy={statusRefreshing}>
+                            <RefreshCcw size={15} className={statusRefreshing ? 'spin' : undefined}/>{statusRefreshing ? '刷新中' : '刷新状态'}
+                        </button>
+                        <button className="ghost topbar-action-button" onClick={() => updates.check(true)} disabled={updates.busy}>
                             <RefreshCcw size={15}/>{updates.busy ? '检查中' : '检查更新'}
                         </button>
                     </div>
