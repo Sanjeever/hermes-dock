@@ -7,7 +7,7 @@ import logo from './assets/qizhih-box-logo.png';
 gsap.registerPlugin(ScrollTrigger);
 ScrollTrigger.config({ignoreMobileResize: true, limitCallbacks: true});
 
-const leadEndpoint = import.meta.env.VITE_LEAD_ENDPOINT;
+const leadEndpoint = '/api/demo-requests';
 type FormField = 'name' | 'company' | 'phone';
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -216,27 +216,27 @@ function App() {
             return;
         }
 
-        if (!leadEndpoint) {
-            setFormState('error');
-            setFormMessage('预约服务尚未接入，请联系企智盒顾问安排演示。');
-            return;
-        }
-
         setFormState('submitting');
         setFormMessage('正在提交预约信息…');
+        let failureMessage = '暂时无法提交预约，请稍后重试或直接联系企智盒顾问。';
         try {
             const response = await fetch(leadEndpoint, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(Object.fromEntries(values)),
             });
-            if (!response.ok) throw new Error(`预约服务返回 ${response.status}`);
+            if (!response.ok) {
+                if (response.status === 429) failureMessage = '提交过于频繁，请稍后再试。';
+                else if (response.status >= 500) failureMessage = '预约服务暂时不可用，请稍后重试。';
+                else failureMessage = '预约信息有误，请检查后重新提交。';
+                throw new Error('预约请求失败');
+            }
             form.reset();
             setFormState('success');
             setFormMessage('已收到预约。企智盒顾问会在 1 个工作日内与您联系。');
         } catch {
             setFormState('error');
-            setFormMessage('暂时无法提交预约，请稍后重试或直接联系企智盒顾问。');
+            setFormMessage(failureMessage);
         }
     };
 
@@ -336,24 +336,28 @@ function App() {
                     <p>适合有稳定业务、希望从销售、客服、运营或内部协作开始的团队。预约演示后，可根据你的实际情况安排上门评估。</p>
                 </div>
                 <form className="contact-form" noValidate onSubmit={handleSubmit}>
+                    <div className="form-trap" aria-hidden="true">
+                        <label htmlFor="website">网站</label>
+                        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+                    </div>
                     <div className="form-field">
                         <label htmlFor="name">姓名</label>
-                        <input aria-describedby={fieldErrors.name ? 'name-error' : undefined} aria-invalid={Boolean(fieldErrors.name)} id="name" name="name" placeholder="如何称呼您" autoComplete="name" onChange={clearFieldError('name')} />
+                        <input aria-describedby={fieldErrors.name ? 'name-error' : undefined} aria-invalid={Boolean(fieldErrors.name)} id="name" name="name" placeholder="如何称呼您" autoComplete="name" maxLength={50} onChange={clearFieldError('name')} />
                         {fieldErrors.name && <p className="field-error" id="name-error">{fieldErrors.name}</p>}
                     </div>
                     <div className="form-field">
                         <label htmlFor="company">企业名称</label>
-                        <input aria-describedby={fieldErrors.company ? 'company-error' : undefined} aria-invalid={Boolean(fieldErrors.company)} id="company" name="company" placeholder="您的企业名称" autoComplete="organization" onChange={clearFieldError('company')} />
+                        <input aria-describedby={fieldErrors.company ? 'company-error' : undefined} aria-invalid={Boolean(fieldErrors.company)} id="company" name="company" placeholder="您的企业名称" autoComplete="organization" maxLength={100} onChange={clearFieldError('company')} />
                         {fieldErrors.company && <p className="field-error" id="company-error">{fieldErrors.company}</p>}
                     </div>
                     <div className="form-field">
                         <label htmlFor="phone">联系电话</label>
-                        <input aria-describedby={fieldErrors.phone ? 'phone-error' : undefined} aria-invalid={Boolean(fieldErrors.phone)} id="phone" name="phone" placeholder="方便联系您的电话" autoComplete="tel" type="tel" inputMode="tel" onChange={clearFieldError('phone')} />
+                        <input aria-describedby={fieldErrors.phone ? 'phone-error' : undefined} aria-invalid={Boolean(fieldErrors.phone)} id="phone" name="phone" placeholder="方便联系您的电话" autoComplete="tel" type="tel" inputMode="tel" maxLength={20} onChange={clearFieldError('phone')} />
                         {fieldErrors.phone && <p className="field-error" id="phone-error">{fieldErrors.phone}</p>}
                     </div>
                     <div className="form-field">
                         <label htmlFor="need">想先解决什么问题</label>
-                        <textarea id="need" name="need" placeholder="例如：客户跟进、资料查询、运营日报……" rows={3} />
+                        <textarea id="need" name="need" placeholder="例如：客户跟进、资料查询、运营日报……" rows={3} maxLength={1000} />
                     </div>
                     <p className="form-privacy">提交即表示你同意企智盒仅为安排本次演示与评估联系你。</p>
                     <button aria-busy={formState === 'submitting'} className="button button-coral" disabled={formState === 'submitting'} type="submit">{formState === 'submitting' ? '正在提交' : '预约演示'} <ArrowRight aria-hidden="true" size={18} /></button>

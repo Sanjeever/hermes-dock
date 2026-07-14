@@ -2,6 +2,10 @@ build/bin
 node_modules
 frontend/dist
 frontend/package.json.md5
+website/dist
+website/.wrangler
+website/.dev.vars*
+!website/.dev.vars.example
 .DS_Store
 .hermes-dock
 /data
