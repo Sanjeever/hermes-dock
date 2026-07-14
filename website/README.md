@@ -1,50 +1,290 @@
 # 企智盒官网
 
-`website` 是 React + Vite 单页站点，静态页面和预约接口一起部署到 Cloudflare Workers。
+`website` 包含两部分：
 
-本项目使用 Node.js 24 或更高版本。
+- React + Vite 前端，构建后的 `dist/` 直接上传到现有 Nginx 静态目录。
+- 原生 JavaScript Node.js API，使用官方 `node:24-alpine` 镜像挂载 `server/` 源码运行，通过 SMTP 发送预约通知。
+
+预约接口为 `POST /api/demo-requests`。项目使用 Node.js 24 或更高版本，依赖使用 pnpm 管理。
+
+## SMTP 配置
+
+生产环境变量直接写在 `docker-compose.yaml` 的 `environment` 中：
+
+```yaml
+environment:
+  NODE_ENV: production
+  PORT: "3000"
+  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
+  SMTP_HOST: "smtp.example.com"
+  SMTP_PORT: "465"
+  SMTP_SECURE: "true"
+  SMTP_USER: "sender@example.com"
+  SMTP_PASS: "replace-with-smtp-password-or-auth-code"
+  SMTP_FROM: "sender@example.com"
+  MAIL_TO: "recipient@example.com"
+```
+
+- `SMTP_SECURE=true` 表示连接时直接使用 TLS，通常对应 465 端口。
+- `SMTP_SECURE=false` 表示连接后必须成功升级 STARTTLS，通常对应 587 端口。
+- `SMTP_PASS` 应填写 SMTP 密码或邮箱服务商提供的客户端授权码。163 邮箱需要填写客户端授权码，而不是邮箱登录密码。
+- `SMTP_FROM` 通常应与 `SMTP_USER` 一致。
+- `NPM_CONFIG_REGISTRY` 用于让容器通过 npmmirror 安装生产依赖。
+
+仓库中的 Compose 只包含示例值。真实 SMTP 密码只写入服务器上的 `/home/qizhih-website/docker-compose.yaml`，不要把修改后的生产配置提交到 Git。
 
 ## 本地开发
 
-复制 SMTP 配置模板并填写真实值：
-
-```bash
-cp .dev.vars.example .dev.vars
-```
-
-`SMTP_SECURE=true` 表示连接时直接使用 TLS，通常对应 465 端口；`SMTP_SECURE=false` 表示连接后必须成功升级 STARTTLS，通常对应 587 端口。Cloudflare Workers 不允许连接 SMTP 25 端口。
+安装依赖：
 
 ```bash
 pnpm install
+```
+
+在当前终端设置 SMTP 环境变量：
+
+```bash
+export SMTP_HOST=smtp.example.com
+export SMTP_PORT=465
+export SMTP_SECURE=true
+export SMTP_USER=sender@example.com
+export SMTP_PASS=replace-with-smtp-password-or-auth-code
+export SMTP_FROM=sender@example.com
+export MAIL_TO=recipient@example.com
+```
+
+同时启动 Node API 和 Vite：
+
+```bash
 pnpm dev
 ```
 
-本地提交预约会向 `MAIL_TO` 真实发送邮件。自动测试不会连接 SMTP：
+页面地址：
+
+```text
+http://localhost:5173
+```
+
+Vite 会把 `/api` 和 `/healthz` 代理到 `127.0.0.1:3000`。本地提交预约会向 `MAIL_TO` 真实发送邮件。
+
+单独启动 API：
 
 ```bash
-pnpm test
+pnpm start
+```
+
+构建前端：
+
+```bash
 pnpm build
 ```
 
-## 部署配置
+前端产物位于 `website/dist/`。Node API 不负责提供静态文件。
 
-GitHub Actions 需要以下 Repository Secrets：
+## 测试
 
-```text
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_API_TOKEN
+```bash
+pnpm test
 ```
 
-首次部署后，在 Cloudflare Worker 的 Variables and Secrets 中配置：
+自动测试使用注入的邮件发送器，不会连接真实 SMTP。
+
+## 生产目录
+
+服务器目录约定：
 
 ```text
-SMTP_HOST
-SMTP_PORT
-SMTP_SECURE
-SMTP_USER
-SMTP_PASS
-SMTP_FROM
-MAIL_TO
+/home/nginx/html/qizhih-website/   前端 dist 内容
+
+/home/qizhih-website/
+├── docker-compose.yaml
+├── package.json
+├── pnpm-lock.yaml
+└── server/
 ```
 
-`SMTP_PASS` 必须使用 Secret；邮箱地址如不希望出现在控制台明文中，也应使用 Secret。推送到 `main` 且 `website/**` 发生变化时，GitHub Actions 会自动测试、构建并部署 `qizhih-box-website`。
+Node 服务不构建业务镜像。`docker-compose.yaml` 直接使用 `node:24-alpine`，并将 `package.json`、`pnpm-lock.yaml` 和 `server/` 只读挂载到容器。容器启动时执行：
+
+```text
+pnpm install --prod --frozen-lockfile
+node server/index.js
+```
+
+## 服务器首次准备
+
+创建目录和 Docker 网络：
+
+```bash
+mkdir -p /home/nginx/html/qizhih-website
+mkdir -p /home/qizhih-website/server
+docker network create qizhih-website
+```
+
+首次上传 Node 服务文件：
+
+```bash
+rsync -az --delete website/server/ \
+  root@42.194.190.65:/home/qizhih-website/server/
+
+scp website/package.json \
+  website/pnpm-lock.yaml \
+  website/docker-compose.yaml \
+  root@42.194.190.65:/home/qizhih-website/
+```
+
+然后在服务器编辑生产 SMTP 配置：
+
+```bash
+vi /home/qizhih-website/docker-compose.yaml
+```
+
+启动 Node API：
+
+```bash
+cd /home/qizhih-website
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 server
+```
+
+## 接入现有 Nginx Compose
+
+现有 `/home/nginx/docker-compose.yaml` 中，让 Nginx 加入同一个外部网络：
+
+```yaml
+services:
+  nginx:
+    # 保留现有 image、ports、volumes 等配置
+    networks:
+      - qizhih-website
+
+networks:
+  qizhih-website:
+    external: true
+```
+
+修改 Compose 后重新创建 Nginx 容器：
+
+```bash
+cd /home/nginx
+docker compose up -d --force-recreate
+```
+
+## Nginx 配置
+
+`ai.sqyl.online` 的 HTTPS `server` 直接提供前端文件，仅把 API 和健康检查反向代理到 Node 容器：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name ai.sqyl.online;
+
+    ssl_certificate     /etc/nginx/certs/ai.sqyl.online_bundle.crt;
+    ssl_certificate_key /etc/nginx/certs/ai.sqyl.online.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    root /usr/share/nginx/html/qizhih-website;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://qizhih-website-server:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    location = /healthz {
+        proxy_pass http://qizhih-website-server:3000/healthz;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+80 端口继续跳转 HTTPS：
+
+```nginx
+server {
+    listen 80;
+    server_name ai.sqyl.online;
+    return 301 https://ai.sqyl.online$request_uri;
+}
+```
+
+应用配置：
+
+```bash
+docker exec nginx nginx -t
+docker exec nginx nginx -s reload
+```
+
+## 手工部署更新
+
+在本地构建并上传前端：
+
+```bash
+pnpm --dir website install --frozen-lockfile
+pnpm --dir website build
+
+rsync -az --delete website/dist/ \
+  root@42.194.190.65:/home/nginx/html/qizhih-website/
+```
+
+上传 Node API 源码和依赖清单：
+
+```bash
+rsync -az --delete website/server/ \
+  root@42.194.190.65:/home/qizhih-website/server/
+
+scp website/package.json website/pnpm-lock.yaml \
+  root@42.194.190.65:/home/qizhih-website/
+```
+
+更新时不要覆盖服务器上的 `docker-compose.yaml`，否则会覆盖其中的真实 SMTP 配置。只有 Compose 结构发生变化时才手工合并对应修改。
+
+重新创建 API 容器：
+
+```bash
+ssh root@42.194.190.65
+cd /home/qizhih-website
+docker compose up -d --force-recreate
+docker compose logs --tail=100 server
+```
+
+检查容器内 API：
+
+```bash
+docker exec qizhih-website-server \
+  node -e "fetch('http://127.0.0.1:3000/healthz').then((response) => response.text()).then(console.log)"
+```
+
+检查公网：
+
+```bash
+curl -I https://ai.sqyl.online/
+curl https://ai.sqyl.online/healthz
+```
+
+健康检查应返回：
+
+```json
+{"ok":true}
+```
+
+Node 服务信任一层 Nginx 反向代理，并使用 Nginx 传入的客户端 IP 对预约接口执行每个 IP 每分钟 5 次的限流。Node 容器只通过 Docker 网络暴露 3000 端口，不应把该端口发布到公网。

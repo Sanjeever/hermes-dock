@@ -1,0 +1,47 @@
+services:
+  server:
+    image: node:24-alpine
+    container_name: qizhih-website-server
+    restart: always
+    working_dir: /app
+    command:
+      - sh
+      - -c
+      - >-
+        corepack enable &&
+        corepack prepare pnpm@10.28.2 --activate &&
+        pnpm install --prod --frozen-lockfile &&
+        exec node server/index.js
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
+      SMTP_HOST: "smtp.example.com"
+      SMTP_PORT: "465"
+      SMTP_SECURE: "true"
+      SMTP_USER: "sender@example.com"
+      SMTP_PASS: "replace-with-smtp-password-or-auth-code"
+      SMTP_FROM: "sender@example.com"
+      MAIL_TO: "recipient@example.com"
+    volumes:
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./server:/app/server:ro
+      - node-modules:/app/node_modules
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - qizhih-website
+
+volumes:
+  node-modules:
+
+networks:
+  qizhih-website:
+    external: true

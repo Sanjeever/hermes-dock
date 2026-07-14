@@ -1,27 +1,21 @@
 export const maxRequestBytes = 8 * 1024;
 
-export interface DemoRequest {
-    name: string;
-    company: string;
-    phone: string;
-    need: string;
-}
-
 export class RequestValidationError extends Error {
-    constructor(message: string, readonly status = 400) {
+    constructor(message, status = 400) {
         super(message);
         this.name = 'RequestValidationError';
+        this.status = status;
     }
 }
 
-function objectValue(value: unknown): Record<string, unknown> {
+function objectValue(value) {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         throw new RequestValidationError('请求体必须是 JSON 对象。');
     }
-    return value as Record<string, unknown>;
+    return value;
 }
 
-function requiredText(input: Record<string, unknown>, key: 'name' | 'company' | 'phone'): string {
+function requiredText(input, key) {
     const value = input[key];
     if (typeof value !== 'string') {
         throw new RequestValidationError(`字段 ${key} 必须是字符串。`);
@@ -29,8 +23,8 @@ function requiredText(input: Record<string, unknown>, key: 'name' | 'company' | 
     return value.trim();
 }
 
-export function parseDemoRequest(text: string): DemoRequest {
-    let parsed: unknown;
+export function parseDemoRequest(text) {
+    let parsed;
     try {
         parsed = JSON.parse(text);
     } catch {

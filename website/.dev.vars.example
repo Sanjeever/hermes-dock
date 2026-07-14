@@ -1,7 +1,0 @@
-SMTP_HOST=smtp.example.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=sender@example.com
-SMTP_PASS=replace-with-smtp-password-or-auth-code
-SMTP_FROM=sender@example.com
-MAIL_TO=recipient@example.com
