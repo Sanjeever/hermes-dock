@@ -375,8 +375,14 @@ function App() {
 
             <footer className="site-footer">
                 <Brand inverse />
-                <p>把 AI 放进企业日常工作。</p>
-                <a href="#top">回到顶部 <ArrowRight aria-hidden="true" size={15} /></a>
+                <div className="footer-meta">
+                    <p className="footer-tagline">把 AI 放进企业日常工作。</p>
+                    <div className="footer-registration">
+                        <span>广西尚企云链科技有限公司</span>
+                        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">桂ICP备2024050395号-3</a>
+                    </div>
+                </div>
+                <a className="footer-return" href="#top">回到顶部 <ArrowRight aria-hidden="true" size={15} /></a>
             </footer>
         </main>
     );
