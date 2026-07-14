@@ -3,125 +3,118 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="企智盒产品宣传册（可编辑 HTML 版本）" />
+    <meta name="description" content="企智盒产品宣传册（A4 可编辑 HTML 版本）" />
     <title>企智盒｜把 AI 放进企业日常工作</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="brochure">
+    <main class="brochure" aria-label="企智盒产品宣传册">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-glow glow-one"></div>
-        <div class="hero-glow glow-two"></div>
+        <div class="hero-grid" aria-hidden="true"></div>
         <header class="brand"><img src="../build/appicon.png" alt="企智盒" /></header>
         <div class="hero-copy">
-          <h1 id="hero-title">把 AI 放进企业日常工作</h1>
-          <p>让 AI 从「问一问」变成「帮我干」</p>
-        </div>
-        <div class="hero-benefits" aria-label="核心优势">
-          <article><i data-lucide="badge-check"></i><div><b>更懂业务</b><span>明确岗位与规则</span></div></article>
-          <article><i data-lucide="list-todo"></i><div><b>主动执行</b><span>定时任务与提醒</span></div></article>
-          <article><i data-lucide="shield-check"></i><div><b>安全可控</b><span>本地部署，数据不出企业</span></div></article>
+          <p class="eyebrow">企业 AI 助手</p>
+          <h1 id="hero-title">把 AI 放进<br />企业日常工作</h1>
+          <p class="hero-lead">让 AI 从「问一问」变成「帮我干」</p>
         </div>
         <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
           <div class="float-card card-chart"><i></i><i></i><i></i></div>
           <div class="float-card card-message"><span></span><span></span></div>
-          <div class="float-card card-checklist"><b></b><span></span><b></b><span></span><b></b><span></span></div>
+          <div class="float-card card-check"><b></b><span></span><b></b><span></span></div>
           <div class="bot">
             <div class="bot-antenna"><i></i></div>
             <div class="bot-ear left"></div><div class="bot-ear right"></div>
             <div class="bot-head"><div class="bot-face"><i></i><i></i><b></b></div></div>
-            <div class="bot-neck"></div>
-            <div class="bot-body"><div class="body-mark"></div></div>
+            <div class="bot-neck"></div><div class="bot-body"><div class="body-mark"></div></div>
             <div class="bot-arm"><i></i></div>
           </div>
           <div class="laptop"><div class="laptop-screen"></div><div class="laptop-base"></div></div>
-          <div class="desk-plant"><i></i><i></i><i></i><b></b></div>
-          <div class="desk-cup"></div>
+        </div>
+        <div class="hero-benefits" aria-label="核心价值">
+          <article><i data-lucide="contact-round"></i><div><b>懂业务</b><span>记住岗位资料和规则</span></div></article>
+          <article><i data-lucide="list-todo"></i><div><b>会做事</b><span>提醒、整理、生成初稿</span></div></article>
+          <article><i data-lucide="shield-check"></i><div><b>可控使用</b><span>部署在企业指定设备</span></div></article>
         </div>
       </section>
 
-      <section class="section intro-section" aria-labelledby="intro-title">
-        <h2 id="intro-title"><span>01</span>企智盒是什么</h2>
-        <div class="intro-grid">
-          <div class="intro-lead">
-            <p>很多企业已经用过豆包，<br>但 AI 往往只停在「问一问」。</p>
-            <p>企智盒帮助企业把 AI 用进<br>每天的沟通和工作。</p>
-            <strong>不只是回答，更能主动干活</strong>
-          </div>
-          <div class="feature-list">
-            <article><i data-lucide="alarm-clock"></i><div><b>定时执行任务</b><p>每天早上自动汇总销售数据，<br>每周自动生成运营报告</p></div></article>
-            <article><i data-lucide="messages-square"></i><div><b>多平台协作</b><p>同时接入微信、企业微信、飞书，<br>一个助手覆盖所有沟通渠道</p></div></article>
-            <article><i data-lucide="folder-cog"></i><div><b>操作文件与系统</b><p>读写表格、运行脚本、管理文件，<br>把流程跑起来</p></div></article>
-            <article><i data-lucide="brain-circuit"></i><div><b>长期记忆</b><p>跨会话记住你的偏好和业务规则，<br>越用越懂你</p></div></article>
-            <article><i data-lucide="bot"></i><div><b>多智能体并行</b><p>不同岗位可以各有一个助手，<br>同时处理不同任务</p></div></article>
-          </div>
-        </div>
-        <div class="three-traits">
-          <h3>三大特点</h3>
-          <article class="traits-tools"><div class="mini-tools" aria-label="个人微信、企业微信和飞书">
-            <svg class="tool-icon wechat" viewBox="0 0 24 24" role="img" aria-label="个人微信"><path d="M8.796 17.027H8.75c-1.153 0-2.254-.188-3.262-.53L2.65 17.92l.352-2.712C1.162 13.855 0 11.861 0 9.64c0-4.083 3.918-7.39 8.75-7.39c4.174 0 7.665 2.468 8.54 5.77a9 9 0 0 0-.6-.02c-4.364 0-8.19 3.037-8.19 7.11c0 .67.104 1.312.296 1.917M6 8a1 1 0 1 0 0-2a1 1 0 0 0 0 2m5.5.007a1 1 0 1 0 0-2a1 1 0 0 0 0 2"/><path d="M21.874 19.52C23.187 18.405 24 16.863 24 15.16C24 11.758 20.754 9 16.75 9S9.5 11.758 9.5 15.161s3.246 6.161 7.25 6.161c.95 0 1.856-.155 2.686-.437l2.438 1.407zm-7.564-5.362a1 1 0 1 1 0-2a1 1 0 0 1 0 2m4.88 0a1 1 0 1 1 0-2a1 1 0 0 1 0 2"/></svg>
-            <svg class="tool-icon wecom" viewBox="0 0 24 24" role="img" aria-label="企业微信"><path d="M12 1c6.075 0 11 4.925 11 11s-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1m3.52 15.49a.35.35 0 0 0-.24.1c-.14.13-.16.34.02.53l.07.07c.44.44.74.99.85 1.57c0 .02.04.23.04.23c.05.19.15.37.29.5c.21.21.51.34.82.34c.3 0 .59-.12.8-.33c.44-.44.44-1.16 0-1.61c-.15-.15-.34-.26-.53-.3l-.15-.03c-.61-.11-1.17-.41-1.62-.86c-.03-.03-.07-.07-.1-.11c-.06-.074-.16-.1-.25-.1M11 4.75c-2.117 0-4.264.77-5.75 2.31C4.111 8.246 3.5 9.72 3.5 11.24c0 1.06.3 2.12.88 3.06c.47.695.993 1.371 1.66 1.89l-.384 1.624a.6.6 0 0 0 .856.673L8.64 17.41c.53.166 1.08.234 1.63.3a8.3 8.3 0 0 0 1.7-.03l.38-.05q.283-.046.564-.112a2.33 2.33 0 0 1-.92-1.605l-.254.037c-.62.067-1.232.03-1.85-.04c-.43-.057-.838-.185-1.25-.31l-1.02.5l.23-.67l-.74-.6c-.513-.401-.917-.934-1.28-1.47c-.4-.65-.61-1.38-.61-2.11c0-1.08.456-2.119 1.26-2.97c1.158-1.198 2.854-1.78 4.5-1.78c1.54 0 3.108.513 4.24 1.58c.365.365.707.75.95 1.21c.177.354.338.722.424 1.107a2.34 2.34 0 0 1 1.811.123c-.075-.716-.33-1.4-.665-2.04c-.329-.62-.776-1.155-1.27-1.65c-1.468-1.38-3.471-2.08-5.47-2.08m9.37 9.77a1.136 1.136 0 0 0-1.1.86l-.03.15a3.1 3.1 0 0 1-.86 1.63c-.04.03-.07.07-.11.1c-.14.13-.14.35 0 .49c.07.06.17.1.26.1h.01c.07 0 .15-.02.26-.13l.07-.07c.44-.44.99-.74 1.57-.85c.023 0 .227-.04.23-.04c.2-.06.37-.16.5-.3c.44-.44.44-1.17 0-1.61c-.21-.21-.5-.33-.8-.33m-4.21-1.07c-.08 0-.16.03-.27.14l-.07.07c-.44.44-.99.74-1.57.85c-.02 0-.23.04-.23.04c-.2.06-.37.16-.5.3c-.44.44-.44 1.17 0 1.61c.21.21.51.34.82.34c.3 0 .59-.12.8-.33c.15-.16.25-.34.29-.53a.4.4 0 0 0 .03-.16c.11-.61.41-1.18.86-1.63c.03-.03.06-.06.1-.09c.146-.115.13-.36 0-.49a.34.34 0 0 0-.26-.12m1.18-1.97c-.3 0-.59.12-.8.33c-.44.44-.44 1.16 0 1.61c.15.15.34.26.53.3c.054.006.144.029.15.03c.61.12 1.17.41 1.62.86c.03.03.07.07.1.11c.08.08.16.1.25.1c.1 0 .16-.04.23-.11c.12-.13.14-.32-.02-.52l-.08-.08c-.44-.44-.74-.99-.85-1.57c0-.02-.04-.23-.04-.23c-.05-.19-.15-.37-.29-.5c-.21-.21-.5-.33-.8-.33"/></svg>
-            <svg class="tool-icon feishu" viewBox="0 0 48 48" role="img" aria-label="飞书"><g fill-rule="evenodd" clip-rule="evenodd"><path d="M41.0716 5.99409L3.31071 16.5187L12.3856 25.8126L20.7998 25.9594L30.4827 16.5187C30.2266 15.9943 30.0985 15.5552 30.0985 15.2013C30.0985 14.4074 30.4104 13.7786 30.8947 13.333C31.7241 12.57 32.7222 12.4558 33.8889 12.9905L41.0716 5.99409Z"/><path d="M42.1021 6.72842L31.5775 44.4893L22.2836 35.4144L22.1367 27.0002L31.5115 17.4816C32.0195 17.8454 32.5743 18.0105 33.1759 17.9769C34.0784 17.9264 34.6614 17.3813 34.9349 17.0602C35.2083 16.7392 35.5293 16.2051 35.5025 15.4113C35.4847 14.8821 35.3109 14.3941 34.9812 13.9472L42.1021 6.72842Z"/></g></svg>
-          </div><div><b>常用工具</b><p>接入微信、企业微信和飞书。<br>一个助手覆盖企业主要沟通渠道。</p></div></article>
-          <article><i data-lucide="contact-round"></i><div><b>明确岗位</b><p>按岗位设置资料和做事规则，<br>让 AI 围绕具体工作，<br>而不是泛泛聊天。</p></div></article>
-          <article><i data-lucide="shield-check"></i><div><b>本地使用</b><p>部署在企业指定的本地设备上。<br>模型服务由企业选择，<br>数据不出企业。</p></div></article>
+      <section class="section capabilities" aria-labelledby="capabilities-title">
+        <div class="section-heading"><span>01</span><h2 id="capabilities-title">让 AI 成为岗位助手</h2></div>
+        <p class="section-intro">从销售跟进到内部答疑，让 AI 在企业常用工具里协助完成日常工作。</p>
+        <div class="capability-grid">
+          <article>
+            <i data-lucide="messages-square"></i><h3>接入日常沟通</h3>
+            <p>微信、企业微信、飞书里都能使用。</p>
+          </article>
+          <article>
+            <i data-lucide="briefcase-business"></i><h3>按岗位做事</h3>
+            <p>为不同岗位设置资料、规则和工作方式。</p>
+          </article>
+          <article>
+            <i data-lucide="calendar-clock"></i><h3>协助完成任务</h3>
+            <p>自动提醒、整理信息、生成初稿。</p>
+          </article>
         </div>
       </section>
 
-      <section class="section compare-section" aria-labelledby="compare-title">
-        <h2 id="compare-title"><span>02</span>不只是聊天，更是日常协助</h2>
-        <div class="comparison">
-          <article class="compare-card ordinary"><h3>用豆包</h3><ul><li><i data-lucide="message-square"></i>有问题时，打开应用，再提问</li><li><i data-lucide="file-text"></i>每次都是新的对话</li><li><i data-lucide="circle-help"></i>适合随时问一问</li></ul></article>
-          <div class="vs">VS</div>
-          <article class="compare-card qizhih"><h3>用企智盒</h3><ul><li><i data-lucide="bot"></i>把 AI 放进企业常用的沟通工具里</li><li><i data-lucide="folder-cog"></i>设置清晰的岗位、资料和规则，长期记忆</li><li><i data-lucide="badge-check"></i>适合长期协助一个明确岗位，并主动执行日常任务</li></ul></article>
-        </div>
-      </section>
-
-      <section class="section scenario-section" aria-labelledby="scenario-title">
-        <h2 id="scenario-title"><span>03</span>常见助手场景举例</h2>
+      <section class="section scenarios" aria-labelledby="scenarios-title">
+        <div class="section-heading"><span>02</span><h2 id="scenarios-title">从一个岗位开始</h2><p>先解决一件高频小事，再逐步扩展。</p></div>
         <div class="scenario-grid">
-          <article class="scenario sales"><h3><i data-lucide="handshake"></i>销售跟进助手</h3><p>盯住每一个商机，<br>不让你漏掉客户</p><ul><li>跟进提醒不遗漏</li><li>报价后自动提醒</li><li>节日问候自动群发</li><li>每周自动出周报</li></ul><strong>客户实测：新客跟进率<br>从 30% 提升到 75%</strong></article>
-          <article class="scenario customer"><h3><i data-lucide="users-round"></i>客户咨询助手</h3><p>秒回客户问题，<br>让客服从「翻资料」<br>变成「发答案」</p><ul><li>退换货快速回复</li><li>产品参数对比</li><li>投诉快速响应</li><li>下班后自动值守</li></ul><strong>客户实测：平均响应时间<br>缩短约 40%，每天节省约 1.5 小时</strong></article>
-          <article class="scenario internal"><h3><i data-lucide="book-open-check"></i>内部资料助手</h3><p>公司里的「百科通」，<br>少问人，少翻文件</p><ul><li>社保流程查询</li><li>报销标准查询</li><li>制度快速查找</li><li>培训资料自助查</li></ul><strong>让新员工更快上手，<br>让老员工更踏实</strong></article>
-          <article class="scenario operations"><h3><i data-lucide="chart-no-axes-combined"></i>运营数据助手</h3><p>每天的数据，<br>到点自动送到你手里</p><ul><li>早报自动推送</li><li>异常数据预警</li><li>周报 / 月报草稿生成</li></ul><strong>数据不遗漏，决策更及时</strong></article>
-          <article class="scenario project"><h3><i data-lucide="notebook-pen"></i>项目协作助手</h3><p>盯进度的「第二大脑」，<br>让项目不脱轨</p><ul><li>每日站会摘要</li><li>逾期自动提醒</li><li>会议纪要与待办跟进</li></ul><strong>进度透明，协作更顺畅</strong></article>
+          <article class="scenario sales">
+            <div class="scenario-icon"><i data-lucide="handshake"></i></div>
+            <p class="scenario-no">01 / 销售</p><h3>客户跟进不遗漏</h3>
+            <ul><li>报价后自动提醒</li><li>每周汇总跟进进展</li></ul>
+            <p class="scenario-result">少漏商机，跟进更有节奏</p>
+          </article>
+          <article class="scenario customer-support">
+            <div class="scenario-icon"><i data-lucide="message-circle-more"></i></div>
+            <p class="scenario-no">02 / 客服</p><h3>常见问题更快回复</h3>
+            <ul><li>从资料中整理答案</li><li>下班后也能先接住咨询</li></ul>
+            <p class="scenario-result">少翻资料，客户少等待</p>
+          </article>
+          <article class="scenario knowledge">
+            <div class="scenario-icon"><i data-lucide="book-open-check"></i></div>
+            <p class="scenario-no">03 / 内部协作</p><h3>制度资料随问随查</h3>
+            <ul><li>报销、流程、培训资料</li><li>不再反复找人和翻文件</li></ul>
+            <p class="scenario-result">新人上手更快，团队更省心</p>
+          </article>
         </div>
-        <p class="note"><b>!</b>重要提示：涉及报价、承诺、投诉处理等重要回复，建议由员工确认后再发出。助手负责梳理材料和初稿。</p>
+        <p class="assist-note"><i data-lucide="badge-alert"></i><span><b>重要回复由员工确认后发送。</b> 助手负责整理资料和生成初稿。</span></p>
       </section>
 
       <section class="lower-grid">
-        <section class="section steps-section" aria-labelledby="steps-title">
-          <h2 id="steps-title"><span>04</span>开始使用，不需要专职 AI 团队</h2>
+        <section class="section journey" aria-labelledby="journey-title">
+          <div class="section-heading"><span>03</span><h2 id="journey-title">开始使用，很简单</h2></div>
           <ol class="steps">
-            <li><b>1</b><i data-lucide="messages-square"></i><h3>先聊清楚要解决什么</h3><p>预约演示或上门评估。<br>一起确定先从哪个岗位开始。</p></li>
-            <li><b>2</b><i data-lucide="folder-plus"></i><h3>准备首批资料</h3><p>提供产品资料、常见问答、<br>制度、话术或案例。</p></li>
-            <li><b>3</b><i data-lucide="monitor"></i><h3>完成部署和配置</h3><p>我们的团队完成基础部署、<br>平台接入和配置。</p></li>
-            <li><b>4</b><i data-lucide="thumbs-up"></i><h3>开始使用</h3><p>完成管理员培训，<br>再逐步补充资料和规则。</p></li>
+            <li><b>1</b><div><h3>确定首个岗位</h3><p>选一个最需要提效的场景。</p></div></li>
+            <li><b>2</b><div><h3>准备首批资料</h3><p>提供常见问题、制度或业务资料。</p></div></li>
+            <li><b>3</b><div><h3>部署上线</h3><p>我们完成配置并培训管理员。</p></div></li>
           </ol>
-          <p class="support"><i data-lucide="users-round"></i>全程由企智盒团队支持，你只需要安排一位业务对接人。</p>
+          <p class="support"><i data-lucide="users-round"></i>您只需安排一位业务对接人。</p>
         </section>
-        <section class="section deployment-section" aria-labelledby="deployment-title">
-          <h2 id="deployment-title"><span>05</span>两种方式使用企智盒</h2>
-          <div class="deployment-card"><div class="device mini-device"><i></i><b></b></div><div><h3>企智盒一体机</h3><ul><li>预装环境的专用迷你主机，开箱即用</li><li>适合希望少折腾、想尽快开始使用的企业</li><li>固定配置，即插即用</li><li>最快当天完成部署</li></ul></div></div>
-          <div class="deployment-card"><div class="device tower-device"><i></i><i></i><i></i></div><div><h3>企智盒本地部署服务</h3><ul><li>部署在企业现有的合适设备上</li><li>适合已有台适设备、不需要新硬件的企业</li><li>可弹性扩展，按需调整</li><li>视频会议室环境而定</li></ul></div></div>
+
+        <section class="section deployment" aria-labelledby="deployment-title">
+          <div class="section-heading"><span>04</span><h2 id="deployment-title">两种部署方式</h2></div>
+          <article class="deployment-card appliance"><div class="deployment-icon appliance-icon"><i data-lucide="hard-drive"></i></div><div><h3>一体机</h3><p>预装环境，开箱即可开始。</p><small>适合希望尽快使用的企业</small></div></article>
+          <article class="deployment-card local"><div class="deployment-icon local-icon"><i data-lucide="server"></i></div><div><h3>本地部署服务</h3><p>部署在企业现有的合适设备上。</p><small>适合已有设备、希望按需配置的企业</small></div></article>
         </section>
       </section>
 
       <footer class="footer">
-        <div class="footer-fit">
-          <b>适合这样的企业</b>
-          <div class="fit-list">
-            <div class="fit-item"><i data-lucide="badge-check"></i><span>企业有稳定业务</span></div>
-            <div class="fit-item"><i data-lucide="users-round"></i><span>员工大约<br>10–100 人</span></div>
-            <div class="fit-item"><i data-lucide="bot"></i><span>希望 AI 帮助销售、<br>客服、运营或内部协作</span></div>
-            <div class="fit-item"><i data-lucide="handshake"></i><span>没有专职的 AI 或 IT 团队，<br>我们来搞定技术</span></div>
-          </div>
+        <div class="fit">
+          <p class="eyebrow">适合这样的企业</p>
+          <h2>有稳定流程，<br />想从一个岗位开始用 AI。</h2>
+          <ul><li>销售、客服、运营或内部协作有重复工作</li><li>没有专职 AI 或 IT 团队</li></ul>
         </div>
-        <div class="footer-contact"><p>想了解企智盒是否适合您的企业？<br>请联系为您提供手册的顾问，<br>预约演示或上门评估。</p><a class="qr" href="https://ai.sqyl.online" target="_blank" rel="noreferrer" aria-label="扫描二维码访问 ai.sqyl.online"><img src="assets/ai-sqyl-online.svg" alt="访问 ai.sqyl.online 的二维码" /></a></div>
+        <div class="footer-cta">
+          <p>预约演示</p><h2>找到最适合<br />先开始的岗位</h2>
+          <span>联系为您提供手册的顾问</span>
+          <a class="qr" href="https://ai.sqyl.online" target="_blank" rel="noreferrer" aria-label="扫描二维码访问 ai.sqyl.online"><img src="assets/ai-sqyl-online.svg" alt="访问 ai.sqyl.online 的二维码" /></a>
+        </div>
       </footer>
     </main>
 
     <script src="./node_modules/lucide/dist/umd/lucide.min.js"></script>
-    <script>lucide.createIcons({ attrs: { "stroke-width": 2.25 } });</script>
+    <script>lucide.createIcons({ attrs: { "stroke-width": 2.2 } });</script>
   </body>
 </html>
