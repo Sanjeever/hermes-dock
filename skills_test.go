@@ -168,6 +168,9 @@ func TestRestoreDefaultSoulBacksUpAndRewritesProfileHome(t *testing.T) {
 	if strings.Contains(string(data), "/opt/data/tmp") {
 		t.Fatalf("restored SOUL.md still points at default tmp")
 	}
+	if !strings.Contains(string(data), "MEDIA:/opt/data/profiles/writer/") {
+		t.Fatalf("restored SOUL.md does not include the profile media delivery path")
+	}
 	state, err := app.readState()
 	if err != nil {
 		t.Fatal(err)

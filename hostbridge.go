@@ -288,15 +288,15 @@ func (a *App) handleHostExec(runtimeState *hostBridgeRuntime) http.HandlerFunc {
 
 func hostCommand(ctx context.Context, req hostExecRequest) (*exec.Cmd, error) {
 	if strings.TrimSpace(req.Program) != "" {
-		return exec.CommandContext(ctx, req.Program, req.Args...), nil
+		return backgroundCommandContext(ctx, req.Program, req.Args...), nil
 	}
 	switch runtime.GOOS {
 	case "windows":
-		return exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", req.Command), nil
+		return backgroundCommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", req.Command), nil
 	case "darwin":
-		return exec.CommandContext(ctx, "/bin/zsh", "-lc", req.Command), nil
+		return backgroundCommandContext(ctx, "/bin/zsh", "-lc", req.Command), nil
 	case "linux":
-		return exec.CommandContext(ctx, "/bin/sh", "-lc", req.Command), nil
+		return backgroundCommandContext(ctx, "/bin/sh", "-lc", req.Command), nil
 	default:
 		return nil, fmt.Errorf("unsupported host operating system: %s", runtime.GOOS)
 	}

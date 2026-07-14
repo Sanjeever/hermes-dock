@@ -73,7 +73,7 @@ export type ChannelFile = { updated_at: string; platforms: Record<string, Channe
 export type ProfileEntry = { id: string; name: string; enabled: boolean; createdAt: string; updatedAt: string; modelAuxiliaryMode: string; setupCompletedAt?: string };
 export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
 export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
-export type RuntimeStatus = { updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
+export type RuntimeStatus = { generation: string; updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
 export type SkillSummary = {
     name: string;
     description: string;

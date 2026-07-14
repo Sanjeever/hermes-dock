@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -430,29 +432,32 @@ func profileContainerHome(profileID string) string {
 	return "/opt/data/profiles/" + profileID
 }
 
-func (a *App) writeRuntimeManifest() error {
+func (a *App) writeRuntimeManifest() (RuntimeManifest, error) {
 	registry, err := a.readProfileRegistry()
 	if err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
 	if err := a.syncAllProfileProviderEnv(registry); err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
 	if err := a.validateRuntimeProfiles(registry); err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
 	manifest, err := a.buildRuntimeManifest(registry)
 	if err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
 	if err := ensureDir(filepath.Dir(a.runtimeManifestPath())); err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		return err
+		return RuntimeManifest{}, err
 	}
-	return atomicWriteFile(a.runtimeManifestPath(), append(data, '\n'), 0644)
+	if err := atomicWriteFile(a.runtimeManifestPath(), append(data, '\n'), 0644); err != nil {
+		return RuntimeManifest{}, err
+	}
+	return manifest, nil
 }
 
 func (a *App) syncAllProfileProviderEnv(registry ProfileRegistry) error {
@@ -491,6 +496,7 @@ func (a *App) syncAllProfileProviderEnv(registry ProfileRegistry) error {
 func (a *App) buildRuntimeManifest(registry ProfileRegistry) (RuntimeManifest, error) {
 	manifest := RuntimeManifest{
 		SchemaVersion: 1,
+		Generation:    uuid.NewString(),
 		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
 	}
 	for _, profile := range registry.Profiles {
@@ -652,6 +658,9 @@ func (a *App) runtimeStatusOutdated(status RuntimeStatus) bool {
 	}
 	if manifest.GeneratedAt == "" {
 		return false
+	}
+	if manifest.Generation != "" {
+		return status.Generation != manifest.Generation
 	}
 	statusUpdatedAt, err := time.Parse(time.RFC3339, status.UpdatedAt)
 	if err != nil {

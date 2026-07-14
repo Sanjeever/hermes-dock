@@ -68,3 +68,21 @@ func TestTooManyRecentFailuresUsesFiveMinuteWindow(t *testing.T) {
 		t.Fatal("four recent failures should still allow restart")
 	}
 }
+
+func TestInitialRuntimeStatusKeepsManifestGeneration(t *testing.T) {
+	manifest := RuntimeManifest{
+		Generation: "generation-1",
+		Profiles: []RuntimeManifestProfile{{
+			ID:       "sales",
+			Enabled:  true,
+			Runnable: true,
+		}},
+	}
+	status := initialRuntimeStatus(manifest)
+	if status.Generation != manifest.Generation {
+		t.Fatalf("status generation = %q, want %q", status.Generation, manifest.Generation)
+	}
+	if got := status.Profiles["sales"].State; got != "starting" {
+		t.Fatalf("initial sales state = %q, want starting", got)
+	}
+}

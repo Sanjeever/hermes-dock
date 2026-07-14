@@ -4,12 +4,14 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestApp(t *testing.T) *App {
@@ -61,6 +63,134 @@ func TestValidateProfileID(t *testing.T) {
 	}
 }
 
+func TestRuntimeManifestUsesUniqueGeneration(t *testing.T) {
+	app := newTestApp(t)
+	registry, err := app.readProfileRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := app.buildRuntimeManifest(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := app.buildRuntimeManifest(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Generation == "" || second.Generation == "" {
+		t.Fatal("runtime manifest generation must not be empty")
+	}
+	if first.Generation == second.Generation {
+		t.Fatalf("runtime manifest generation was reused: %q", first.Generation)
+	}
+}
+
+func TestRuntimeStatusReadyRejectsPreviousGeneration(t *testing.T) {
+	manifest := RuntimeManifest{
+		Generation: "current",
+		Profiles: []RuntimeManifestProfile{{
+			ID:       "sales",
+			Name:     "销售助手",
+			Runnable: true,
+		}},
+	}
+	ready, err := runtimeStatusReady(manifest, RuntimeStatus{
+		Generation: "previous",
+		Profiles: map[string]RuntimeProfileStatus{
+			"sales": {State: "exited"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ready {
+		t.Fatal("previous runtime generation must not be accepted")
+	}
+
+	ready, err = runtimeStatusReady(manifest, RuntimeStatus{
+		Generation: "current",
+		Profiles: map[string]RuntimeProfileStatus{
+			"sales": {State: "running"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ready {
+		t.Fatal("current running generation should be ready")
+	}
+}
+
+func TestReadRuntimeStatusDoesNotExposePreviousGenerationExit(t *testing.T) {
+	app := newTestApp(t)
+	env, err := readEnvFile(app.defaultEnvPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeEnvFile(app.defaultEnvPath(), mergeEnv(env, []EnvVar{
+		{Key: "WECOM_BOT_ID", Value: "bot-id"},
+		{Key: "WECOM_SECRET", Value: "secret"},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := app.readProfileRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := app.buildRuntimeManifest(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestData, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteFile(app.runtimeManifestPath(), manifestData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	statusData, err := json.Marshal(RuntimeStatus{
+		Generation: "previous",
+		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
+		Profiles: map[string]RuntimeProfileStatus{
+			"default": {Enabled: true, State: "exited"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteFile(app.runtimeStatusPath(), statusData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	status := app.readRuntimeStatus("running").Profiles["default"]
+	if status.State != "starting" {
+		t.Fatalf("derived state = %q, want starting", status.State)
+	}
+}
+
+func TestRuntimeStatusReadyAcceptsNoRunnableProfiles(t *testing.T) {
+	manifest := RuntimeManifest{
+		Generation: "current",
+		Profiles: []RuntimeManifestProfile{{
+			ID:       "default",
+			Enabled:  true,
+			Runnable: false,
+		}},
+	}
+	ready, err := runtimeStatusReady(manifest, RuntimeStatus{
+		Generation: "current",
+		Profiles: map[string]RuntimeProfileStatus{
+			"default": {State: "not_configured"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ready {
+		t.Fatal("current generation with no runnable profiles should be ready")
+	}
+}
+
 func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	app := newTestApp(t)
 	if err := app.CreateProfile(CreateProfileRequest{ID: "sales", Name: "销售助手", Enabled: true, CopyMode: "clean"}); err != nil {
@@ -80,6 +210,9 @@ func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	}
 	if !strings.Contains(string(soul), "/opt/data/profiles/sales/tmp") {
 		t.Fatalf("SOUL tmp path not rewritten")
+	}
+	if !strings.Contains(string(soul), "MEDIA:/opt/data/profiles/sales/") {
+		t.Fatalf("SOUL media delivery path not rewritten")
 	}
 	env, err := readEnvFile(filepath.Join(dir, ".env"))
 	if err != nil {

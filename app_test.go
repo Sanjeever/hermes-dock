@@ -71,8 +71,10 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 		"    depends_on:\n      init-permissions:\n        condition: service_completed_successfully",
 		"    command: /opt/hermes-dock/hermes-profile-runner",
 		"      HERMES_HOME: \"/opt/data\"",
+		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
+		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
@@ -124,6 +126,9 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	if !strings.Contains(string(actual), "/etc/cont-init.d/017-patch-wecom-filenames") {
 		t.Fatalf("migrated compose missing wecom filename patch helper:\n%s", actual)
 	}
+	if !strings.Contains(string(actual), "/etc/cont-init.d/019-patch-home-channel-prompt") {
+		t.Fatalf("migrated compose missing home channel prompt patch helper:\n%s", actual)
+	}
 }
 
 func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testing.T) {
@@ -170,6 +175,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 		"command: /opt/hermes-dock/hermes-profile-runner",
 		"./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
+		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
 			t.Fatalf("migrated compose missing %q:\n%s", want, migratedCompose)
@@ -272,6 +278,10 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(wecomHelper); err != nil {
 		t.Fatal(err)
 	}
+	homeChannelHelper := filepath.Join(root, "launcher", "helpers", "patch-home-channel-prompt")
+	if err := os.Remove(homeChannelHelper); err != nil {
+		t.Fatal(err)
+	}
 	if err := app.ensureInstanceReady(); err != nil {
 		t.Fatal(err)
 	}
@@ -282,6 +292,7 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	t.Helper()
 	assertFeishuDepsHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
+	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
 	assertHostBridgeToken(t, root)
 }
@@ -390,6 +401,36 @@ func assertWecomFilenamePatchHelper(t *testing.T, root string) {
 		}
 		if info.Mode()&0111 == 0 {
 			t.Fatalf("patch-wecom-filenames mode = %v, want executable bit", info.Mode())
+		}
+	}
+}
+
+func assertHomeChannelPromptPatchHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "patch-home-channel-prompt")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected patch-home-channel-prompt helper: %v", err)
+	}
+	content := string(data)
+	assertUnixRuntimeHelper(t, "patch-home-channel-prompt", content)
+	for _, want := range []string{
+		"/opt/hermes/gateway/run.py",
+		"HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT",
+		"home channel prompt marker not found",
+		"py_compile",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("patch-home-channel-prompt missing %q:\n%s", want, content)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(helper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode()&0111 == 0 {
+			t.Fatalf("patch-home-channel-prompt mode = %v, want executable bit", info.Mode())
 		}
 	}
 }

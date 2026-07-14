@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -39,5 +40,28 @@ func TestProfileRunnerCandidatesIncludeWindowsInstallPath(t *testing.T) {
 	want := filepath.FromSlash("C:/Program Files/Hermes Dock/hermes-profile-runner-linux-amd64")
 	if got[0] != want {
 		t.Fatalf("first candidate = %q, want %q", got[0], want)
+	}
+}
+
+func TestSyncProfileRunnerReplacesStaleHelper(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "packaged-runner")
+	target := filepath.Join(dir, "released-runner")
+	if err := os.WriteFile(source, []byte("new-runner"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("old-runner"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := syncProfileRunner(source, target); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new-runner" {
+		t.Fatalf("released runner = %q, want packaged runner", data)
 	}
 }

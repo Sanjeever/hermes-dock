@@ -26,7 +26,7 @@ func (a *App) runComposeBlocking(ctx context.Context, args ...string) error {
 		return fmt.Errorf("未找到 docker 命令")
 	}
 	fullArgs := append([]string{"compose"}, args...)
-	cmd := exec.CommandContext(ctx, "docker", fullArgs...)
+	cmd := backgroundCommandContext(ctx, "docker", fullArgs...)
 	cmd.Dir = a.instanceRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -43,7 +43,7 @@ func (a *App) runStreaming(ctx context.Context, event string, name string, args 
 	if !commandExists(name) {
 		return fmt.Errorf("未找到 %s 命令", name)
 	}
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := backgroundCommandContext(ctx, name, args...)
 	cmd.Dir = a.instanceRoot
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

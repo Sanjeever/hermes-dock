@@ -98,6 +98,8 @@ Hermes Dock 固定管理当前用户下的单实例目录：
     helpers/
       hermes-profile-runner
       install-feishu-deps
+      patch-home-channel-prompt
+      patch-wecom-filenames
 ```
 
 `data/` 是用户数据，也是 `default` profile 的 Hermes home。非 default profile 使用 `data/profiles/<id>/`，保持和 Hermes 原生 profile 结构兼容。Hermes Dock 默认不会覆盖已有用户数据，只在明确保存配置、绑定平台或执行迁移时写入对应文件。
@@ -191,6 +193,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - 内存、CPU 和 shm 限制。
 - `./data:/opt/data` 数据挂载。
 - `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，在 s6 初始化阶段补齐飞书运行依赖。
+- `launcher/helpers/patch-home-channel-prompt` 挂载到 `/etc/cont-init.d/019-patch-home-channel-prompt`，在固定 Hermes 镜像启动时关闭未设置 Home Channel 的首次对话提示，不影响 `/sethome` 和实际投递校验。
 - `launcher/helpers/hostctl` 挂载到 `/usr/local/bin/hostctl`，通过 `host.docker.internal:9877` 调用桌面主进程内的 Host Bridge。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。
 

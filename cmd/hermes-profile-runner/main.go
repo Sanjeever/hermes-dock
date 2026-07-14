@@ -27,6 +27,7 @@ var envKeyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type RuntimeManifest struct {
 	SchemaVersion int                      `json:"schemaVersion"`
+	Generation    string                   `json:"generation"`
 	GeneratedAt   string                   `json:"generatedAt"`
 	Profiles      []RuntimeManifestProfile `json:"profiles"`
 }
@@ -42,8 +43,9 @@ type RuntimeManifestProfile struct {
 }
 
 type RuntimeStatus struct {
-	UpdatedAt string                          `json:"updatedAt"`
-	Profiles  map[string]RuntimeProfileStatus `json:"profiles"`
+	Generation string                          `json:"generation"`
+	UpdatedAt  string                          `json:"updatedAt"`
+	Profiles   map[string]RuntimeProfileStatus `json:"profiles"`
 }
 
 type RuntimeProfileStatus struct {
@@ -76,26 +78,7 @@ func main() {
 	s := &supervisor{
 		cancel:   cancel,
 		profiles: manifest.Profiles,
-		status: RuntimeStatus{
-			Profiles: map[string]RuntimeProfileStatus{},
-		},
-	}
-	for _, profile := range manifest.Profiles {
-		state := "disabled"
-		message := ""
-		if profile.Enabled {
-			if profile.Runnable {
-				state = "starting"
-			} else {
-				state = "not_configured"
-				message = profile.Reason
-			}
-		}
-		s.status.Profiles[profile.ID] = RuntimeProfileStatus{
-			Enabled: profile.Enabled,
-			State:   state,
-			Message: message,
-		}
+		status:   initialRuntimeStatus(manifest),
 	}
 	s.writeStatus()
 
@@ -125,6 +108,31 @@ func main() {
 	s.cancel()
 	wg.Wait()
 	s.markStopped()
+}
+
+func initialRuntimeStatus(manifest RuntimeManifest) RuntimeStatus {
+	status := RuntimeStatus{
+		Generation: manifest.Generation,
+		Profiles:   map[string]RuntimeProfileStatus{},
+	}
+	for _, profile := range manifest.Profiles {
+		state := "disabled"
+		message := ""
+		if profile.Enabled {
+			if profile.Runnable {
+				state = "starting"
+			} else {
+				state = "not_configured"
+				message = profile.Reason
+			}
+		}
+		status.Profiles[profile.ID] = RuntimeProfileStatus{
+			Enabled: profile.Enabled,
+			State:   state,
+			Message: message,
+		}
+	}
+	return status
 }
 
 func readManifest() (RuntimeManifest, error) {

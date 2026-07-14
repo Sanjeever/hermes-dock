@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 const (
 	fallbackMemoryLimit = "4G"
 	fallbackCPULimit    = "2.0"
+	runtimeStatusWait   = 15 * time.Second
 )
 
 func defaultComposeSettings() ComposeSettings {
@@ -233,7 +233,7 @@ func (a *App) recommendedResourceLimits(ctx context.Context) (ResourceLimitsReco
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "docker", "info", "--format", "{{json .}}")
+	cmd := backgroundCommandContext(ctx, "docker", "info", "--format", "{{json .}}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() != nil {
@@ -295,7 +295,9 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "host-bridge.token") &&
 		strings.Contains(content, "/usr/local/bin/hostctl") &&
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
-		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") {
+		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") &&
+		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
+		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") {
 		return nil
 	}
 	return a.writeCompose(settings, "before-compose-runtime-helper-migration")
@@ -350,6 +352,7 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
       HERMES_GATEWAY_BUSY_INPUT_MODE: "%s"
       HERMES_GATEWAY_BUSY_ACK_ENABLED: "%s"
       HERMES_BACKGROUND_NOTIFICATIONS: "%s"
+      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: "true"
 %s
       UV_DEFAULT_INDEX: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_INDEX_URL: "https://mirrors.cloud.tencent.com/pypi/simple/"
@@ -360,6 +363,7 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
       - ./data:/opt/data
       - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
+      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
       - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro
       - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro
@@ -388,9 +392,6 @@ func renderComposeProxyEnvironment(proxy ProxySettings) string {
 }
 
 func (a *App) StartHermes() error {
-	if err := a.writeRuntimeManifest(); err != nil {
-		return err
-	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
@@ -400,7 +401,17 @@ func (a *App) StartHermes() error {
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
-	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d")
+	manifest, err := a.writeRuntimeManifest()
+	if err != nil {
+		return err
+	}
+	if err := a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d"); err != nil {
+		return err
+	}
+	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
+		return fmt.Errorf("容器已启动，但%w", err)
+	}
+	return nil
 }
 
 func (a *App) StopHermes() error {
@@ -423,9 +434,6 @@ func (a *App) RebuildHermes() error {
 }
 
 func (a *App) forceRecreateComposeRuntime() error {
-	if err := a.writeRuntimeManifest(); err != nil {
-		return err
-	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
@@ -435,7 +443,69 @@ func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
-	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate")
+	manifest, err := a.writeRuntimeManifest()
+	if err != nil {
+		return err
+	}
+	if err := a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate"); err != nil {
+		return err
+	}
+	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
+		return fmt.Errorf("容器已完成重建，但%w", err)
+	}
+	return nil
+}
+
+func (a *App) waitForRuntimeStatus(manifest RuntimeManifest, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		data, err := os.ReadFile(a.runtimeStatusPath())
+		if err == nil {
+			var status RuntimeStatus
+			if err := json.Unmarshal(data, &status); err != nil {
+				return fmt.Errorf("助手运行状态无效：%w", err)
+			}
+			ready, err := runtimeStatusReady(manifest, status)
+			if err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("无法读取助手运行状态：%w", err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("助手未在 %d 秒内上报运行状态，请查看运行日志", int(timeout/time.Second))
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func runtimeStatusReady(manifest RuntimeManifest, status RuntimeStatus) (bool, error) {
+	if manifest.Generation == "" || status.Generation != manifest.Generation {
+		return false, nil
+	}
+	for _, profile := range manifest.Profiles {
+		if !profile.Runnable {
+			continue
+		}
+		profileStatus, ok := status.Profiles[profile.ID]
+		if !ok {
+			return false, nil
+		}
+		if profileStatus.State == "failed" {
+			message := strings.TrimSpace(redact(profileStatus.Message))
+			if message == "" {
+				message = "启动失败"
+			}
+			return false, fmt.Errorf("助手 %s %s", firstNonEmpty(profile.Name, profile.ID), message)
+		}
+		if profileStatus.State != "running" {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (a *App) TestModel() error {
@@ -482,13 +552,13 @@ func (a *App) syncSavedModelProviderEnv() error {
 }
 
 func (a *App) composeAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
+	cmd := backgroundCommandContext(ctx, "docker", "compose", "version")
 	cmd.Dir = a.instanceRoot
 	return cmd.Run() == nil
 }
 
 func (a *App) containerStatus(ctx context.Context) string {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "--status", "running", "--services")
+	cmd := backgroundCommandContext(ctx, "docker", "compose", "ps", "--status", "running", "--services")
 	cmd.Dir = a.instanceRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -497,7 +567,7 @@ func (a *App) containerStatus(ctx context.Context) string {
 	if strings.Contains(string(out), "hermes") {
 		return "running"
 	}
-	cmd = exec.CommandContext(ctx, "docker", "compose", "ps", "--services")
+	cmd = backgroundCommandContext(ctx, "docker", "compose", "ps", "--services")
 	cmd.Dir = a.instanceRoot
 	out, err = cmd.Output()
 	if err != nil {

@@ -247,7 +247,7 @@ func (a *App) handleHostLaunch(w http.ResponseWriter, r *http.Request) {
 		writeHostError(w, http.StatusBadRequest, errors.New("应用程序不能为空"))
 		return
 	}
-	cmd := exec.Command(req.Program, req.Args...)
+	cmd := backgroundCommand(req.Program, req.Args...)
 	if req.Cwd != "" {
 		cwd, err := absoluteHostPath(req.Cwd)
 		if err != nil {
@@ -266,11 +266,11 @@ func (a *App) handleHostLaunch(w http.ResponseWriter, r *http.Request) {
 func hostOpenCommand(target string) (*exec.Cmd, error) {
 	switch goRuntime.GOOS {
 	case "windows":
-		return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", target), nil
+		return backgroundCommand("rundll32.exe", "url.dll,FileProtocolHandler", target), nil
 	case "darwin":
-		return exec.Command("open", target), nil
+		return backgroundCommand("open", target), nil
 	case "linux":
-		return exec.Command("xdg-open", target), nil
+		return backgroundCommand("xdg-open", target), nil
 	default:
 		return nil, fmt.Errorf("unsupported host operating system: %s", goRuntime.GOOS)
 	}

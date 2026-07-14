@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -62,7 +61,7 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 		image,
 		"python", "/opt/hermes-dock/weixin_login.py",
 	}
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := backgroundCommandContext(ctx, "docker", args...)
 	cmd.Dir = a.instanceRoot
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

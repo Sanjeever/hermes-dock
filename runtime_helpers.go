@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed scripts/hostctl.py scripts/install-feishu-deps.sh scripts/patch-wecom-filenames.sh
+//go:embed scripts/hostctl.py scripts/install-feishu-deps.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh
 var runtimeHelperFS embed.FS
 
 func (a *App) feishuDepsHelperPath() string {
@@ -18,6 +18,10 @@ func (a *App) feishuDepsHelperPath() string {
 
 func (a *App) wecomFilenamePatchHelperPath() string {
 	return filepath.Join(a.hermesDockDir(), "helpers", "patch-wecom-filenames")
+}
+
+func (a *App) homeChannelPromptPatchHelperPath() string {
+	return filepath.Join(a.hermesDockDir(), "helpers", "patch-home-channel-prompt")
 }
 
 func (a *App) hostctlHelperPath() string {
@@ -32,6 +36,10 @@ func (a *App) ensureWecomFilenamePatchHelper() error {
 	return a.ensureRuntimeHelper("scripts/patch-wecom-filenames.sh", a.wecomFilenamePatchHelperPath(), "企业微信文件名修复 helper")
 }
 
+func (a *App) ensureHomeChannelPromptPatchHelper() error {
+	return a.ensureRuntimeHelper("scripts/patch-home-channel-prompt.sh", a.homeChannelPromptPatchHelperPath(), "默认通道提示修复 helper")
+}
+
 func (a *App) ensureHostctlHelper() error {
 	return a.ensureRuntimeHelper("scripts/hostctl.py", a.hostctlHelperPath(), "宿主机控制 helper")
 }
@@ -44,6 +52,9 @@ func (a *App) ensureContainerInitHelpers() error {
 		return err
 	}
 	if err := a.ensureWecomFilenamePatchHelper(); err != nil {
+		return err
+	}
+	if err := a.ensureHomeChannelPromptPatchHelper(); err != nil {
 		return err
 	}
 	return a.ensureHostctlHelper()

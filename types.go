@@ -176,6 +176,7 @@ type CreateProfileRequest struct {
 
 type RuntimeManifest struct {
 	SchemaVersion int                      `json:"schemaVersion"`
+	Generation    string                   `json:"generation"`
 	GeneratedAt   string                   `json:"generatedAt"`
 	Profiles      []RuntimeManifestProfile `json:"profiles"`
 }
@@ -191,8 +192,9 @@ type RuntimeManifestProfile struct {
 }
 
 type RuntimeStatus struct {
-	UpdatedAt string                          `json:"updatedAt"`
-	Profiles  map[string]RuntimeProfileStatus `json:"profiles"`
+	Generation string                          `json:"generation"`
+	UpdatedAt  string                          `json:"updatedAt"`
+	Profiles   map[string]RuntimeProfileStatus `json:"profiles"`
 }
 
 type RuntimeProfileStatus struct {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -220,11 +219,11 @@ func (a *App) OpenSkillDirectory(path string) error {
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", dir).Start()
+		return backgroundCommand("open", dir).Start()
 	case "windows":
-		return exec.Command("explorer", dir).Start()
+		return backgroundCommand("explorer", dir).Start()
 	default:
-		return exec.Command("xdg-open", dir).Start()
+		return backgroundCommand("xdg-open", dir).Start()
 	}
 }
 

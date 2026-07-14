@@ -265,6 +265,7 @@ export namespace main {
 	    }
 	}
 	export class RuntimeStatus {
+	    generation: string;
 	    updatedAt: string;
 	    profiles: Record<string, RuntimeProfileStatus>;
 	
@@ -274,6 +275,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.generation = source["generation"];
 	        this.updatedAt = source["updatedAt"];
 	        this.profiles = this.convertValues(source["profiles"], RuntimeProfileStatus, true);
 	    }
