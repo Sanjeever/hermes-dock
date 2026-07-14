@@ -1,5 +1,7 @@
 {
 	"dependencies": {
+		"@iconify-json/icon-park": "^1.2.4",
+		"@iconify-json/tdesign": "^1.2.15",
 		"lucide": "0.468.0"
 	},
 	"devDependencies": {

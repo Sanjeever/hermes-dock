@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@iconify-json/icon-park':
+        specifier: ^1.2.4
+        version: 1.2.4
+      '@iconify-json/tdesign':
+        specifier: ^1.2.15
+        version: 1.2.15
       lucide:
         specifier: 0.468.0
         version: 0.468.0
@@ -17,6 +23,15 @@ importers:
         version: 1.5.4
 
 packages:
+
+  '@iconify-json/icon-park@1.2.4':
+    resolution: {integrity: sha512-S8fVl49LG/M9hvwb7ruFGInK21AHMv3IJehOJRJgXPLE39OOCP3wbfTWjro/XzsjxRwdvX/lYdGetFOZI0TaJQ==}
+
+  '@iconify-json/tdesign@1.2.15':
+    resolution: {integrity: sha512-SgucjeOYKmO2xTZZJdIvhxLAGrpFxok84PN13zKfr8nUWqJxWnCxDjQal6uyfMd1pVZ7kkWvEL+zmZHI5cR3CA==}
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -131,6 +146,16 @@ packages:
     engines: {node: '>=8'}
 
 snapshots:
+
+  '@iconify-json/icon-park@1.2.4':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/tdesign@1.2.15':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/types@2.0.0': {}
 
   ansi-regex@5.0.1: {}
 
