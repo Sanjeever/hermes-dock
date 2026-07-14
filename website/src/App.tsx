@@ -1,11 +1,6 @@
-import {type FormEvent, useLayoutEffect, useRef, useState} from 'react';
+import {type FormEvent, useEffect, useRef, useState} from 'react';
 import {ArrowDown, ArrowRight, Check, ChevronRight, ClipboardList, Clock3, Database, FileText, LockKeyhole, MessageCircleMore, Send, UsersRound} from 'lucide-react';
-import {gsap} from 'gsap';
-import {ScrollTrigger} from 'gsap/ScrollTrigger';
 import logo from './assets/qizhih-box-logo.png';
-
-gsap.registerPlugin(ScrollTrigger);
-ScrollTrigger.config({ignoreMobileResize: true, limitCallbacks: true});
 
 const leadEndpoint = '/api/demo-requests';
 type FormField = 'name' | 'company' | 'phone';
@@ -111,85 +106,98 @@ function App() {
     const [formMessage, setFormMessage] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormField, string>>>({});
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-        const context = gsap.context(() => {
-            gsap.from('.hero-reveal', {
-                y: 34,
-                opacity: 0,
-                duration: 1.15,
-                ease: 'power3.out',
-                stagger: 0.12,
-                force3D: true,
-            });
+        let cancelled = false;
+        let cleanup: (() => void) | undefined;
 
-            const wordNodes = gsap.utils.toArray<HTMLElement>('.reveal-word');
-            gsap.to(wordNodes, {
-                opacity: 1,
-                y: 0,
-                stagger: 0.018,
-                duration: 0.48,
-                ease: 'power2.out',
-                scrollTrigger: {
-                    trigger: '.statement',
-                    start: 'top 68%',
-                    toggleActions: 'play none none reverse',
-                },
-            });
+        const setupAnimations = async () => {
+            const [{gsap}, {ScrollTrigger}] = await Promise.all([
+                import('gsap'),
+                import('gsap/ScrollTrigger'),
+            ]);
+            if (cancelled) return;
 
+            gsap.registerPlugin(ScrollTrigger);
+            ScrollTrigger.config({ignoreMobileResize: true, limitCallbacks: true});
             const media = gsap.matchMedia();
-            media.add('(min-width: 761px)', () => {
-                const cards = gsap.utils.toArray<HTMLElement>('.scenario-card');
-                const storyStage = scope.current?.querySelector<HTMLElement>('.story-stage');
-                const storyCopy = scope.current?.querySelector<HTMLElement>('.story-copy');
-                if (!storyStage || !storyCopy || !cards.length) return;
-
-                ScrollTrigger.create({
-                    trigger: storyStage,
-                    start: 'top 16%',
-                    end: 'bottom bottom',
-                    pin: storyCopy,
-                    pinSpacing: false,
-                    anticipatePin: 1,
-                    fastScrollEnd: true,
-                    invalidateOnRefresh: true,
+            const context = gsap.context(() => {
+                const wordNodes = gsap.utils.toArray<HTMLElement>('.reveal-word');
+                gsap.to(wordNodes, {
+                    opacity: 1,
+                    y: 0,
+                    stagger: 0.018,
+                    duration: 0.48,
+                    ease: 'power2.out',
+                    scrollTrigger: {
+                        trigger: '.statement',
+                        start: 'top 68%',
+                        toggleActions: 'play none none reverse',
+                    },
                 });
 
-                cards.forEach((card) => {
-                    gsap.fromTo(card, {y: 42, opacity: 0.18}, {
+                media.add('(min-width: 761px)', () => {
+                    const cards = gsap.utils.toArray<HTMLElement>('.scenario-card');
+                    const storyStage = scope.current?.querySelector<HTMLElement>('.story-stage');
+                    const storyCopy = scope.current?.querySelector<HTMLElement>('.story-copy');
+                    if (!storyStage || !storyCopy || !cards.length) return;
+
+                    ScrollTrigger.create({
+                        trigger: storyStage,
+                        start: 'top 16%',
+                        end: 'bottom bottom',
+                        pin: storyCopy,
+                        pinSpacing: false,
+                        anticipatePin: 1,
+                        fastScrollEnd: true,
+                        invalidateOnRefresh: true,
+                    });
+
+                    cards.forEach((card) => {
+                        gsap.fromTo(card, {y: 42, opacity: 0.18}, {
+                            y: 0,
+                            opacity: 1,
+                            duration: 0.62,
+                            ease: 'power3.out',
+                            force3D: true,
+                            scrollTrigger: {
+                                trigger: card,
+                                start: 'top 78%',
+                                toggleActions: 'play none none reverse',
+                            },
+                        });
+                    });
+                });
+
+                gsap.utils.toArray<HTMLElement>('.scale-in').forEach((element) => {
+                    gsap.fromTo(element, {y: 28, opacity: 0}, {
                         y: 0,
                         opacity: 1,
-                        duration: 0.62,
+                        duration: 0.7,
                         ease: 'power3.out',
                         force3D: true,
                         scrollTrigger: {
-                            trigger: card,
-                            start: 'top 78%',
+                            trigger: element,
+                            start: 'top 82%',
                             toggleActions: 'play none none reverse',
                         },
                     });
                 });
-            });
+            }, scope);
 
-            gsap.utils.toArray<HTMLElement>('.scale-in').forEach((element) => {
-                gsap.fromTo(element, {y: 28, opacity: 0}, {
-                    y: 0,
-                    opacity: 1,
-                    duration: 0.7,
-                    ease: 'power3.out',
-                    force3D: true,
-                    scrollTrigger: {
-                        trigger: element,
-                        start: 'top 82%',
-                        toggleActions: 'play none none reverse',
-                    },
-                });
-            });
+            cleanup = () => {
+                media.revert();
+                context.revert();
+            };
+        };
 
-            return () => media.revert();
-        }, scope);
-        return () => context.revert();
+        void setupAnimations();
+
+        return () => {
+            cancelled = true;
+            cleanup?.();
+        };
     }, []);
 
     const clearFieldError = (field: FormField) => () => {

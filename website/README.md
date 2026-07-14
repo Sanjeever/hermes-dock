@@ -79,7 +79,7 @@ pnpm start
 pnpm build
 ```
 
-前端产物位于 `website/dist/`。Node API 不负责提供静态文件。
+构建会先生成浏览器端和服务端 bundle，再把 React 页面预渲染到 `website/dist/index.html`。服务端 bundle 只在构建期间使用，预渲染完成后自动删除。最终 `website/dist/` 仍是可直接部署到 Nginx 的纯静态产物，Node API 不负责提供静态文件。
 
 ## 测试
 
@@ -189,6 +189,11 @@ server {
     root /usr/share/nginx/html/qizhih-website;
     index index.html;
 
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
     location /api/ {
         proxy_pass http://qizhih-website-server:3000;
         proxy_http_version 1.1;
@@ -211,11 +216,29 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location = / {
+        try_files /index.html =404;
+        add_header Cache-Control "no-cache";
+    }
+
+    location = /index.html {
+        try_files $uri =404;
+        add_header Cache-Control "no-cache";
+    }
+
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri =404;
     }
 }
 ```
+
+官网当前只有一个使用锚点导航的静态页面，不使用 SPA 路由回退。不存在的路径应返回真实 `404`，避免搜索引擎把它识别成 soft 404。`robots.txt` 和 `sitemap.xml` 由前端 `public/` 目录随构建产物发布。
 
 80 端口继续跳转 HTTPS：
 

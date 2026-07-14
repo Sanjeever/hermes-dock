@@ -10,7 +10,10 @@
   "scripts": {
     "dev": "concurrently -k -n api,web \"pnpm run dev:server\" \"vite\"",
     "dev:server": "node --watch server/index.js",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json && pnpm run build:client && pnpm run build:ssr && pnpm run prerender",
+    "build:client": "vite build",
+    "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-ssr",
+    "prerender": "node scripts/prerender.mjs",
     "start": "node server/index.js",
     "test": "vitest run",
     "test:watch": "vitest"

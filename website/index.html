@@ -3,12 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="企智盒，把 AI 放进企业日常工作。" />
+    <meta name="description" content="企智盒把 AI 助手接入微信、企业微信和飞书，帮助企业完成客户跟进、资料查询、运营提醒和日常协作，并支持企业指定设备部署。" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://ai.sqyl.online/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="企智盒" />
+    <meta property="og:title" content="企智盒｜把 AI 放进企业日常工作" />
+    <meta property="og:description" content="让 AI 助手进入微信、企业微信和飞书，持续协助客户跟进、资料查询、运营提醒和团队协作。" />
+    <meta property="og:url" content="https://ai.sqyl.online/" />
+    <meta name="twitter:card" content="summary" />
     <title>企智盒｜把 AI 放进企业日常工作</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://ai.sqyl.online/#website",
+            "url": "https://ai.sqyl.online/",
+            "name": "企智盒",
+            "inLanguage": "zh-CN"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://ai.sqyl.online/#organization",
+            "url": "https://ai.sqyl.online/",
+            "name": "企智盒",
+            "logo": "https://ai.sqyl.online/favicon.png"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--ssr-outlet--></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
