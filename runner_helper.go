@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 func (a *App) profileRunnerPath() string {
@@ -24,13 +25,44 @@ func (a *App) ensureProfileRunnerHelper() error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("更新 Hermes profile runner 失败：%w", err)
 	}
+	source := filepath.Join(a.projectRoot(), "cmd", "hermes-profile-runner")
+	if commandExists("go") && fileExists(filepath.Join(source, "main.go")) {
+		needsBuild, err := profileRunnerSourceNeedsBuild(source, target)
+		if err != nil {
+			return fmt.Errorf("检查 Hermes profile runner 源码失败：%w", err)
+		}
+		if needsBuild {
+			return a.buildProfileRunner(target)
+		}
+	}
 	if fileExists(target) {
 		return os.Chmod(target, 0755)
 	}
-	if commandExists("go") {
-		return a.buildProfileRunner(target)
-	}
 	return fmt.Errorf("缺少 Hermes profile runner，请在打包产物中提供 launcher/helpers/hermes-profile-runner")
+}
+
+func profileRunnerSourceNeedsBuild(sourceDir string, target string) (bool, error) {
+	targetInfo, err := os.Stat(target)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	newer := false
+	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		if info.ModTime().After(targetInfo.ModTime()) {
+			newer = true
+		}
+		return nil
+	})
+	return newer, err
 }
 
 func (a *App) copyPrebuiltProfileRunner(target string) error {
@@ -85,7 +117,17 @@ func (a *App) buildProfileRunner(target string) error {
 	if !fileExists(filepath.Join(source, "main.go")) {
 		return fmt.Errorf("缺少 runner 源码：%s", source)
 	}
-	cmd := backgroundCommand("go", "build", "-buildvcs=false", "-o", target, source)
+	file, err := os.CreateTemp(filepath.Dir(target), ".hermes-profile-runner-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	defer os.Remove(tmpPath)
+	cmd := backgroundCommand("go", "build", "-buildvcs=false", "-o", tmpPath, source)
 	cmd.Dir = a.projectRoot()
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -96,7 +138,10 @@ func (a *App) buildProfileRunner(target string) error {
 	if err != nil {
 		return fmt.Errorf("构建 Hermes profile runner 失败：%w: %s", err, redact(string(out)))
 	}
-	return os.Chmod(target, 0755)
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return err
+	}
+	return a.syncProfileRunner(tmpPath, target, runtime.GOOS)
 }
 
 func (a *App) projectRoot() string {

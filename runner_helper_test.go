@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProfileRunnerCandidatesIncludePackagedLinuxPaths(t *testing.T) {
@@ -112,5 +113,59 @@ func TestSyncProfileRunnerDoesNotStopWindowsContainerWhenUnchanged(t *testing.T)
 	}
 	if _, err := os.Stat(fakeDockerLogPath(t)); !os.IsNotExist(err) {
 		t.Fatalf("docker should not be called for an unchanged runner: %v", err)
+	}
+}
+
+func TestProfileRunnerSourceNeedsBuild(t *testing.T) {
+	dir := t.TempDir()
+	sourceDir := filepath.Join(dir, "cmd", "hermes-profile-runner")
+	target := filepath.Join(dir, "launcher", "helpers", "hermes-profile-runner")
+	mustWriteFile(t, filepath.Join(sourceDir, "main.go"), "package main\n", 0644)
+	mustWriteFile(t, filepath.Join(sourceDir, "main_test.go"), "package main\n", 0644)
+	mustWriteFile(t, target, "old-runner", 0755)
+
+	oldTime := time.Now().Add(-2 * time.Hour)
+	newTime := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(target, oldTime, oldTime); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(filepath.Join(sourceDir, "main.go"), newTime, newTime); err != nil {
+		t.Fatal(err)
+	}
+	needsBuild, err := profileRunnerSourceNeedsBuild(sourceDir, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !needsBuild {
+		t.Fatal("newer runner source should require a rebuild")
+	}
+
+	latestTime := time.Now()
+	if err := os.Chtimes(target, latestTime, latestTime); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(filepath.Join(sourceDir, "main_test.go"), latestTime.Add(time.Hour), latestTime.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	needsBuild, err = profileRunnerSourceNeedsBuild(sourceDir, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if needsBuild {
+		t.Fatal("test-only source changes should not require a runner rebuild")
+	}
+}
+
+func TestProfileRunnerSourceNeedsBuildWhenTargetMissing(t *testing.T) {
+	dir := t.TempDir()
+	sourceDir := filepath.Join(dir, "cmd", "hermes-profile-runner")
+	mustWriteFile(t, filepath.Join(sourceDir, "main.go"), "package main\n", 0644)
+
+	needsBuild, err := profileRunnerSourceNeedsBuild(sourceDir, filepath.Join(dir, "missing-runner"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !needsBuild {
+		t.Fatal("missing runner should require a build")
 	}
 }
