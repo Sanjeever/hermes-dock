@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const profileStreamingMigrationID = "profile-streaming-v1"
+const profileStreamingMigrationID = "profile-streaming-v2"
 
 func (a *App) migrateProfileStreamingDefaults() error {
 	state, err := a.readState()
@@ -38,7 +38,7 @@ func (a *App) migrateProfileStreamingDefaults() error {
 		if !changed {
 			continue
 		}
-		if err := a.backupFile(path, "before-profile-streaming-migration"); err != nil {
+		if err := a.backupFile(path, "before-profile-streaming-v2-migration"); err != nil {
 			return err
 		}
 		info, err := os.Stat(path)
@@ -86,12 +86,12 @@ func addProfileStreamingDefaults(data []byte) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	changed = changed || added
+	changed = setYAMLScalar(streaming, "enabled", "!!bool", "true") || changed
 	for _, item := range []struct {
 		key   string
 		tag   string
 		value string
 	}{
-		{key: "enabled", tag: "!!bool", value: "true"},
 		{key: "transport", tag: "!!str", value: "edit"},
 		{key: "edit_interval", tag: "!!float", value: "0.8"},
 		{key: "buffer_threshold", tag: "!!int", value: "24"},
@@ -116,12 +116,12 @@ func addProfileStreamingDefaults(data []byte) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	changed = changed || added
+	changed = setYAMLScalar(feishu, "streaming", "!!bool", "true") || changed
 	for _, item := range []struct {
 		key   string
 		tag   string
 		value string
 	}{
-		{key: "streaming", tag: "!!bool", value: "true"},
 		{key: "tool_progress", tag: "!!str", value: "off"},
 		{key: "interim_assistant_messages", tag: "!!bool", value: "true"},
 		{key: "long_running_notifications", tag: "!!bool", value: "false"},
@@ -171,6 +171,26 @@ func ensureYAMLScalar(parent *yaml.Node, key string, tag string, value string) b
 		Tag:   tag,
 		Value: value,
 	})
+	return true
+}
+
+func setYAMLScalar(parent *yaml.Node, key string, tag string, value string) bool {
+	existing, found := yamlMappingValue(parent, key)
+	if !found {
+		parent.Content = append(parent.Content, yamlStringNode(key), &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   tag,
+			Value: value,
+		})
+		return true
+	}
+	if existing.Kind == yaml.ScalarNode && existing.Tag == tag && existing.Value == value {
+		return false
+	}
+	existing.Kind = yaml.ScalarNode
+	existing.Tag = tag
+	existing.Value = value
+	existing.Content = nil
 	return true
 }
 

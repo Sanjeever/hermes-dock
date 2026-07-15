@@ -38,3 +38,31 @@ func TestCalculateRecommendedResourceLimitsRejectsInvalidResources(t *testing.T)
 		t.Fatal("expected error for empty cpu")
 	}
 }
+
+func TestMarkRebuildAppliedClearsNeedsRebuild(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.HermesImage = "example/hermes:new"
+	state.LastSuccessfulHermesImage = "example/hermes:old"
+	state.NeedsRebuild = true
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.markRebuildApplied(); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.NeedsRebuild {
+		t.Fatal("successful rebuild should clear needsRebuild")
+	}
+	if state.LastSuccessfulHermesImage != state.HermesImage {
+		t.Fatalf("last successful image = %q, want %q", state.LastSuccessfulHermesImage, state.HermesImage)
+	}
+}

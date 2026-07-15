@@ -423,15 +423,21 @@ func (a *App) RestartHermes() error {
 }
 
 func (a *App) RebuildHermes() error {
-	err := a.forceRecreateComposeRuntime()
-	if err == nil {
-		state, _ := a.readState()
-		state.LastSuccessfulHermesImage = state.HermesImage
-		state.NeedsRebuild = false
-		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		_ = a.writeState(state)
+	if err := a.forceRecreateComposeRuntime(); err != nil {
+		return err
 	}
-	return err
+	return a.markRebuildApplied()
+}
+
+func (a *App) markRebuildApplied() error {
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	state.LastSuccessfulHermesImage = state.HermesImage
+	state.NeedsRebuild = false
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
 }
 
 func (a *App) forceRecreateComposeRuntime() error {
@@ -444,15 +450,11 @@ func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
-	manifest, err := a.writeRuntimeManifest()
-	if err != nil {
+	if _, err := a.writeRuntimeManifest(); err != nil {
 		return err
 	}
 	if err := a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate"); err != nil {
 		return err
-	}
-	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
-		return fmt.Errorf("容器已完成重建，但%w", err)
 	}
 	return nil
 }
