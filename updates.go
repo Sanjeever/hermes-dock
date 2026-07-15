@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	updateCheckURL = "https://api.github.com/repos/Sanjeever/hermes-dock/releases/latest"
-	updateRepoURL  = "https://github.com/Sanjeever/hermes-dock"
+	updateRepoSlug = "sqyl2026/hermes-dock-releases"
+	updateCheckURL = "https://api.github.com/repos/" + updateRepoSlug + "/releases/latest"
+	updateRepoURL  = "https://github.com/" + updateRepoSlug
 	updateCooldown = 24 * time.Hour
 )
 
@@ -248,10 +249,11 @@ func isAllowedUpdateURL(raw string) bool {
 		return false
 	}
 	if parsed.Host == "github.com" {
-		return strings.HasPrefix(parsed.Path, "/Sanjeever/hermes-dock/releases")
+		releasePath := "/" + updateRepoSlug + "/releases"
+		return parsed.Path == releasePath || strings.HasPrefix(parsed.Path, releasePath+"/")
 	}
 	if parsed.Host == "gh-proxy.com" || parsed.Host == "ghfast.top" {
-		return strings.Contains(raw, "https://github.com/Sanjeever/hermes-dock/releases/download/")
+		return strings.Contains(raw, updateRepoURL+"/releases/download/")
 	}
 	return false
 }

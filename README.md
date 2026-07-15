@@ -4,6 +4,13 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 
 项目目标很明确：只要用户已经安装 Docker，就可以打开 Hermes Dock，完成必要配置，然后启动 Hermes Agent。
 
+## 仓库与发布
+
+- [`sqyl2026/hermes-dock`](https://github.com/sqyl2026/hermes-dock) 是私有源码仓库，用于开发、测试和 GitHub Actions 构建。
+- [`sqyl2026/hermes-dock-releases`](https://github.com/sqyl2026/hermes-dock-releases) 是公开二进制发布仓库，提供 Windows、macOS 和 Linux 安装包及 `SHA256SUMS.txt`。
+- 应用只从公开发布仓库检查新版本和打开下载链接，不需要访问私有源码仓库。
+- 推送版本标签后，私有源码仓库中的 GitHub Actions 完成多平台构建，并将产物发布到公开发布仓库。
+
 ## 当前能力
 
 - 首次启动自动创建 `~/.hermes-dock`。

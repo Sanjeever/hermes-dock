@@ -316,10 +316,14 @@ pnpm --dir website run build
 
 ## 发布版本
 
+- 私有源码仓库固定为 [`sqyl2026/hermes-dock`](https://github.com/sqyl2026/hermes-dock)，公开二进制发布仓库固定为 [`sqyl2026/hermes-dock-releases`](https://github.com/sqyl2026/hermes-dock-releases)。
+- 应用的更新检查、发布页和安装包下载只使用公开发布仓库，不得依赖私有源码仓库的 Release。
+- 版本标签推送到私有源码仓库后，由 `.github/workflows/build-release.yml` 构建多平台产物，并使用 Actions Secret `RELEASE_REPO_TOKEN` 发布到公开发布仓库。该 Token 只应具有 `sqyl2026/hermes-dock-releases` 的 `Contents: read and write` 权限。
+- workflow 自带的 `GITHUB_TOKEN` 对源码仓库保持 `contents: read`，不要为跨仓库发布扩大其权限。
 - 发布前先确认工作树干净，并用 `rg` 检查以下三个版本值一致：`app.go` 的 `appVersion`、`frontend/package.json` 的 `version`、`wails.json` 的 `info.productVersion`。
 - 版本递增时必须同步更新这三个位置；不得只更新前端或 Wails 产品版本。
 - 版本提交使用 `chore(release): bump version to <version>`。提交后创建注释标签 `v<version>`，标签说明为 `Release v<version>`，并推送 `main` 和该标签。
-- 推送后确认远端 `main` 与 `v<version>` 标签均指向该发布提交。
+- 推送后确认私有源码仓库的远端 `main` 与 `v<version>` 标签均指向该发布提交，并确认公开发布仓库已创建同版本 Release、完整上传安装包和 `SHA256SUMS.txt`。
 
 ## 代码风格
 
