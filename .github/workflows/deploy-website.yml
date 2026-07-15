@@ -1,0 +1,183 @@
+name: Deploy Website
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "website/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 24
+  PNPM_VERSION: 10.28.2
+
+jobs:
+  deploy:
+    name: Build and deploy website
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --dir website install --frozen-lockfile
+
+      - name: Test website
+        run: pnpm --dir website test
+
+      - name: Build website
+        run: pnpm --dir website build
+
+      - name: Create deployment bundles
+        run: |
+          tar -C website/dist \
+            -czf "qizhih-website-dist-${GITHUB_SHA}.tar.gz" \
+            .
+
+          tar -C website \
+            -czf "qizhih-website-server-${GITHUB_SHA}.tar.gz" \
+            server \
+            package.json \
+            pnpm-lock.yaml
+
+          tar -tzf "qizhih-website-dist-${GITHUB_SHA}.tar.gz" >/dev/null
+          tar -tzf "qizhih-website-server-${GITHUB_SHA}.tar.gz" >/dev/null
+
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.WEBSITE_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.WEBSITE_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/id_ed25519
+          install -m 600 /dev/null ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload deployment bundles
+        env:
+          DEPLOY_HOST: ${{ secrets.WEBSITE_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.WEBSITE_DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.WEBSITE_DEPLOY_USER }}
+        run: |
+          scp \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -P "$DEPLOY_PORT" \
+            "qizhih-website-dist-${GITHUB_SHA}.tar.gz" \
+            "qizhih-website-server-${GITHUB_SHA}.tar.gz" \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
+
+      - name: Deploy on server
+        env:
+          DEPLOY_HOST: ${{ secrets.WEBSITE_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.WEBSITE_DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.WEBSITE_DEPLOY_USER }}
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_SHA='$GITHUB_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          frontend_archive="/tmp/qizhih-website-dist-${DEPLOY_SHA}.tar.gz"
+          server_archive="/tmp/qizhih-website-server-${DEPLOY_SHA}.tar.gz"
+          frontend_dir="/home/nginx/html/qizhih-website"
+          server_dir="/opt/qizhih-website-server"
+
+          cleanup() {
+              rm -f "$frontend_archive" "$server_archive"
+          }
+          trap cleanup EXIT
+
+          test -f "$frontend_archive"
+          test -f "$server_archive"
+          test -f "$server_dir/docker-compose.yaml"
+
+          tar -tzf "$frontend_archive" >/dev/null
+          tar -tzf "$server_archive" >/dev/null
+
+          rm -rf "$frontend_dir"
+          mkdir -p "$frontend_dir"
+          tar -xzf "$frontend_archive" -C "$frontend_dir"
+          test -f "$frontend_dir/index.html"
+
+          cd "$server_dir"
+          docker compose down
+
+          rm -rf \
+            "$server_dir/node-modules" \
+            "$server_dir/server" \
+            "$server_dir/package.json" \
+            "$server_dir/pnpm-lock.yaml"
+
+          tar -xzf "$server_archive" -C "$server_dir"
+          test -f "$server_dir/package.json"
+          test -f "$server_dir/pnpm-lock.yaml"
+          test -f "$server_dir/server/index.js"
+
+          docker compose up -d
+
+          healthy=false
+          for attempt in $(seq 1 36); do
+              if curl -fs http://127.0.0.1:3000/healthz >/dev/null 2>&1; then
+                  healthy=true
+                  break
+              fi
+              sleep 5
+          done
+
+          if [ "$healthy" != "true" ]; then
+              docker compose ps
+              docker compose logs --tail=100 server
+              exit 1
+          fi
+
+          docker compose ps
+          REMOTE
+
+      - name: Verify public website
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            https://ai.sqyl.online/ \
+            >/dev/null
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-delay 3 \
+            https://ai.sqyl.online/healthz
