@@ -204,6 +204,23 @@ func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	if !strings.Contains(string(config), "cwd: /opt/data/profiles/sales") {
 		t.Fatalf("config cwd not rewritten")
 	}
+	configMap := map[string]interface{}{}
+	if err := parseYAMLFile(filepath.Join(dir, "config.yaml"), &configMap); err != nil {
+		t.Fatal(err)
+	}
+	if !asBool(asMap(configMap["streaming"])["enabled"]) {
+		t.Fatal("gateway streaming should be enabled")
+	}
+	platforms := asMap(asMap(configMap["display"])["platforms"])
+	if !asBool(asMap(platforms["feishu"])["streaming"]) {
+		t.Fatal("feishu streaming should be enabled")
+	}
+	if asBool(asMap(platforms["weixin"])["streaming"]) {
+		t.Fatal("weixin streaming should be disabled")
+	}
+	if asBool(asMap(platforms["wecom"])["streaming"]) {
+		t.Fatal("wecom streaming should be disabled")
+	}
 	soul, err := os.ReadFile(filepath.Join(dir, "SOUL.md"))
 	if err != nil {
 		t.Fatal(err)

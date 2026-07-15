@@ -186,6 +186,7 @@ export type InstanceBackupImportResult = {
 export type AppState = {
     appVersion: string;
     instanceRoot: string;
+    needsRebuild: boolean;
     profiles: ProfileRegistry;
     activeProfile: string;
     profileStatus: RuntimeStatus;

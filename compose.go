@@ -427,6 +427,7 @@ func (a *App) RebuildHermes() error {
 	if err == nil {
 		state, _ := a.readState()
 		state.LastSuccessfulHermesImage = state.HermesImage
+		state.NeedsRebuild = false
 		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 		_ = a.writeState(state)
 	}

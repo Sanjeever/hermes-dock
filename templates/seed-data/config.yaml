@@ -205,9 +205,26 @@ auxiliary:
     api_key: ''
     timeout: 60
     extra_body: {}
+streaming:
+  enabled: true
+  transport: edit
+  edit_interval: 0.8
+  buffer_threshold: 24
+  cursor: " ▉"
 display:
   language: zh
   interface: cli
+  platforms:
+    feishu:
+      streaming: true
+      tool_progress: off
+      interim_assistant_messages: true
+      long_running_notifications: false
+      busy_ack_detail: false
+    weixin:
+      streaming: false
+    wecom:
+      streaming: false
 dashboard:
   theme: default
 privacy:

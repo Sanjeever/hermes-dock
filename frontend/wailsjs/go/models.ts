@@ -454,6 +454,7 @@ export namespace main {
 	    lastSuccessfulHermesImage: string;
 	    initializedAt: string;
 	    updatedAt: string;
+	    needsRebuild: boolean;
 	    migrations: MigrationRecord[];
 	    backups: BackupRecord[];
 	    ui: UIState;
@@ -478,6 +479,7 @@ export namespace main {
 	        this.lastSuccessfulHermesImage = source["lastSuccessfulHermesImage"];
 	        this.initializedAt = source["initializedAt"];
 	        this.updatedAt = source["updatedAt"];
+	        this.needsRebuild = source["needsRebuild"];
 	        this.migrations = this.convertValues(source["migrations"], MigrationRecord);
 	        this.backups = this.convertValues(source["backups"], BackupRecord);
 	        this.ui = this.convertValues(source["ui"], UIState);
@@ -505,6 +507,7 @@ export namespace main {
 	export class AppState {
 	    appVersion: string;
 	    instanceRoot: string;
+	    needsRebuild: boolean;
 	    state: LauncherState;
 	    profiles: ProfileRegistry;
 	    activeProfile: string;
@@ -529,6 +532,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.appVersion = source["appVersion"];
 	        this.instanceRoot = source["instanceRoot"];
+	        this.needsRebuild = source["needsRebuild"];
 	        this.state = this.convertValues(source["state"], LauncherState);
 	        this.profiles = this.convertValues(source["profiles"], ProfileRegistry);
 	        this.activeProfile = source["activeProfile"];

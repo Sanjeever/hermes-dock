@@ -306,6 +306,7 @@ function App() {
         const firstRefresh = !stateRef.current;
         const previousProfile = stateRef.current?.activeProfile;
         const profileChanged = !!previousProfile && previousProfile !== nextState.activeProfile;
+        if (nextState.needsRebuild) setNeedsRebuild(true);
         stateRef.current = nextState;
         activeProfileRef.current = nextState.activeProfile || 'default';
         setState(nextState);

@@ -87,6 +87,7 @@ func (a *App) GetAppState() (AppState, error) {
 	return AppState{
 		AppVersion:       appVersion,
 		InstanceRoot:     a.instanceRoot,
+		NeedsRebuild:     state.NeedsRebuild,
 		State:            state,
 		Profiles:         profiles,
 		ActiveProfile:    a.currentProfileID(),
@@ -130,6 +131,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 			return err
 		}
 		if err := a.ensureProfileRegistry(); err != nil {
+			return err
+		}
+		if err := a.migrateProfileStreamingDefaults(); err != nil {
 			return err
 		}
 		return a.ensureWebConfig()
@@ -181,9 +185,15 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.ensureProfileRegistry(); err != nil {
 			return err
 		}
+		if err := a.migrateProfileStreamingDefaults(); err != nil {
+			return err
+		}
 		return a.ensureWebConfig()
 	}
 	if err := a.ensureProfileRegistry(); err != nil {
+		return err
+	}
+	if err := a.migrateProfileStreamingDefaults(); err != nil {
 		return err
 	}
 	return a.ensureWebConfig()
@@ -241,6 +251,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		LastSuccessfulHermesImage: settings.Image,
 		InitializedAt:             firstNonEmpty(existing.InitializedAt, now),
 		UpdatedAt:                 now,
+		NeedsRebuild:              existing.NeedsRebuild,
 		Migrations: appendIfMissingMigration(existing.Migrations, MigrationRecord{
 			ID:        "seed-data-v1",
 			AppliedAt: now,
@@ -255,7 +266,10 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 	if err := a.ensureProfileRegistry(); err != nil {
 		return LauncherState{}, err
 	}
-	return state, nil
+	if err := a.migrateProfileStreamingDefaults(); err != nil {
+		return LauncherState{}, err
+	}
+	return a.readState()
 }
 
 func (a *App) writeOverrideIfMissing() error {

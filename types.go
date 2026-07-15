@@ -3,6 +3,7 @@ package main
 type AppState struct {
 	AppVersion       string           `json:"appVersion"`
 	InstanceRoot     string           `json:"instanceRoot"`
+	NeedsRebuild     bool             `json:"needsRebuild"`
 	State            LauncherState    `json:"state"`
 	Profiles         ProfileRegistry  `json:"profiles"`
 	ActiveProfile    string           `json:"activeProfile"`
@@ -129,6 +130,7 @@ type LauncherState struct {
 	LastSuccessfulHermesImage string            `json:"lastSuccessfulHermesImage"`
 	InitializedAt             string            `json:"initializedAt"`
 	UpdatedAt                 string            `json:"updatedAt"`
+	NeedsRebuild              bool              `json:"needsRebuild"`
 	Migrations                []MigrationRecord `json:"migrations"`
 	Backups                   []BackupRecord    `json:"backups"`
 	UI                        UIState           `json:"ui"`
