@@ -13,7 +13,7 @@ import (
 const (
 	fallbackMemoryLimit = "4G"
 	fallbackCPULimit    = "2.0"
-	runtimeStatusWait   = 15 * time.Second
+	runtimeStatusWait   = 60 * time.Second
 )
 
 func defaultComposeSettings() ComposeSettings {

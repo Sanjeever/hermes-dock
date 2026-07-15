@@ -506,7 +506,7 @@ function operationSummary(containerStatus: string, needsRebuild: boolean, runnin
         return {title: '有助手启动失败', detail: '打开日志诊断，通常能看到失败原因。'};
     }
     if (startingProfiles > 0) {
-        return {title: '助手正在启动', detail: '通常需要 5-15 秒，完成后会自动刷新为运行中。'};
+        return {title: '助手正在启动', detail: '通常需要 10-60 秒，完成后会自动刷新为运行中。'};
     }
     if (runningProfiles > 0) {
         return {title: `${runningProfiles} 个助手运行中`, detail: notConfiguredProfiles > 0 ? '部分助手尚未绑定平台，不会参与运行。' : '容器和助手都已进入运行态。'};
