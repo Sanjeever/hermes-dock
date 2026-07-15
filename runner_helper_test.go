@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -45,6 +46,7 @@ func TestProfileRunnerCandidatesIncludeWindowsInstallPath(t *testing.T) {
 
 func TestSyncProfileRunnerReplacesStaleHelper(t *testing.T) {
 	dir := t.TempDir()
+	app := &App{instanceRoot: dir}
 	source := filepath.Join(dir, "packaged-runner")
 	target := filepath.Join(dir, "released-runner")
 	if err := os.WriteFile(source, []byte("new-runner"), 0755); err != nil {
@@ -54,7 +56,7 @@ func TestSyncProfileRunnerReplacesStaleHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := syncProfileRunner(source, target); err != nil {
+	if err := app.syncProfileRunner(source, target, "linux"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(target)
@@ -63,5 +65,52 @@ func TestSyncProfileRunnerReplacesStaleHelper(t *testing.T) {
 	}
 	if string(data) != "new-runner" {
 		t.Fatalf("released runner = %q, want packaged runner", data)
+	}
+}
+
+func TestSyncProfileRunnerStopsRunningContainerBeforeWindowsReplacement(t *testing.T) {
+	installFakeDocker(t, true)
+	dir := t.TempDir()
+	app := &App{instanceRoot: dir}
+	source := filepath.Join(dir, "packaged-runner")
+	target := filepath.Join(dir, "launcher", "helpers", "hermes-profile-runner")
+	mustWriteFile(t, app.composePath(), "services: {}\n", 0644)
+	mustWriteFile(t, source, "new-runner", 0755)
+	mustWriteFile(t, target, "old-runner", 0755)
+
+	if err := app.syncProfileRunner(source, target, "windows"); err != nil {
+		t.Fatal(err)
+	}
+	logData, err := os.ReadFile(fakeDockerLogPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(logData), "compose stop") {
+		t.Fatalf("docker compose stop was not called: %s", logData)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new-runner" {
+		t.Fatalf("released runner = %q, want packaged runner", data)
+	}
+}
+
+func TestSyncProfileRunnerDoesNotStopWindowsContainerWhenUnchanged(t *testing.T) {
+	installFakeDocker(t, true)
+	dir := t.TempDir()
+	app := &App{instanceRoot: dir}
+	source := filepath.Join(dir, "packaged-runner")
+	target := filepath.Join(dir, "launcher", "helpers", "hermes-profile-runner")
+	mustWriteFile(t, app.composePath(), "services: {}\n", 0644)
+	mustWriteFile(t, source, "same-runner", 0755)
+	mustWriteFile(t, target, "same-runner", 0755)
+
+	if err := app.syncProfileRunner(source, target, "windows"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(fakeDockerLogPath(t)); !os.IsNotExist(err) {
+		t.Fatalf("docker should not be called for an unchanged runner: %v", err)
 	}
 }

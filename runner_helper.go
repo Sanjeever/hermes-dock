@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -38,18 +39,23 @@ func (a *App) copyPrebuiltProfileRunner(target string) error {
 		if !fileExists(candidate) {
 			continue
 		}
-		return syncProfileRunner(candidate, target)
+		return a.syncProfileRunner(candidate, target, runtime.GOOS)
 	}
 	return os.ErrNotExist
 }
 
-func syncProfileRunner(source string, target string) error {
+func (a *App) syncProfileRunner(source string, target string, goos string) error {
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return err
 	}
 	if existing, err := os.ReadFile(target); err == nil && bytes.Equal(existing, data) {
 		return nil
+	}
+	if goos == "windows" && fileExists(a.composePath()) && a.containerStatus(context.Background()) == "running" {
+		if err := a.StopHermes(); err != nil {
+			return fmt.Errorf("停止 Hermes 容器以更新 profile runner 失败：%w", err)
+		}
 	}
 	return atomicWriteFile(target, data, 0755)
 }
