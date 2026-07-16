@@ -280,7 +280,10 @@ func (a *App) CompleteProfileSetup(id string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	registry.Profiles[idx].SetupCompletedAt = now
 	registry.Profiles[idx].UpdatedAt = now
-	return a.writeProfileRegistry(registry)
+	if err := a.writeProfileRegistry(registry); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) UpdateProfileName(id string, name string) error {
@@ -313,7 +316,10 @@ func (a *App) SetProfileEnabled(id string, enabled bool) error {
 			return err
 		}
 	}
-	return a.writeProfileRegistry(registry)
+	if err := a.writeProfileRegistry(registry); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) MoveProfile(id string, direction string) error {
@@ -378,9 +384,11 @@ func (a *App) DeleteProfile(id string) error {
 	state, _ := a.readState()
 	if state.UI.LastProfile == id {
 		state.UI.LastProfile = defaultProfileID
-		_ = a.writeState(state)
+		if err := a.writeState(state); err != nil {
+			return err
+		}
 	}
-	return nil
+	return a.markRebuildRequired()
 }
 
 func (a *App) ensureProfileEnvMarkers(profileID string) error {

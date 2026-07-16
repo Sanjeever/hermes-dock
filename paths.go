@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func detectInstanceRoot() string {
@@ -160,6 +161,19 @@ func (a *App) writeState(state LauncherState) error {
 		return err
 	}
 	return atomicWriteFile(a.statePath(), append(data, '\n'), 0644)
+}
+
+func (a *App) markRebuildRequired() error {
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	if state.NeedsRebuild {
+		return nil
+	}
+	state.NeedsRebuild = true
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
 }
 
 func defaultState() LauncherState {

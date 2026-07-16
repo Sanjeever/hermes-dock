@@ -163,7 +163,10 @@ func (a *App) SaveModelConfig(model ModelConfig) error {
 	if err := a.syncReferencedProviderEnv(providers); err != nil {
 		return err
 	}
-	return a.updateCurrentProfileAuxiliaryMode(firstNonEmpty(model.AuxiliaryMode, "auto"))
+	if err := a.updateCurrentProfileAuxiliaryMode(firstNonEmpty(model.AuxiliaryMode, "auto")); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) normalizeModelConfigForSave(model ModelConfig) ModelConfig {
@@ -257,6 +260,7 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 		return err
 	}
 	state, _ := a.readState()
+	state.NeedsRebuild = true
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }

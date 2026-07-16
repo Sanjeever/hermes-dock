@@ -175,7 +175,10 @@ func (a *App) persistWeixinCredentials(profileID string, event weixinEvent) erro
 		{Key: "WEIXIN_GROUP_ALLOWED_USERS", Value: ""},
 		{Key: "WEIXIN_HOME_CHANNEL", Value: event.UserID},
 	}
-	return a.saveEnvironmentTo(path, mergeEnv(env, updates))
+	if err := a.saveEnvironmentTo(path, mergeEnv(env, updates)); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) writeWeixinHelper() (string, error) {

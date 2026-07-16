@@ -79,6 +79,7 @@ function App() {
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
     const stateRef = useRef<AppState | null>(null);
+    const refreshSequenceRef = useRef(0);
     const activeProfileRef = useRef('default');
     const firstRunWizardCheckedRef = useRef(false);
     const [env, setEnv] = useState<EnvVar[]>([]);
@@ -293,20 +294,23 @@ function App() {
     }, [state, busy]);
 
     async function refresh() {
+        const sequence = ++refreshSequenceRef.current;
         let next: unknown;
         try {
             next = await GetAppState();
         } catch (error) {
+            if (sequence !== refreshSequenceRef.current) return '';
             const message = String(error);
             setRefreshError(message);
             appendLog(message);
             return message;
         }
+        if (sequence !== refreshSequenceRef.current) return '';
         const nextState = next as AppState;
         const firstRefresh = !stateRef.current;
         const previousProfile = stateRef.current?.activeProfile;
         const profileChanged = !!previousProfile && previousProfile !== nextState.activeProfile;
-        if (nextState.needsRebuild) setNeedsRebuild(true);
+        setNeedsRebuild(nextState.needsRebuild);
         stateRef.current = nextState;
         activeProfileRef.current = nextState.activeProfile || 'default';
         setState(nextState);

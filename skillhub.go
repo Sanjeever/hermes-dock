@@ -298,7 +298,10 @@ func (a *App) InstallSkillHubSkill(slug string) error {
 			return err
 		}
 	}
-	return os.Rename(tmp, target)
+	if err := os.Rename(tmp, target); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func normalizeSkillHubQuery(query SkillHubQuery) SkillHubQuery {

@@ -96,7 +96,10 @@ func (a *App) DeleteSkill(path string) error {
 	if err := a.backupDirectory(dir, "before-skill-delete-"+sanitizeName(summary.Name)); err != nil {
 		return err
 	}
-	return os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
@@ -114,7 +117,11 @@ func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
 	if err := a.backupDirectory(skillsDir, "before-sync-bundled-skills"); err != nil {
 		return result, err
 	}
-	return writeBundledSkillSeedFiles(files, result)
+	result, err = writeBundledSkillSeedFiles(files, result)
+	if err != nil || result.SyncedFiles == 0 {
+		return result, err
+	}
+	return result, a.markRebuildRequired()
 }
 
 func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
@@ -135,7 +142,11 @@ func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
 	if err := os.RemoveAll(skillsDir); err != nil {
 		return result, err
 	}
-	return writeBundledSkillSeedFiles(files, result)
+	result, err = writeBundledSkillSeedFiles(files, result)
+	if err != nil || result.SyncedFiles == 0 {
+		return result, err
+	}
+	return result, a.markRebuildRequired()
 }
 
 func (a *App) RestoreDefaultSoul() error {
@@ -152,7 +163,10 @@ func (a *App) RestoreDefaultSoul() error {
 	if err := ensureDir(filepath.Dir(target)); err != nil {
 		return err
 	}
-	return atomicWriteFile(target, data, 0644)
+	if err := atomicWriteFile(target, data, 0644); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 type bundledSkillSeedFile struct {

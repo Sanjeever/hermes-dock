@@ -374,7 +374,10 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	if filepath.Base(resolved) == ".env" {
 		mode = 0600
 	}
-	return atomicWriteFile(resolved, []byte(req.Content), mode)
+	if err := atomicWriteFile(resolved, []byte(req.Content), mode); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func (a *App) emit(event string, payload interface{}) {

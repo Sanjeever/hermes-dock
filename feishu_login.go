@@ -167,7 +167,10 @@ func (a *App) persistFeishuCredentials(profileID string, credentials feishuCrede
 		{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 		{Key: "FEISHU_GROUP_POLICY", Value: "open"},
 	}
-	return a.saveEnvironmentTo(path, mergeEnv(env, updates))
+	if err := a.saveEnvironmentTo(path, mergeEnv(env, updates)); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
 }
 
 func postFeishuRegistration(ctx context.Context, domain string, form url.Values) (map[string]interface{}, error) {

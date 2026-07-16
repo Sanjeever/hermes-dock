@@ -74,6 +74,29 @@ func TestMarkRebuildAppliedClearsNeedsRebuild(t *testing.T) {
 	}
 }
 
+func TestSaveEnvironmentMarksRebuildRequired(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.NeedsRebuild = false
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.SaveEnvironment([]EnvVar{{Key: "TEST_SETTING", Value: "changed"}}); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.NeedsRebuild {
+		t.Fatal("saved environment should require applying configuration")
+	}
+}
+
 func TestShouldRecreateComposeRuntime(t *testing.T) {
 	tests := []struct {
 		name        string

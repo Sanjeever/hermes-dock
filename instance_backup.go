@@ -156,6 +156,7 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 	}
 	state.AppVersion = appVersion
 	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = true
 	state.Backups = append(state.Backups, BackupRecord{
 		ID:     now.Format("20060102T150405Z"),
 		Reason: "pre-import-instance",

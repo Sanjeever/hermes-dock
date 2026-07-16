@@ -95,6 +95,23 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	}
 }
 
+func TestCurrentComposeMigrationDoesNotRequireRebuild(t *testing.T) {
+	app := newTestApp(t)
+	if err := app.ensureInstanceReady(); err != nil {
+		t.Fatal(err)
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, composeRuntimeMigrationID) {
+		t.Fatal("current compose baseline should be recorded")
+	}
+	if state.NeedsRebuild {
+		t.Fatal("current compose baseline should not require applying configuration")
+	}
+}
+
 func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -153,6 +170,25 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	}
 	if !state.NeedsRebuild {
 		t.Fatal("compose migration should require applying the new container configuration")
+	}
+	if !migrationApplied(state.Migrations, composeRuntimeMigrationID) {
+		t.Fatal("compose migration should be recorded")
+	}
+	if err := app.markRebuildApplied("applied-compose-hash"); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened := NewApp()
+	reopened.instanceRoot = filepath.Join(home, ".hermes-dock")
+	if err := reopened.ensureInstanceReady(); err != nil {
+		t.Fatal(err)
+	}
+	reopenedState, err := reopened.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopenedState.NeedsRebuild {
+		t.Fatal("applied compose migration should stay cleared after reopening")
 	}
 }
 

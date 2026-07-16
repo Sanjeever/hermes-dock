@@ -69,6 +69,7 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	}
 	state, _ := a.readState()
 	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = true
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }

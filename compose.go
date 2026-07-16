@@ -200,12 +200,15 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	state.HermesImage = settings.Image
 	state.ComposeSettings = settings
 	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = true
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	if err := a.writeState(state); err != nil {
 		return err
 	}
 	return a.syncHostBridge(settings.HostControlEnabled == "true")
 }
+
+const composeRuntimeMigrationID = "compose-runtime-v1"
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
@@ -286,12 +289,21 @@ func (a *App) writeCompose(settings ComposeSettings, reason string) error {
 }
 
 func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
+	if fileExists(a.statePath()) {
+		state, err := a.readState()
+		if err != nil {
+			return err
+		}
+		if migrationApplied(state.Migrations, composeRuntimeMigrationID) {
+			return nil
+		}
+	}
 	data, err := os.ReadFile(a.composePath())
 	if err != nil {
 		return err
 	}
 	content := string(data)
-	if strings.Contains(content, "hermes-profile-runner") &&
+	current := strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
 		!strings.Contains(content, "init-permissions") &&
 		strings.Contains(content, "host-bridge.token") &&
@@ -299,11 +311,11 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
 		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") &&
 		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
-		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") {
-		return nil
-	}
-	if err := a.writeCompose(settings, "before-compose-runtime-helper-migration"); err != nil {
-		return err
+		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT")
+	if !current {
+		if err := a.writeCompose(settings, "before-compose-runtime-helper-migration"); err != nil {
+			return err
+		}
 	}
 	if !fileExists(a.statePath()) {
 		return nil
@@ -312,8 +324,12 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	if err != nil {
 		return err
 	}
+	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+		ID:        composeRuntimeMigrationID,
+		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	})
 	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = true
+	state.NeedsRebuild = state.NeedsRebuild || !current
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }
