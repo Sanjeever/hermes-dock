@@ -127,7 +127,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.writeOverrideIfMissing(); err != nil {
 			return err
 		}
-		if err := ensureDir(a.dockDataDir()); err != nil {
+		if err := a.ensureDockDataDir(); err != nil {
 			return err
 		}
 		if err := a.ensureProfileRegistry(); err != nil {
@@ -150,7 +150,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 	if err := a.releaseSeedData(); err != nil {
 		return err
 	}
-	if err := ensureDir(a.dockDataDir()); err != nil {
+	if err := a.ensureDockDataDir(); err != nil {
 		return err
 	}
 	settings := a.readComposeSettings()
@@ -221,7 +221,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 	if err := a.releaseSeedData(); err != nil {
 		return LauncherState{}, err
 	}
-	if err := ensureDir(a.dockDataDir()); err != nil {
+	if err := a.ensureDockDataDir(); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.writeCompose(settings, "initialize-compose"); err != nil {
@@ -243,6 +243,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		InstanceID:                instanceID,
 		ManagedCompose:            true,
 		ComposeHash:               fileSHA256(a.composePath()),
+		LastAppliedComposeHash:    existing.LastAppliedComposeHash,
 		TemplateVersion:           templateVersion,
 		SkillsSnapshotImage:       defaultImage,
 		HermesImage:               settings.Image,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -292,6 +293,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	content := string(data)
 	if strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
+		!strings.Contains(content, "init-permissions") &&
 		strings.Contains(content, "host-bridge.token") &&
 		strings.Contains(content, "/usr/local/bin/hostctl") &&
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
@@ -300,7 +302,20 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") {
 		return nil
 	}
-	return a.writeCompose(settings, "before-compose-runtime-helper-migration")
+	if err := a.writeCompose(settings, "before-compose-runtime-helper-migration"); err != nil {
+		return err
+	}
+	if !fileExists(a.statePath()) {
+		return nil
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = true
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
 }
 
 func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
@@ -309,14 +324,6 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
 	dashboard := "1"
 	proxyEnv := renderComposeProxyEnvironment(proxy)
 	return fmt.Sprintf(`services:
-  init-permissions:
-    image: alpine:3.22
-    user: "0:0"
-    command: chown -R 10000:10000 /opt/data
-    volumes:
-      - ./data:/opt/data
-    restart: "no"
-
   hermes:
     image: %s
     container_name: %s
@@ -324,9 +331,6 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
     init: false
     stop_grace_period: 120s
     command: /opt/hermes-dock/hermes-profile-runner
-    depends_on:
-      init-permissions:
-        condition: service_completed_successfully
     logging:
       driver: "json-file"
       options:
@@ -405,13 +409,17 @@ func (a *App) StartHermes() error {
 	if err != nil {
 		return err
 	}
+	composeHash, err := a.composeRuntimeHash()
+	if err != nil {
+		return err
+	}
 	if err := a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d"); err != nil {
 		return err
 	}
 	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
 		return fmt.Errorf("容器已启动，但%w", err)
 	}
-	return nil
+	return a.markRebuildApplied(composeHash)
 }
 
 func (a *App) StopHermes() error {
@@ -419,28 +427,10 @@ func (a *App) StopHermes() error {
 }
 
 func (a *App) RestartHermes() error {
-	return a.runComposeStreaming(context.Background(), "docker:progress", "restart")
+	return a.runComposeStreaming(context.Background(), "docker:progress", "restart", "hermes")
 }
 
 func (a *App) RebuildHermes() error {
-	if err := a.forceRecreateComposeRuntime(); err != nil {
-		return err
-	}
-	return a.markRebuildApplied()
-}
-
-func (a *App) markRebuildApplied() error {
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
-	state.LastSuccessfulHermesImage = state.HermesImage
-	state.NeedsRebuild = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
-}
-
-func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
@@ -450,13 +440,64 @@ func (a *App) forceRecreateComposeRuntime() error {
 	if err := a.syncSavedModelProviderEnv(); err != nil {
 		return err
 	}
-	if _, err := a.writeRuntimeManifest(); err != nil {
+	manifest, err := a.writeRuntimeManifest()
+	if err != nil {
 		return err
 	}
-	if err := a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate"); err != nil {
+	composeHash, err := a.composeRuntimeHash()
+	if err != nil {
 		return err
 	}
-	return nil
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	recreate := shouldRecreateComposeRuntime(state.LastAppliedComposeHash, composeHash, a.containerStatus(context.Background()))
+	if err := a.applyComposeRuntime(recreate); err != nil {
+		return err
+	}
+	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
+		return fmt.Errorf("配置已应用，但%w", err)
+	}
+	return a.markRebuildApplied(composeHash)
+}
+
+func (a *App) markRebuildApplied(composeHash string) error {
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	state.LastAppliedComposeHash = composeHash
+	state.LastSuccessfulHermesImage = state.HermesImage
+	state.NeedsRebuild = false
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
+}
+
+func (a *App) composeRuntimeHash() (string, error) {
+	hash := sha256.New()
+	for _, path := range []string{a.composePath(), a.overridePath()} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("读取 Compose 配置失败：%w", err)
+		}
+		_, _ = fmt.Fprintf(hash, "%d:", len(data))
+		_, _ = hash.Write(data)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func shouldRecreateComposeRuntime(lastAppliedHash string, currentHash string, containerStatus string) bool {
+	return lastAppliedHash == "" || lastAppliedHash != currentHash || (containerStatus != "running" && containerStatus != "stopped")
+}
+
+func (a *App) applyComposeRuntime(recreate bool) error {
+	if recreate {
+		a.emit("docker:progress", StreamEvent{Line: "检测到容器配置变化，正在重建 Hermes 容器"})
+		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate", "--remove-orphans", "hermes")
+	}
+	a.emit("docker:progress", StreamEvent{Line: "容器配置未变化，正在快速重启 Hermes 服务"})
+	return a.runComposeStreaming(context.Background(), "docker:progress", "restart", "hermes")
 }
 
 func (a *App) waitForRuntimeStatus(manifest RuntimeManifest, timeout time.Duration) error {

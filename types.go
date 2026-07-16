@@ -122,6 +122,7 @@ type LauncherState struct {
 	InstanceID                string            `json:"instanceId"`
 	ManagedCompose            bool              `json:"managedCompose"`
 	ComposeHash               string            `json:"composeHash"`
+	LastAppliedComposeHash    string            `json:"lastAppliedComposeHash"`
 	TemplateVersion           string            `json:"templateVersion"`
 	SkillsSnapshotImage       string            `json:"skillsSnapshotImage"`
 	HermesImage               string            `json:"hermesImage"`

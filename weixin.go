@@ -100,7 +100,7 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 				a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
 				continue
 			}
-			a.emit("weixin-login:status", map[string]string{"profile_id": profileID, "status": "微信配置已保存，请应用并重建后生效"})
+			a.emit("weixin-login:status", map[string]string{"profile_id": profileID, "status": "微信配置已保存，请应用配置后生效"})
 			event.Token = ""
 			a.emit("weixin-login:confirmed", event)
 		case "qr_ready":

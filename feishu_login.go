@@ -81,9 +81,9 @@ func (a *App) runFeishuLogin(ctx context.Context, profileID string) {
 		a.emit("feishu-login:error", feishuLoginEvent{Type: "error", ProfileID: profileID, Message: redact(err.Error())})
 		return
 	}
-	message := "飞书配置已保存，请应用并重建后生效"
+	message := "飞书配置已保存，请应用配置后生效"
 	if credentials.BotName == "" {
-		message = "已绑定，暂时无法读取机器人名称；应用并重建后验证运行状态"
+		message = "已绑定，暂时无法读取机器人名称；应用配置后验证运行状态"
 	}
 	a.emit("feishu-login:confirmed", feishuLoginEvent{
 		Type:      "confirmed",

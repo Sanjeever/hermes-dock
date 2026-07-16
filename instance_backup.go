@@ -136,7 +136,7 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
-	if err := ensureDir(a.dockDataDir()); err != nil {
+	if err := a.ensureDockDataDir(); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
 	if err := a.ensureProfileRegistry(); err != nil {

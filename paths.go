@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -177,6 +178,16 @@ func defaultState() LauncherState {
 
 func ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
+}
+
+func (a *App) ensureDockDataDir() error {
+	if err := ensureDir(a.dockDataDir()); err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return os.Chmod(a.dockDataDir(), 0777|os.ModeSticky)
 }
 
 func fileSHA256(path string) string {

@@ -446,6 +446,7 @@ export namespace main {
 	    instanceId: string;
 	    managedCompose: boolean;
 	    composeHash: string;
+	    lastAppliedComposeHash: string;
 	    templateVersion: string;
 	    skillsSnapshotImage: string;
 	    hermesImage: string;
@@ -471,6 +472,7 @@ export namespace main {
 	        this.instanceId = source["instanceId"];
 	        this.managedCompose = source["managedCompose"];
 	        this.composeHash = source["composeHash"];
+	        this.lastAppliedComposeHash = source["lastAppliedComposeHash"];
 	        this.templateVersion = source["templateVersion"];
 	        this.skillsSnapshotImage = source["skillsSnapshotImage"];
 	        this.hermesImage = source["hermesImage"];

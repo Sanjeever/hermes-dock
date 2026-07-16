@@ -38,12 +38,21 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 		}
 	}
 	assertRuntimeHelpers(t, root)
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(root, "data", ".dock"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode()&os.ModeSticky == 0 || info.Mode().Perm() != 0777 {
+			t.Fatalf("data/.dock mode = %v, want sticky writable runtime directory", info.Mode())
+		}
+	}
 	if _, err := os.Stat(filepath.Join(root, ".hermes-dock")); !os.IsNotExist(err) {
 		t.Fatalf("unexpected nested .hermes-dock directory: %v", err)
 	}
 }
 
-func TestStartupComposeIncludesInitPermissions(t *testing.T) {
+func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -63,12 +72,6 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 	}
 	compose := string(data)
 	for _, want := range []string{
-		"  init-permissions:",
-		"    image: alpine:3.22",
-		"    user: \"0:0\"",
-		"    command: chown -R 10000:10000 /opt/data",
-		"    restart: \"no\"",
-		"    depends_on:\n      init-permissions:\n        condition: service_completed_successfully",
 		"    command: /opt/hermes-dock/hermes-profile-runner",
 		"      HERMES_HOME: \"/opt/data\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
@@ -83,6 +86,9 @@ func TestStartupComposeIncludesInitPermissions(t *testing.T) {
 		if !strings.Contains(compose, want) {
 			t.Fatalf("compose missing %q:\n%s", want, compose)
 		}
+	}
+	if strings.Contains(compose, "init-permissions") {
+		t.Fatalf("compose must not recursively chown the data directory:\n%s", compose)
 	}
 	if strings.Contains(compose, "entrypoint:") {
 		t.Fatalf("compose must not override entrypoint:\n%s", compose)
@@ -103,7 +109,16 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	}
 
 	composePath := filepath.Join(home, ".hermes-dock", "docker-compose.yaml")
-	content := []byte("services:\n  hermes:\n    image: local/test:latest\n")
+	content := []byte(`services:
+  init-permissions:
+    image: alpine:3.22
+    command: chown -R 10000:10000 /opt/data
+  hermes:
+    image: local/test:latest
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
+`)
 	if err := os.WriteFile(composePath, content, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +143,16 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	}
 	if !strings.Contains(string(actual), "/etc/cont-init.d/019-patch-home-channel-prompt") {
 		t.Fatalf("migrated compose missing home channel prompt patch helper:\n%s", actual)
+	}
+	if strings.Contains(string(actual), "init-permissions") {
+		t.Fatalf("migrated compose still includes full data chown:\n%s", actual)
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.NeedsRebuild {
+		t.Fatal("compose migration should require applying the new container configuration")
 	}
 }
 
@@ -359,10 +384,15 @@ func assertFeishuDepsHelper(t *testing.T, root string) {
 		"lark-oapi==1.5.3",
 		"qrcode==7.4.2",
 		"/opt/hermes/.venv/bin/python",
+		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
+		"importlib.metadata",
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("install-feishu-deps missing %q:\n%s", want, content)
 		}
+	}
+	if strings.Contains(content, "--no-cache-dir") {
+		t.Fatalf("install-feishu-deps must preserve the uv download cache:\n%s", content)
 	}
 	if runtime.GOOS != "windows" {
 		info, err := os.Stat(helper)
