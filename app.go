@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	appVersion      = "1.9.11"
+	appVersion      = "1.9.12"
 	templateVersion = "2026.07.16"
 	defaultImage    = "nousresearch/hermes-agent:v2026.6.19"
 )
