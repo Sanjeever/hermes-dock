@@ -227,6 +227,7 @@ type ComposeSettings struct {
 	MemoryLimit             string `json:"memoryLimit"`
 	CPULimit                string `json:"cpuLimit"`
 	ShmSize                 string `json:"shmSize"`
+	SharedDirectory         string `json:"sharedDirectory"`
 }
 
 type ResourceLimitsRecommendation struct {

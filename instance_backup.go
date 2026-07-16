@@ -355,7 +355,7 @@ func (a *App) collectInstanceBackupEntries() ([]instanceBackupEntry, []string, e
 			return nil, nil, err
 		}
 	}
-	for _, rel := range []string{"launcher/backups", "launcher/logs", "launcher/web-sessions.json", "data/.dock"} {
+	for _, rel := range []string{"launcher/backups", "launcher/logs", "launcher/web-sessions.json", "data/.dock", "shared"} {
 		if fileExists(filepath.Join(a.instanceRoot, filepath.FromSlash(rel))) {
 			addExcluded(rel)
 		}

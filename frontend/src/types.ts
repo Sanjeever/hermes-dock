@@ -21,6 +21,7 @@ export type ComposeSettings = {
     memoryLimit: string;
     cpuLimit: string;
     shmSize: string;
+    sharedDirectory: string;
 };
 export type ResourceLimitsRecommendation = {
     memoryLimit: string;

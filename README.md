@@ -72,6 +72,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 ~/.hermes-dock/
   docker-compose.yaml
   docker-compose.override.yaml
+  shared/
   data/
     config.yaml
     .env
@@ -114,11 +115,13 @@ Hermes Dock 固定管理当前用户下的单实例目录：
 
 `launcher/` 是启动器自己的元数据目录。这里保存状态、profile registry、备份和临时 helper，不应该放用户业务数据或密钥。
 
+`shared/` 是默认共享文件目录，在容器内固定挂载为 `/opt/data/.dock/shared`，由所有 profile 共同读写。用户可以在基础设置中改为其他宿主机绝对路径，目录结构和文件内容由用户自行管理。
+
 Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `launcher/web-sessions.json`，访问日志保存在 `launcher/logs/web-server.log`。首次创建时 Web 管理默认开启，监听 `0.0.0.0:9876`，默认访问密码为 `123456`；用户可在设置页修改密码。关闭窗口会退出桌面主进程并停止 Web 管理。
 
-`data/.dock/` 保存 runner 的派生运行清单和运行状态。这里的文件可由 Hermes Dock 重新生成，不是用户业务数据。
+`data/.dock/` 保存 runner 的派生运行清单和运行状态。宿主机上的这些文件可由 Hermes Dock 重新生成，不是用户业务数据；容器内的 `/opt/data/.dock/shared` 是绑定到外部共享目录的挂载点。
 
-设置页的数据迁移功能会导出 `.hdbackup` 单文件，用于把当前实例迁移到其他设备。备份包含 `data/`、profile registry、Web 管理配置、标准 Compose 和 Compose override，因此也包含 `.env` 密钥、平台账号凭据和 Web 访问密码；运行日志、Web 登录会话、旧备份和 `data/.dock/` 派生运行态不会写入备份。导出时如果容器正在运行，会先 `docker compose stop`，导出完成后再 `docker compose start` 恢复原运行状态，避免备份到写入中的文件。导入是整实例覆盖流程：先执行 `docker compose down`，再自动生成当前设备的导入前备份，最后恢复备份内容并重新生成标准 `docker-compose.yaml`。
+设置页的数据迁移功能会导出 `.hdbackup` 单文件，用于把当前实例迁移到其他设备。备份包含 `data/`、profile registry、Web 管理配置、标准 Compose 和 Compose override，因此也包含 `.env` 密钥、平台账号凭据和 Web 访问密码；共享目录文件、运行日志、Web 登录会话、旧备份和 `data/.dock/` 派生运行态不会写入备份。导出时如果容器正在运行，会先 `docker compose stop`，导出完成后再 `docker compose start` 恢复原运行状态，避免备份到写入中的文件。导入是整实例覆盖流程：先执行 `docker compose down`，再自动生成当前设备的导入前备份，最后恢复备份内容并重新生成标准 `docker-compose.yaml`。
 
 ## 多 Profile 设计
 
@@ -156,7 +159,7 @@ runner 设计：
 profile registry 和运行态文件：
 
 - `launcher/profiles.json` 是 Dock 的 profile 事实来源，保存 id、显示名、enabled、创建时间、更新时间和显示顺序，不保存密钥。
-- `data/.dock/` 是宿主机 Dock 和容器 runner 共享的可写派生运行态目录，使用 sticky writable 权限且不保存密钥；`profiles-runtime.json` 是“应用配置”时生成的 runner 清单，不需要备份。
+- `data/.dock/` 是宿主机 Dock 和容器 runner 共享的可写派生运行态目录，使用 sticky writable 权限且不保存密钥；容器内的 `/opt/data/.dock/shared` 是外部共享目录挂载点，`profiles-runtime.json` 是“应用配置”时生成的 runner 清单，不需要备份。
 - `data/.dock/profile-status.json` 由 runner 写入，Dock 读取展示 profile 进程生命周期状态，不承诺真实平台连接健康。
 
 创建和删除：
@@ -189,7 +192,7 @@ skills 管理、Skill Hub 安装、打开本机技能目录和同步启动器内
 - Web 管理与桌面端保持同等管理能力，会返回和编辑当前 profile 的完整环境配置；访问密码是远程管理边界。
 - Web 高级编辑与桌面端一致，开放当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`；保存 Compose 覆盖文件需要输入“确认”。
 - Web 管理提供与桌面端一致的“恢复出厂设置”危险操作。
-- “恢复出厂设置”是显式危险操作，会执行 `docker compose down`，删除整个 `~/.hermes-dock`，然后重新释放内置模板。
+- “恢复出厂设置”是显式危险操作，会执行 `docker compose down`，删除 `~/.hermes-dock` 中除 `shared/` 外的实例数据，然后重新释放内置模板。
 
 ## Docker Compose
 
@@ -200,6 +203,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - 控制台账号密码，控制台固定启用。
 - 内存、CPU 和 shm 限制。
 - `./data:/opt/data` 数据挂载。
+- 可配置的宿主机共享文件目录固定挂载到 `/opt/data/.dock/shared`，默认使用 `~/.hermes-dock/shared`，由所有 profile 共同读写。
 - 数据目录权限由 Hermes 镜像启动脚本定向处理，不在每次应用配置时对整个 `data/` 执行递归 `chown`。
 - `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，在 s6 初始化阶段补齐飞书运行依赖；uv 下载缓存持久化到 `data/.dock/uv-cache`。
 - `launcher/helpers/patch-home-channel-prompt` 挂载到 `/etc/cont-init.d/019-patch-home-channel-prompt`，在固定 Hermes 镜像启动时关闭未设置 Home Channel 的首次对话提示，不影响 `/sethome` 和实际投递校验。

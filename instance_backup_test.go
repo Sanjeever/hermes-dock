@@ -18,6 +18,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "web-sessions.json"), "{}\n", 0600)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "logs", "web-server.log"), "secret log\n", 0600)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "backups", "old.hdbackup"), "old\n", 0600)
+	mustWriteFile(t, filepath.Join(app.sharedDir(), "report.txt"), "shared\n", 0644)
 
 	target := filepath.Join(t.TempDir(), "export.hdbackup")
 	manifest, err := app.ExportInstanceBackup(target)
@@ -30,7 +31,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 	if !manifest.IncludesSecrets {
 		t.Fatalf("backup should include secrets")
 	}
-	for _, want := range []string{"data/.dock", "launcher/backups", "launcher/logs", "launcher/web-sessions.json"} {
+	for _, want := range []string{"data/.dock", "launcher/backups", "launcher/logs", "launcher/web-sessions.json", "shared"} {
 		if !containsPathPrefix(manifest.ExcludedPaths, want) {
 			t.Fatalf("excluded paths missing %s: %#v", want, manifest.ExcludedPaths)
 		}
@@ -42,6 +43,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 		"launcher/web-sessions.json",
 		"launcher/logs/web-server.log",
 		"launcher/backups/old.hdbackup",
+		"shared/report.txt",
 	} {
 		if names[forbidden] {
 			t.Fatalf("backup included forbidden path %s", forbidden)

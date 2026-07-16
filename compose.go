@@ -35,6 +35,7 @@ func defaultComposeSettings() ComposeSettings {
 		MemoryLimit:             fallbackMemoryLimit,
 		CPULimit:                fallbackCPULimit,
 		ShmSize:                 "1g",
+		SharedDirectory:         filepath.Join(detectInstanceRoot(), "shared"),
 	}
 }
 
@@ -98,6 +99,9 @@ func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	if settings.ShmSize == "" {
 		settings.ShmSize = defaults.ShmSize
 	}
+	if settings.SharedDirectory == "" {
+		settings.SharedDirectory = defaults.SharedDirectory
+	}
 	return settings
 }
 
@@ -134,6 +138,17 @@ func oneOf(value string, allowed ...string) bool {
 		}
 	}
 	return false
+}
+
+func validateSharedDirectory(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", fmt.Errorf("共享文件目录不能为空")
+	}
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("共享文件目录必须使用宿主机绝对路径")
+	}
+	return filepath.Clean(path), nil
 }
 
 func (a *App) readComposeSettings() ComposeSettings {
@@ -189,6 +204,14 @@ func (a *App) ensureComposeResourceDefaults() error {
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
+	sharedDirectory, err := validateSharedDirectory(settings.SharedDirectory)
+	if err != nil {
+		return err
+	}
+	if err := ensureWritableDirectory(sharedDirectory); err != nil {
+		return err
+	}
+	settings.SharedDirectory = sharedDirectory
 	if err := a.syncComposeEnv(settings); err != nil {
 		return err
 	}
@@ -208,7 +231,7 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	return a.syncHostBridge(settings.HostControlEnabled == "true")
 }
 
-const composeRuntimeMigrationID = "compose-runtime-v1"
+const composeRuntimeMigrationID = "compose-runtime-v2"
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
@@ -279,6 +302,15 @@ func calculateRecommendedResourceLimits(memTotalBytes int64, ncpu int) (Resource
 }
 
 func (a *App) writeCompose(settings ComposeSettings, reason string) error {
+	settings = withComposeDefaults(settings)
+	sharedDirectory, err := validateSharedDirectory(settings.SharedDirectory)
+	if err != nil {
+		return err
+	}
+	if err := ensureWritableDirectory(sharedDirectory); err != nil {
+		return err
+	}
+	settings.SharedDirectory = sharedDirectory
 	if _, err := os.Stat(a.composePath()); err == nil {
 		if err := a.backupFile(a.composePath(), reason); err != nil {
 			return err
@@ -306,6 +338,8 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	current := strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
 		!strings.Contains(content, "init-permissions") &&
+		strings.Contains(content, `HERMES_WRITE_SAFE_ROOT: "/opt/data"`) &&
+		strings.Contains(content, ":/opt/data/.dock/shared") &&
 		strings.Contains(content, "host-bridge.token") &&
 		strings.Contains(content, "/usr/local/bin/hostctl") &&
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
@@ -313,7 +347,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
 		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT")
 	if !current {
-		if err := a.writeCompose(settings, "before-compose-runtime-helper-migration"); err != nil {
+		if err := a.writeCompose(settings, "before-compose-runtime-v2-migration"); err != nil {
 			return err
 		}
 	}
@@ -381,6 +415,7 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
       NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
     volumes:
       - ./data:/opt/data
+      - "%s:/opt/data/.dock/shared"
       - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro
@@ -392,7 +427,7 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
         limits:
           memory: %s
           cpus: "%s"
-`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, settings.MemoryLimit, settings.CPULimit)
+`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), settings.MemoryLimit, settings.CPULimit)
 }
 
 func renderComposeProxyEnvironment(proxy ProxySettings) string {
@@ -412,6 +447,9 @@ func renderComposeProxyEnvironment(proxy ProxySettings) string {
 }
 
 func (a *App) StartHermes() error {
+	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
+		return err
+	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}
@@ -447,6 +485,9 @@ func (a *App) RestartHermes() error {
 }
 
 func (a *App) RebuildHermes() error {
+	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
+		return err
+	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
 	}

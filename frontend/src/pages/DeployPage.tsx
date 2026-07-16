@@ -91,7 +91,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
                 <div>
                     <p className="eyebrow">{isBasic ? '基础设置' : '网络设置'}</p>
                     <h2>{isBasic ? '日常会用到的设置' : '端口、资源和代理'}</h2>
-                    <p className="setup-subtitle">{isBasic ? '设置版本、管理页登录和消息处理方式。' : '一般不需要修改。端口冲突或网络不通时再调整。'}</p>
+                    <p className="setup-subtitle">{isBasic ? '设置版本、管理页登录、共享文件和消息处理方式。' : '一般不需要修改。端口冲突或网络不通时再调整。'}</p>
                 </div>
                 <div className="actions compact">
                     <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
@@ -127,6 +127,12 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
                                 )}
                                 {hostBridge.error && <div className="form-warning">启动失败：{hostBridge.error}</div>}
                                 {!hostBridge.error && hostBridge.enabled && <div className="setting-note">{hostBridge.running ? '宿主机控制服务正在运行。' : '保存后启动宿主机控制服务。'}</div>}
+                            </div>
+                        </SettingRow>
+                        <SettingRow title="共享文件" description="所有助手共同读写，用于批量输入和交付文件。">
+                            <div className="setting-control-stack">
+                                <Field label="宿主机目录" value={compose.sharedDirectory} onChange={(value) => update('sharedDirectory', value)}/>
+                                <div className="setting-note">容器内固定为 /opt/data/.dock/shared。目录结构由用户自行管理，文件不包含在实例备份中。</div>
                             </div>
                         </SettingRow>
                     </div>

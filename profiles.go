@@ -415,7 +415,7 @@ func (a *App) copyProfilePersonality(sourceID string, targetID string) error {
 		if err != nil {
 			return err
 		}
-		text := strings.ReplaceAll(string(data), profileContainerHome(sourceID), profileContainerHome(targetID))
+		text := rewriteProfileContainerHome(string(data), sourceID, targetID)
 		if err := atomicWriteFile(targetSoul, []byte(text), 0644); err != nil {
 			return err
 		}
@@ -438,6 +438,14 @@ func profileContainerHome(profileID string) string {
 		return "/opt/data"
 	}
 	return "/opt/data/profiles/" + profileID
+}
+
+func rewriteProfileContainerHome(text string, sourceID string, targetID string) string {
+	const sharedDirectory = "/opt/data/.dock/shared"
+	const sharedDirectoryPlaceholder = "__HERMES_DOCK_SHARED_DIRECTORY__"
+	text = strings.ReplaceAll(text, sharedDirectory, sharedDirectoryPlaceholder)
+	text = strings.ReplaceAll(text, profileContainerHome(sourceID), profileContainerHome(targetID))
+	return strings.ReplaceAll(text, sharedDirectoryPlaceholder, sharedDirectory)
 }
 
 func (a *App) writeRuntimeManifest() (RuntimeManifest, error) {

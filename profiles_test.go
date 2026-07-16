@@ -231,6 +231,9 @@ func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	if !strings.Contains(string(soul), "MEDIA:/opt/data/profiles/sales/") {
 		t.Fatalf("SOUL media delivery path not rewritten")
 	}
+	if !strings.Contains(string(soul), "/opt/data/.dock/shared") || strings.Contains(string(soul), "/opt/data/profiles/sales/.dock/shared") {
+		t.Fatalf("SOUL shared directory path was rewritten for the profile")
+	}
 	env, err := readEnvFile(filepath.Join(dir, ".env"))
 	if err != nil {
 		t.Fatal(err)
@@ -257,6 +260,9 @@ func TestCreateProfileCopyPersonalityRewritesSoulHome(t *testing.T) {
 	}
 	if !strings.Contains(string(soul), "/opt/data/profiles/writer/tmp") {
 		t.Fatalf("copied SOUL does not point at writer tmp")
+	}
+	if !strings.Contains(string(soul), "/opt/data/.dock/shared") || strings.Contains(string(soul), "/opt/data/profiles/writer/.dock/shared") {
+		t.Fatalf("copied SOUL shared directory path was rewritten")
 	}
 }
 

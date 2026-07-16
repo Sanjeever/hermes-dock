@@ -30,6 +30,10 @@ func (a *App) dataDir() string {
 	return filepath.Join(a.instanceRoot, "data")
 }
 
+func (a *App) sharedDir() string {
+	return filepath.Join(a.instanceRoot, "shared")
+}
+
 func (a *App) defaultDataDir() string {
 	return a.dataDir()
 }
@@ -192,6 +196,30 @@ func defaultState() LauncherState {
 
 func ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
+}
+
+func ensureWritableDirectory(path string) error {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := ensureDir(path); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if !info.IsDir() {
+		return errors.New("共享文件路径不是目录")
+	}
+
+	file, err := os.CreateTemp(path, ".hermes-dock-write-check-*")
+	if err != nil {
+		return errors.New("共享文件目录不可写：" + err.Error())
+	}
+	tempPath := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(tempPath)
+		return err
+	}
+	return os.Remove(tempPath)
 }
 
 func (a *App) ensureDockDataDir() error {

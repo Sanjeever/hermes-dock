@@ -171,6 +171,9 @@ func TestRestoreDefaultSoulBacksUpAndRewritesProfileHome(t *testing.T) {
 	if !strings.Contains(string(data), "MEDIA:/opt/data/profiles/writer/") {
 		t.Fatalf("restored SOUL.md does not include the profile media delivery path")
 	}
+	if !strings.Contains(string(data), "/opt/data/.dock/shared") {
+		t.Fatalf("restored SOUL.md does not include the shared directory rules")
+	}
 	state, err := app.readState()
 	if err != nil {
 		t.Fatal(err)

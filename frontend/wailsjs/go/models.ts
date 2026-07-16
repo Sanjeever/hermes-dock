@@ -415,6 +415,7 @@ export namespace main {
 	    memoryLimit: string;
 	    cpuLimit: string;
 	    shmSize: string;
+	    sharedDirectory: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ComposeSettings(source);
@@ -438,6 +439,7 @@ export namespace main {
 	        this.memoryLimit = source["memoryLimit"];
 	        this.cpuLimit = source["cpuLimit"];
 	        this.shmSize = source["shmSize"];
+	        this.sharedDirectory = source["sharedDirectory"];
 	    }
 	}
 	export class LauncherState {

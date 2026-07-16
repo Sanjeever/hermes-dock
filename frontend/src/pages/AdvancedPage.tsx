@@ -73,7 +73,7 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                     <div>
                         <p className="eyebrow">数据迁移</p>
                         <h2>导出和导入实例备份</h2>
-                        <p className="setup-subtitle">备份包含 profile、人格、技能、模型配置、平台绑定、账号凭据和密钥。</p>
+                        <p className="setup-subtitle">备份包含 profile、人格、技能、模型配置、平台绑定、账号凭据和密钥，不包含共享目录文件。</p>
                     </div>
                     {props.backupStatus && <span className="inline-status">{props.backupStatus}</span>}
                 </div>
@@ -127,7 +127,7 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                     </span>
                 </summary>
                 <div className="danger-body">
-                    <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock，然后重新释放内置模板。该操作不可撤销。</p>
+                    <p className="muted">停止并移除 Hermes 容器，删除 ~/.hermes-dock 中除 shared 外的数据，然后重新释放内置模板。共享目录中的文件会保留，其他删除不可撤销。</p>
                     <label className="reset-confirm">
                         <span>输入「{props.resetConfirmPhrase}」确认</span>
                         <input value={resetConfirmText} onChange={(event) => setResetConfirmText(event.target.value)} disabled={props.busy}/>

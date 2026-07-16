@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,49 @@ func TestCalculateRecommendedResourceLimitsRejectsInvalidResources(t *testing.T)
 	}
 	if _, err := calculateRecommendedResourceLimits(8*1024*1024*1024, 0); err == nil {
 		t.Fatal("expected error for empty cpu")
+	}
+}
+
+func TestSaveComposeSettingsMountsSharedDirectory(t *testing.T) {
+	app := newTestApp(t)
+	sharedDirectory := filepath.Join(t.TempDir(), "team files")
+	settings := app.readComposeSettings()
+	settings.SharedDirectory = sharedDirectory
+
+	if err := app.SaveComposeSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(sharedDirectory); err != nil || !info.IsDir() {
+		t.Fatalf("shared directory was not created: %v", err)
+	}
+	data, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	compose := string(data)
+	for _, want := range []string{
+		`HERMES_WRITE_SAFE_ROOT: "/opt/data"`,
+		`- "` + sharedDirectory + `:/opt/data/.dock/shared"`,
+	} {
+		if !strings.Contains(compose, want) {
+			t.Fatalf("compose missing %q:\n%s", want, compose)
+		}
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.ComposeSettings.SharedDirectory != sharedDirectory || !state.NeedsRebuild {
+		t.Fatalf("shared directory settings were not saved: %+v", state.ComposeSettings)
+	}
+}
+
+func TestSaveComposeSettingsRejectsRelativeSharedDirectory(t *testing.T) {
+	app := newTestApp(t)
+	settings := app.readComposeSettings()
+	settings.SharedDirectory = "relative/shared"
+	if err := app.SaveComposeSettings(settings); err == nil || !strings.Contains(err.Error(), "绝对路径") {
+		t.Fatalf("expected absolute path error, got %v", err)
 	}
 }
 

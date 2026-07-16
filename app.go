@@ -16,7 +16,7 @@ import (
 
 const (
 	appVersion      = "1.9.10"
-	templateVersion = "2026.07.13"
+	templateVersion = "2026.07.16"
 	defaultImage    = "nousresearch/hermes-agent:v2026.6.19"
 )
 
@@ -160,7 +160,7 @@ func (a *App) ensureInstanceReadyLocked() error {
 		settings = defaultComposeSettings()
 	}
 	if !fileExists(a.composePath()) {
-		if err := atomicWriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
+		if err := a.writeCompose(settings, "initialize-compose"); err != nil {
 			return err
 		}
 	} else if err := a.migrateComposeIfNeeded(settings); err != nil {
@@ -299,7 +299,7 @@ func (a *App) FactoryResetInstance() error {
 			return err
 		}
 	}
-	if err := os.RemoveAll(a.instanceRoot); err != nil {
+	if err := a.removeInstanceExceptShared(); err != nil {
 		return err
 	}
 	a.startupErr = nil
@@ -307,6 +307,22 @@ func (a *App) FactoryResetInstance() error {
 		return err
 	}
 	return a.startHostBridge()
+}
+
+func (a *App) removeInstanceExceptShared() error {
+	entries, err := os.ReadDir(a.instanceRoot)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.Name() == filepath.Base(a.sharedDir()) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(a.instanceRoot, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) validateResetRoot() error {

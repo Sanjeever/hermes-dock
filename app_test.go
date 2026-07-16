@@ -29,6 +29,7 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 	for _, path := range []string{
 		"docker-compose.yaml",
 		"docker-compose.override.yaml",
+		"shared",
 		"data/config.yaml",
 		"data/.env",
 		"launcher/state.json",
@@ -74,7 +75,9 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	for _, want := range []string{
 		"    command: /opt/hermes-dock/hermes-profile-runner",
 		"      HERMES_HOME: \"/opt/data\"",
+		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
+		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
@@ -92,6 +95,24 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	}
 	if strings.Contains(compose, "entrypoint:") {
 		t.Fatalf("compose must not override entrypoint:\n%s", compose)
+	}
+}
+
+func TestFactoryResetPreservesDefaultSharedDirectory(t *testing.T) {
+	app := newTestApp(t)
+	installFakeDocker(t, false)
+	sharedFile := filepath.Join(app.sharedDir(), "team", "report.txt")
+	mustWriteFile(t, sharedFile, "keep\n", 0644)
+	mustWriteFile(t, filepath.Join(app.dataDir(), "remove-me.txt"), "remove\n", 0644)
+
+	if err := app.FactoryResetInstance(); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(sharedFile); err != nil || string(data) != "keep\n" {
+		t.Fatalf("shared file was not preserved: %q, %v", data, err)
+	}
+	if fileExists(filepath.Join(app.dataDir(), "remove-me.txt")) {
+		t.Fatal("profile data was not reset")
 	}
 }
 
@@ -252,7 +273,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-helper-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v2-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 

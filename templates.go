@@ -61,9 +61,7 @@ func profileSeedData(data []byte, rel string, profileID string) []byte {
 		text := strings.ReplaceAll(string(data), "cwd: /opt/data", "cwd: "+home)
 		return []byte(text)
 	case "SOUL.md":
-		text := string(data)
-		text = strings.ReplaceAll(text, "/opt/data", home)
-		return []byte(text)
+		return []byte(rewriteProfileContainerHome(string(data), "default", profileID))
 	default:
 		return data
 	}
