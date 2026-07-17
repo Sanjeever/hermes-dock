@@ -62,7 +62,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
@@ -77,7 +77,15 @@ function App() {
     const [state, setState] = useState<AppState | null>(null);
     const stateRef = useRef<AppState | null>(null);
     const refreshSequenceRef = useRef(0);
-    const activeProfileRef = useRef('default');
+	const activeProfileRef = useRef('');
+	const advancedPathRef = useRef('data/config.yaml');
+	const advancedLoadSequenceRef = useRef(0);
+	const soulLoadSequenceRef = useRef(0);
+	const advancedEditRevisionRef = useRef(0);
+	const soulEditRevisionRef = useRef(0);
+	const modelEditRevisionRef = useRef(0);
+	const platformEditRevisionRef = useRef(0);
+	const deployEditRevisionRef = useRef(0);
     const firstRunWizardCheckedRef = useRef(false);
     const [env, setEnv] = useState<EnvVar[]>([]);
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
@@ -132,7 +140,7 @@ function App() {
     const [assistantSkillsMode, setAssistantSkillsMode] = useState(false);
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
     const run = useOperationRunner({refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
-    const skills = useSkills({run, refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
+	const skills = useSkills({getProfileID: () => activeProfileRef.current || 'default', run, refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
     const updates = useUpdates({
         appVersion: state?.appVersion,
         appendLog,
@@ -146,8 +154,6 @@ function App() {
             if (event.line) appendLog(event.line);
             if (event.done) {
                 appendLog(`命令退出，代码 ${event.code}`);
-                setBusy('');
-                refresh();
             }
         });
         const offBackup = EventsOn('backup:progress', (event: { line?: string }) => {
@@ -180,6 +186,7 @@ function App() {
             setQrStatus(`绑定成功 ${event.user_id || event.account_id}`);
             setQrData('');
             setPlatformLoginProfile('');
+			markPlatformDirty(false);
             setNeedsRebuild(true);
             refresh();
         });
@@ -208,6 +215,7 @@ function App() {
             setQrStatus(event.status || `${platform} 已绑定成功${event.bot_name ? `：${event.bot_name}` : ''}`);
             setQrData('');
             setPlatformLoginProfile('');
+			markPlatformDirty(false);
             setNeedsRebuild(true);
             refresh();
         });
@@ -242,6 +250,10 @@ function App() {
         deployDirtyRef.current = deployDirty;
     }, [deployDirty]);
 
+	useEffect(() => {
+		advancedPathRef.current = advancedPath;
+	}, [advancedPath]);
+
     useEffect(() => {
         if (page !== 'settings' || operationsTab !== 'advanced') return;
         if (!advancedOpen) return;
@@ -266,15 +278,15 @@ function App() {
     }, [state?.activeProfile]);
 
     useEffect(() => {
-        if (!state?.activeProfile) return;
-        skills.resetForProfile();
-        skills.loadSkills();
-    }, [state?.activeProfile]);
-
-    useEffect(() => {
         activeProfileRef.current = state?.activeProfile || 'default';
         setQrData('');
         setQrStatus('');
+    }, [state?.activeProfile]);
+
+    useEffect(() => {
+        if (!state?.activeProfile) return;
+        skills.resetForProfile();
+        skills.loadSkills();
     }, [state?.activeProfile]);
 
     useEffect(() => {
@@ -299,7 +311,7 @@ function App() {
         const sequence = ++refreshSequenceRef.current;
         let next: unknown;
         try {
-            next = await GetAppState();
+			next = await GetAppState(activeProfileRef.current);
         } catch (error) {
             if (sequence !== refreshSequenceRef.current) return '';
             const message = String(error);
@@ -372,6 +384,7 @@ function App() {
         const target = state?.profiles?.profiles?.find((profile) => profile.id === id);
         return await run('正在切换助手', () => SelectProfile(id), {
             beforeRefresh: () => {
+				activeProfileRef.current = id;
                 markModelDirty(false);
                 markPlatformDirty(false);
                 markDeployDirty(false);
@@ -396,6 +409,10 @@ function App() {
             copyMode: newProfileCopyMode,
         }), {
             beforeRefresh: () => {
+				activeProfileRef.current = newProfileID;
+                soulLoadSequenceRef.current++;
+                setSoulContent('');
+                setSoulDirty(false);
                 markModelDirty(false);
                 markPlatformDirty(false);
                 markDeployDirty(false);
@@ -412,7 +429,17 @@ function App() {
     }
 
     async function deleteProfile(id: string) {
-        return await run('正在删除助手', () => DeleteProfile(id, id), {rebuildRequired: true});
+        return await run('正在删除助手', () => DeleteProfile(id, id), {
+            rebuildRequired: true,
+            beforeRefresh: () => {
+                if (activeProfileRef.current === id) {
+                    activeProfileRef.current = 'default';
+                    soulLoadSequenceRef.current++;
+                    setSoulContent('');
+                    setSoulDirty(false);
+                }
+            },
+        });
     }
 
 
@@ -428,7 +455,7 @@ function App() {
         const optionsKey = modelOptionKey(providerID);
         setModelListStatus('正在拉取模型列表');
         try {
-            const items = await FetchProviderConfigModelList(provider);
+			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
             setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
@@ -444,7 +471,7 @@ function App() {
         const optionsKey = modelOptionKey(providerID);
         setModelListStatus('正在拉取模型列表');
         try {
-            const items = await FetchProviderConfigModelList(provider);
+			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
             setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
@@ -469,7 +496,7 @@ function App() {
         const optionsKey = modelOptionKey(providerID);
         setAuxModelListStatus('正在拉取模型列表');
         try {
-            const items = await FetchProviderConfigModelList(provider);
+			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setAuxModelOptions((current) => ({...current, [optionsKey]: items as ModelOption[]}));
             setAuxModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
@@ -482,13 +509,19 @@ function App() {
 
 
     async function loadAdvancedFile(path: string) {
+		const sequence = ++advancedLoadSequenceRef.current;
+		const profileID = activeProfileRef.current || 'default';
+        const revision = advancedEditRevisionRef.current;
         setAdvancedStatus('正在读取文件');
         setAdvancedContent('');
         try {
-            setAdvancedContent(await ReadTextFile(path));
+			const content = await ReadTextFile(profileID, path);
+			if (sequence !== advancedLoadSequenceRef.current || path !== advancedPathRef.current || profileID !== activeProfileRef.current || revision !== advancedEditRevisionRef.current) return;
+			setAdvancedContent(content);
             setAdvancedStatus(`已加载 ${path}`);
             setAdvancedDirty(false);
         } catch (error) {
+			if (sequence !== advancedLoadSequenceRef.current || path !== advancedPathRef.current || profileID !== activeProfileRef.current || revision !== advancedEditRevisionRef.current) return;
             setAdvancedContent('');
             setAdvancedStatus(String(error));
             setAdvancedDirty(false);
@@ -497,6 +530,9 @@ function App() {
     }
 
     async function saveAdvancedFile() {
+		const profileID = activeProfileRef.current || 'default';
+		const path = advancedPath;
+		const revision = advancedEditRevisionRef.current;
         setBusy('正在保存文件');
         setNotice({type: 'info', message: '正在保存文件'});
         setAdvancedStatus('正在保存文件');
@@ -510,8 +546,8 @@ function App() {
                     return;
                 }
             }
-            await SaveTextFile({path: advancedPath, content: advancedContent, reason: 'before-advanced-save', confirm});
-            setAdvancedDirty(false);
+			await SaveTextFile(profileID, {path, content: advancedContent, reason: 'before-advanced-save', confirm});
+			if (revision === advancedEditRevisionRef.current && path === advancedPathRef.current) setAdvancedDirty(false);
             setNeedsRebuild(true);
             const refreshMessage = await refresh();
             if (refreshMessage) {
@@ -532,13 +568,19 @@ function App() {
     }
 
     async function loadSoulFile(profileID: string) {
+		const sequence = ++soulLoadSequenceRef.current;
+        const revision = soulEditRevisionRef.current;
         const path = profileFilePath(profileID, 'SOUL.md');
         setSoulStatus('正在读取人格文件');
+        setSoulContent('');
         try {
-            setSoulContent(await ReadTextFile(path));
+			const content = await ReadTextFile(profileID, path);
+			if (sequence !== soulLoadSequenceRef.current || profileID !== activeProfileRef.current || revision !== soulEditRevisionRef.current) return;
+			setSoulContent(content);
             setSoulStatus(`已加载 ${path}`);
             setSoulDirty(false);
         } catch (error) {
+			if (sequence !== soulLoadSequenceRef.current || profileID !== activeProfileRef.current || revision !== soulEditRevisionRef.current) return;
             setSoulContent('');
             setSoulStatus(String(error));
             setSoulDirty(false);
@@ -547,13 +589,15 @@ function App() {
     }
 
     async function saveSoulFile() {
-        const path = profileFilePath(state?.activeProfile || 'default', 'SOUL.md');
+		const profileID = activeProfileRef.current || 'default';
+		const path = profileFilePath(profileID, 'SOUL.md');
+		const revision = soulEditRevisionRef.current;
         setBusy('正在保存人格文件');
         setNotice({type: 'info', message: '正在保存人格文件'});
         setSoulStatus('正在保存人格文件');
         try {
-            await SaveTextFile({path, content: soulContent, reason: 'before-soul-save'});
-            setSoulDirty(false);
+			await SaveTextFile(profileID, {path, content: soulContent, reason: 'before-soul-save'});
+			if (revision === soulEditRevisionRef.current && profileID === activeProfileRef.current) setSoulDirty(false);
             setNeedsRebuild(true);
             setSoulStatus(`已保存 ${path}`);
             setNotice({type: 'ok', message: '已保存人格文件'});
@@ -570,12 +614,12 @@ function App() {
     }
 
     async function restoreDefaultSoul() {
-        const profileID = state?.activeProfile || 'default';
+		const profileID = activeProfileRef.current || 'default';
         setBusy('正在恢复默认人格');
         setNotice({type: 'info', message: '正在恢复默认人格'});
         setSoulStatus('正在恢复默认人格');
         try {
-            await RestoreDefaultSoul();
+			await RestoreDefaultSoul(profileID);
             await loadSoulFile(profileID);
             setSoulDirty(false);
             setNeedsRebuild(true);
@@ -595,10 +639,14 @@ function App() {
 
     async function saveModelService() {
         if (!model) return false;
+		const profileID = activeProfileRef.current || 'default';
+		const revision = modelEditRevisionRef.current;
         return await run('正在保存模型服务', async () => {
-            await SaveProviderConfig(toPlainProviderConfig(providers));
-            await SaveModelConfig(toPlainModelConfig(model));
-        }, {rebuildRequired: true, beforeRefresh: () => markModelDirty(false)});
+			await SaveProviderConfig(profileID, toPlainProviderConfig(providers));
+			await SaveModelConfig(profileID, toPlainModelConfig(model));
+		}, {rebuildRequired: true, beforeRefresh: () => {
+			if (revision === modelEditRevisionRef.current) markModelDirty(false);
+		}});
     }
 
     async function saveCurrentPlatform() {
@@ -633,25 +681,32 @@ function App() {
     }
 
     function markModelDirty(value: boolean) {
+		if (value) modelEditRevisionRef.current++;
         modelDirtyRef.current = value;
         setModelDirty(value);
     }
 
     function markPlatformDirty(value: boolean) {
+		if (value) platformEditRevisionRef.current++;
         platformDirtyRef.current = value;
         setPlatformDirty(value);
     }
 
     function markDeployDirty(value: boolean) {
+		if (value) deployEditRevisionRef.current++;
         deployDirtyRef.current = value;
         setDeployDirty(value);
     }
 
     async function startWeixinLogin() {
-        const profileID = state?.activeProfile || 'default';
+		const profileID = activeProfileRef.current || 'default';
+		if (platformDirty) {
+			setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存或放弃后再扫码'});
+			return;
+		}
         setPlatformLoginProfile(profileID);
         setQrPlatform('weixin');
-        const ok = await run('正在启动微信扫码登录', StartWeixinLogin);
+		const ok = await run('正在启动微信扫码登录', () => StartWeixinLogin(profileID));
         if (!ok) {
             setPlatformLoginProfile('');
         }
@@ -667,14 +722,18 @@ function App() {
     }
 
     async function startFeishuLogin() {
-        const profileID = state?.activeProfile || 'default';
+		const profileID = activeProfileRef.current || 'default';
+		if (platformDirty) {
+			setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存或放弃后再扫码'});
+			return;
+		}
         const replacing = !!envValue(env, 'FEISHU_APP_ID') && !!envValue(env, 'FEISHU_APP_SECRET');
         if (replacing && !window.confirm('扫码创建的新机器人会替换当前飞书 / Lark 绑定；旧飞书应用不会被自动删除。是否继续？')) return;
         setPlatformLoginProfile(profileID);
         setQrPlatform('feishu');
 		setQrData('');
 		setQrStatus('正在生成飞书二维码');
-        const ok = await run('正在启动飞书扫码绑定', StartFeishuLogin);
+		const ok = await run('正在启动飞书扫码绑定', () => StartFeishuLogin(profileID));
         if (!ok) setPlatformLoginProfile('');
     }
 
@@ -688,13 +747,19 @@ function App() {
     }
 
     async function saveWeComConfig() {
+		if (platformLoginProfile) {
+			setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消'});
+			return false;
+		}
         if (envValue(env, 'WECOM_BOT_ID').trim() === '' || envValue(env, 'WECOM_SECRET').trim() === '') {
             const message = '请填写企业微信 Bot ID 和 Secret 后再保存';
             setNotice({type: 'error', message});
             setLastOperationError(message);
             return false;
         }
-        return await run('正在保存企业微信配置', () => SaveWeComConfig({
+		const profileID = activeProfileRef.current || 'default';
+		const revision = platformEditRevisionRef.current;
+		return await run('正在保存企业微信配置', () => SaveWeComConfig(profileID, {
             botId: envValue(env, 'WECOM_BOT_ID'),
             secret: envValue(env, 'WECOM_SECRET'),
             websocketUrl: envValue(env, 'WECOM_WEBSOCKET_URL'),
@@ -702,28 +767,39 @@ function App() {
             allowedUsers: '',
             groupPolicy: closedPolicyValue(envValue(env, 'WECOM_GROUP_POLICY')),
             groupAllowUsers: '',
-        }), {rebuildRequired: true, beforeRefresh: () => markPlatformDirty(false)});
+		}), {rebuildRequired: true, beforeRefresh: () => {
+			if (revision === platformEditRevisionRef.current) markPlatformDirty(false);
+		}});
     }
 
     async function saveFeishuConfig() {
+		if (platformLoginProfile) {
+			setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消'});
+			return false;
+		}
         if (envValue(env, 'FEISHU_APP_ID').trim() === '' || envValue(env, 'FEISHU_APP_SECRET').trim() === '') {
             const message = '请填写飞书 App ID 和 App Secret 后再保存';
             setNotice({type: 'error', message});
             setLastOperationError(message);
             return false;
         }
-        return await run('正在保存飞书配置', () => SaveFeishuConfig({
+		const profileID = activeProfileRef.current || 'default';
+		const revision = platformEditRevisionRef.current;
+		return await run('正在保存飞书配置', () => SaveFeishuConfig(profileID, {
             appId: envValue(env, 'FEISHU_APP_ID'),
             appSecret: envValue(env, 'FEISHU_APP_SECRET'),
             domain: envValue(env, 'FEISHU_DOMAIN') || 'feishu',
             allowedUsers: '',
             groupPolicy: disabledPolicyValue(envValue(env, 'FEISHU_GROUP_POLICY')),
-        }), {rebuildRequired: true, beforeRefresh: () => markPlatformDirty(false)});
+		}), {rebuildRequired: true, beforeRefresh: () => {
+			if (revision === platformEditRevisionRef.current) markPlatformDirty(false);
+		}});
     }
 
     async function unbindPlatform(platform: PlatformKey) {
         const label = platformLabel(platform);
-        await run(`正在取消绑定${label}`, () => UnbindPlatform(platform), {
+		const profileID = activeProfileRef.current || 'default';
+		await run(`正在取消绑定${label}`, () => UnbindPlatform(profileID, platform), {
             rebuildRequired: true,
             beforeRefresh: () => markPlatformDirty(false),
             afterSuccess: () => {
@@ -754,11 +830,42 @@ function App() {
 
     async function saveDeploySettings() {
         if (!compose || !proxy) return false;
+		const revision = deployEditRevisionRef.current;
         return await run('正在保存部署配置', async () => {
             await SaveComposeSettings({...compose, dashboardEnabled: true});
             await SaveProxySettings(proxy);
-        }, {rebuildRequired: true, beforeRefresh: () => markDeployDirty(false)});
+		}, {rebuildRequired: true, beforeRefresh: () => {
+			if (revision === deployEditRevisionRef.current) markDeployDirty(false);
+		}});
     }
+
+	async function saveWebManagementSettings(settings: WebSettingsRequest) {
+		const currentHost = window.location.hostname;
+		if (webRuntime && settings.host === '127.0.0.1' && currentHost !== '127.0.0.1' && currentHost !== 'localhost' && currentHost !== '::1') {
+			setNotice({type: 'error', message: '远程 Web 页面不能把访问范围改为“仅本机”，请在桌面端操作'});
+			return false;
+		}
+		const ok = await run('正在保存 Web 管理设置', () => SaveWebSettings(settings));
+		if (!ok || !webRuntime || !settings.enabled) return ok;
+		const host = settings.host === '0.0.0.0' ? window.location.hostname : settings.host;
+		const target = `http://${host}:${settings.port}`;
+		if (target === window.location.origin) return true;
+		for (let attempt = 0; attempt < 20; attempt++) {
+			const controller = new AbortController();
+			const timeout = window.setTimeout(() => controller.abort(), 500);
+			try {
+				await fetch(`${target}/healthz`, {mode: 'no-cors', cache: 'no-store', signal: controller.signal});
+				window.location.replace(target);
+				return true;
+			} catch {
+				await new Promise((resolve) => window.setTimeout(resolve, 250));
+			} finally {
+				window.clearTimeout(timeout);
+			}
+		}
+		setNotice({type: 'error', message: '新的 Web 管理地址未能启动，已保留当前页面，请检查桌面端状态'});
+		return false;
+	}
 
     function openOperations(tab: OperationsTab) {
         setOperationsTab(tab);
@@ -776,6 +883,12 @@ function App() {
 
     async function factoryReset() {
         await run('正在恢复出厂设置', FactoryResetInstance, {
+            beforeRefresh: () => {
+                activeProfileRef.current = 'default';
+                soulLoadSequenceRef.current++;
+                setSoulContent('');
+                setSoulDirty(false);
+            },
             afterSuccess: () => {
                 setLogs([]);
                 setNeedsRebuild(false);
@@ -788,12 +901,12 @@ function App() {
     }
 
     async function exportInstanceBackup(targetPath: string) {
+		setBackupManifest(null);
         setBusy('正在导出备份');
         setNotice({type: 'info', message: '正在导出备份'});
         setBackupStatus('正在导出备份');
         try {
             const manifest = await ExportInstanceBackup(targetPath);
-            setBackupManifest(manifest);
             setBackupStatus(`已导出 ${manifest.fileCount} 个文件`);
             setNotice({type: 'ok', message: `已导出备份：${manifest.path || '已保存'}`});
         } catch (error) {
@@ -837,7 +950,11 @@ function App() {
             setNeedsRebuild(true);
             setAdvancedDirty(false);
             setAdvancedOpen(false);
+            soulLoadSequenceRef.current++;
+            setSoulContent('');
+            setSoulDirty(false);
             setBackupStatus('导入完成，应用配置后生效');
+            activeProfileRef.current = 'default';
             const refreshMessage = await refresh();
             if (refreshMessage) {
                 setNotice({type: 'error', message: `已导入备份，但刷新状态失败：${refreshMessage}`});
@@ -861,7 +978,8 @@ function App() {
             return;
         }
         setAdvancedDirty(false);
-        setAdvancedPath(path);
+		advancedPathRef.current = path;
+		setAdvancedPath(path);
     }
 
     async function openEndpoint(endpoint: 'dashboard' | 'gateway' | 'dufs') {
@@ -916,12 +1034,13 @@ function App() {
         setModelTestStatus(`${hadUnsavedModel ? '正在保存并测试' : '正在测试'}：${label} / ${modelName}`);
         try {
             if (hadUnsavedModel) {
-                await SaveProviderConfig(toPlainProviderConfig(providers));
-                await SaveModelConfig(toPlainModelConfig(model));
+				const profileID = activeProfileRef.current || 'default';
+				await SaveProviderConfig(profileID, toPlainProviderConfig(providers));
+				await SaveModelConfig(profileID, toPlainModelConfig(model));
                 markModelDirty(false);
                 setNeedsRebuild(true);
             }
-            await TestModel();
+			await TestModel(activeProfileRef.current || 'default');
             await refresh();
             setModelTestStatus(`已测试：${label} / ${modelName}${hadUnsavedModel ? '（已先保存当前配置）' : ''}`);
             setNotice({type: 'ok', message: '已测试模型'});
@@ -944,7 +1063,8 @@ function App() {
             delete next[testKey];
             return next;
         });
-        const ok = await run('正在设置默认通道', () => SetHomeChannel(platform, id), {rebuildRequired: true});
+		const profileID = activeProfileRef.current || 'default';
+		const ok = await run('正在设置默认通道', () => SetHomeChannel(profileID, platform, id), {rebuildRequired: true});
         setChannelActionStatus((current) => ({...current, [key]: ok ? '已设为默认，应用配置后生效' : '设置默认通道失败'}));
     }
 
@@ -956,7 +1076,8 @@ function App() {
             delete next[homeKey];
             return next;
         });
-        const ok = await run('正在发送测试消息', () => SendTestMessage(platform, id, '企智盒测试消息'));
+		const profileID = activeProfileRef.current || 'default';
+		const ok = await run('正在发送测试消息', () => SendTestMessage(profileID, platform, id, '企智盒测试消息'));
         setChannelActionStatus((current) => ({...current, [key]: ok ? '测试消息已发送' : '测试消息发送失败'}));
     }
 
@@ -1143,7 +1264,10 @@ function App() {
                         setSoulContent={setSoulContent}
                         soulStatus={soulStatus}
                         soulDirty={soulDirty}
-                        setSoulDirty={setSoulDirty}
+						setSoulDirty={(value) => {
+							if (value) soulEditRevisionRef.current++;
+							setSoulDirty(value);
+						}}
                         qrData={qrData}
                         qrStatus={qrStatus}
 						qrPlatform={qrPlatform}
@@ -1229,6 +1353,7 @@ function App() {
                         setAdvancedOpen={setAdvancedOpen}
                         advancedContent={advancedContent}
                         setAdvancedContent={(value) => {
+							advancedEditRevisionRef.current++;
                             setAdvancedContent(value);
                             setAdvancedDirty(true);
                         }}
@@ -1264,10 +1389,11 @@ function App() {
                         onExportBackup={exportInstanceBackup}
                         onInspectBackup={inspectInstanceBackup}
                         onImportBackup={importInstanceBackup}
+						onClearBackupManifest={() => setBackupManifest(null)}
                         onFactoryReset={factoryReset}
                         resetConfirmPhrase={factoryResetPhrase}
                         webStatus={state.web}
-                        onSaveWebSettings={(settings) => run('正在保存 Web 管理设置', () => SaveWebSettings(settings))}
+						onSaveWebSettings={saveWebManagementSettings}
                         onChangeWebPassword={(oldPassword, newPassword) => run('正在修改 Web 访问密码', () => ChangeWebPassword(oldPassword, newPassword))}
                         onResetWebPassword={() => run('正在重置 Web 访问密码', ResetWebPassword)}
                         updateInfo={updates.info}

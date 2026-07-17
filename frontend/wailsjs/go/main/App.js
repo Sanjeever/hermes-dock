@@ -38,6 +38,10 @@ export function DeleteSkill(arg1) {
   return window['go']['main']['App']['DeleteSkill'](arg1);
 }
 
+export function DeleteSkillForProfile(arg1, arg2) {
+  return window['go']['main']['App']['DeleteSkillForProfile'](arg1, arg2);
+}
+
 export function DismissUpdate(arg1) {
   return window['go']['main']['App']['DismissUpdate'](arg1);
 }
@@ -58,6 +62,10 @@ export function FetchProviderConfigModelList(arg1) {
   return window['go']['main']['App']['FetchProviderConfigModelList'](arg1);
 }
 
+export function FetchProviderConfigModelListForProfile(arg1, arg2) {
+  return window['go']['main']['App']['FetchProviderConfigModelListForProfile'](arg1, arg2);
+}
+
 export function FetchProviderModelList(arg1) {
   return window['go']['main']['App']['FetchProviderModelList'](arg1);
 }
@@ -66,8 +74,16 @@ export function GetAppState() {
   return window['go']['main']['App']['GetAppState']();
 }
 
+export function GetAppStateForProfile(arg1) {
+  return window['go']['main']['App']['GetAppStateForProfile'](arg1);
+}
+
 export function GetChannels() {
   return window['go']['main']['App']['GetChannels']();
+}
+
+export function GetChannelsForProfile(arg1) {
+  return window['go']['main']['App']['GetChannelsForProfile'](arg1);
 }
 
 export function GetModelProviderPresets() {
@@ -86,8 +102,16 @@ export function GetSkillDetail(arg1) {
   return window['go']['main']['App']['GetSkillDetail'](arg1);
 }
 
+export function GetSkillDetailForProfile(arg1, arg2) {
+  return window['go']['main']['App']['GetSkillDetailForProfile'](arg1, arg2);
+}
+
 export function GetSkillHubDetail(arg1) {
   return window['go']['main']['App']['GetSkillHubDetail'](arg1);
+}
+
+export function GetSkillHubDetailForProfile(arg1, arg2) {
+  return window['go']['main']['App']['GetSkillHubDetailForProfile'](arg1, arg2);
 }
 
 export function ImportInstanceBackup(arg1) {
@@ -106,6 +130,10 @@ export function InstallSkillHubSkill(arg1) {
   return window['go']['main']['App']['InstallSkillHubSkill'](arg1);
 }
 
+export function InstallSkillHubSkillForProfile(arg1, arg2) {
+  return window['go']['main']['App']['InstallSkillHubSkillForProfile'](arg1, arg2);
+}
+
 export function InstallUpdate(arg1) {
   return window['go']['main']['App']['InstallUpdate'](arg1);
 }
@@ -114,12 +142,20 @@ export function ListProfileSkills() {
   return window['go']['main']['App']['ListProfileSkills']();
 }
 
+export function ListProfileSkillsForProfile(arg1) {
+  return window['go']['main']['App']['ListProfileSkillsForProfile'](arg1);
+}
+
 export function ListProfiles() {
   return window['go']['main']['App']['ListProfiles']();
 }
 
 export function ListSkillHubSkills(arg1) {
   return window['go']['main']['App']['ListSkillHubSkills'](arg1);
+}
+
+export function ListSkillHubSkillsForProfile(arg1, arg2) {
+  return window['go']['main']['App']['ListSkillHubSkillsForProfile'](arg1, arg2);
 }
 
 export function MoveProfile(arg1, arg2) {
@@ -132,6 +168,10 @@ export function OpenEndpoint(arg1) {
 
 export function OpenSkillDirectory(arg1) {
   return window['go']['main']['App']['OpenSkillDirectory'](arg1);
+}
+
+export function OpenSkillDirectoryForProfile(arg1, arg2) {
+  return window['go']['main']['App']['OpenSkillDirectoryForProfile'](arg1, arg2);
 }
 
 export function OpenUpdateURL(arg1) {
@@ -162,8 +202,16 @@ export function RestoreDefaultSkills() {
   return window['go']['main']['App']['RestoreDefaultSkills']();
 }
 
+export function RestoreDefaultSkillsForProfile(arg1) {
+  return window['go']['main']['App']['RestoreDefaultSkillsForProfile'](arg1);
+}
+
 export function RestoreDefaultSoul() {
   return window['go']['main']['App']['RestoreDefaultSoul']();
+}
+
+export function RestoreDefaultSoulForProfile(arg1) {
+  return window['go']['main']['App']['RestoreDefaultSoulForProfile'](arg1);
 }
 
 export function SaveComposeSettings(arg1) {
@@ -174,16 +222,32 @@ export function SaveEnvironment(arg1) {
   return window['go']['main']['App']['SaveEnvironment'](arg1);
 }
 
+export function SaveEnvironmentForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveEnvironmentForProfile'](arg1, arg2);
+}
+
 export function SaveFeishuConfig(arg1) {
   return window['go']['main']['App']['SaveFeishuConfig'](arg1);
+}
+
+export function SaveFeishuConfigForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveFeishuConfigForProfile'](arg1, arg2);
 }
 
 export function SaveModelConfig(arg1) {
   return window['go']['main']['App']['SaveModelConfig'](arg1);
 }
 
+export function SaveModelConfigForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveModelConfigForProfile'](arg1, arg2);
+}
+
 export function SaveProviderConfig(arg1) {
   return window['go']['main']['App']['SaveProviderConfig'](arg1);
+}
+
+export function SaveProviderConfigForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveProviderConfigForProfile'](arg1, arg2);
 }
 
 export function SaveProxySettings(arg1) {
@@ -198,6 +262,10 @@ export function SaveWeComConfig(arg1) {
   return window['go']['main']['App']['SaveWeComConfig'](arg1);
 }
 
+export function SaveWeComConfigForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveWeComConfigForProfile'](arg1, arg2);
+}
+
 export function SaveWebSettings(arg1) {
   return window['go']['main']['App']['SaveWebSettings'](arg1);
 }
@@ -210,12 +278,20 @@ export function SendTestMessage(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendTestMessage'](arg1, arg2, arg3);
 }
 
+export function SendTestMessageForProfile(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SendTestMessageForProfile'](arg1, arg2, arg3, arg4);
+}
+
 export function SetAutoUpdateEnabled(arg1) {
   return window['go']['main']['App']['SetAutoUpdateEnabled'](arg1);
 }
 
 export function SetHomeChannel(arg1, arg2) {
   return window['go']['main']['App']['SetHomeChannel'](arg1, arg2);
+}
+
+export function SetHomeChannelForProfile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetHomeChannelForProfile'](arg1, arg2, arg3);
 }
 
 export function SetProfileEnabled(arg1, arg2) {
@@ -226,12 +302,20 @@ export function StartFeishuLogin() {
   return window['go']['main']['App']['StartFeishuLogin']();
 }
 
+export function StartFeishuLoginForProfile(arg1) {
+  return window['go']['main']['App']['StartFeishuLoginForProfile'](arg1);
+}
+
 export function StartHermes() {
   return window['go']['main']['App']['StartHermes']();
 }
 
 export function StartWeixinLogin() {
   return window['go']['main']['App']['StartWeixinLogin']();
+}
+
+export function StartWeixinLoginForProfile(arg1) {
+  return window['go']['main']['App']['StartWeixinLoginForProfile'](arg1);
 }
 
 export function StopHermes() {
@@ -246,6 +330,10 @@ export function SyncBundledSkills() {
   return window['go']['main']['App']['SyncBundledSkills']();
 }
 
+export function SyncBundledSkillsForProfile(arg1) {
+  return window['go']['main']['App']['SyncBundledSkillsForProfile'](arg1);
+}
+
 export function TailLogs() {
   return window['go']['main']['App']['TailLogs']();
 }
@@ -254,8 +342,16 @@ export function TestModel() {
   return window['go']['main']['App']['TestModel']();
 }
 
+export function TestModelForProfile(arg1) {
+  return window['go']['main']['App']['TestModelForProfile'](arg1);
+}
+
 export function UnbindPlatform(arg1) {
   return window['go']['main']['App']['UnbindPlatform'](arg1);
+}
+
+export function UnbindPlatformForProfile(arg1, arg2) {
+  return window['go']['main']['App']['UnbindPlatformForProfile'](arg1, arg2);
 }
 
 export function UpdateProfileName(arg1, arg2) {

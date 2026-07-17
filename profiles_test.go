@@ -246,6 +246,28 @@ func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	}
 }
 
+func TestCreateProfileValidatesCopyModeBeforeCreatingDirectory(t *testing.T) {
+	app := newTestApp(t)
+	id := "invalid-mode"
+	if err := app.CreateProfile(CreateProfileRequest{ID: id, CopyMode: "unsupported"}); err == nil {
+		t.Fatal("unsupported copy mode should fail")
+	}
+	if fileExists(app.profileDataDir(id)) {
+		t.Fatal("failed profile creation left a residual directory")
+	}
+}
+
+func TestCreateProfileValidatesCopySourceBeforeCreatingDirectory(t *testing.T) {
+	app := newTestApp(t)
+	id := "missing-source"
+	if err := app.CreateProfile(CreateProfileRequest{ID: id, CopyMode: profileCopyPersona, CopyFrom: "not-found"}); err == nil {
+		t.Fatal("missing copy source should fail")
+	}
+	if fileExists(app.profileDataDir(id)) {
+		t.Fatal("failed profile creation left a residual directory")
+	}
+}
+
 func TestCreateProfileCopyPersonalityRewritesSoulHome(t *testing.T) {
 	app := newTestApp(t)
 	if err := app.CreateProfile(CreateProfileRequest{ID: "writer", Name: "写作助手", Enabled: true, CopyMode: "personality-skills", CopyFrom: "default"}); err != nil {
@@ -352,6 +374,44 @@ func TestDeleteProfileStopsContainerAndBacksUpSymlink(t *testing.T) {
 	}
 	if found["python-container"] != "/container-only/python3" {
 		t.Fatalf("broken symlink target = %q", found["python-container"])
+	}
+}
+
+func TestDeleteProfileWaitsForProfileLoginWorker(t *testing.T) {
+	app := newTestApp(t)
+	if err := app.CreateProfile(CreateProfileRequest{ID: "scanner", Name: "扫码助手", Enabled: true, CopyMode: "clean"}); err != nil {
+		t.Fatal(err)
+	}
+	installFakeDocker(t, false)
+	ctx, err := app.startLoginSession("weixin", "scanner", feishuLoginTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled := make(chan struct{})
+	release := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(canceled)
+		<-release
+		app.finishLoginSession("weixin", nil)
+	}()
+	result := make(chan error, 1)
+	go func() { result <- app.DeleteProfile("scanner") }()
+	<-canceled
+	select {
+	case err := <-result:
+		t.Fatalf("DeleteProfile returned before the login worker exited: %v", err)
+	default:
+	}
+	if !fileExists(app.profileDataDir("scanner")) {
+		t.Fatal("profile directory was moved before the login worker exited")
+	}
+	close(release)
+	if err := <-result; err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(app.profileDataDir("scanner")) {
+		t.Fatal("profile directory still exists after deletion")
 	}
 }
 

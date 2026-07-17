@@ -65,6 +65,9 @@ func firstNonEmpty(values ...string) string {
 func yamlQuote(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	value = strings.ReplaceAll(value, `"`, `\"`)
+	value = strings.ReplaceAll(value, "\n", `\n`)
+	value = strings.ReplaceAll(value, "\r", `\r`)
+	value = strings.ReplaceAll(value, "\t", `\t`)
 	return value
 }
 

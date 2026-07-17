@@ -31,7 +31,11 @@ func parseYAML(data []byte, out interface{}) error {
 }
 
 func (a *App) readModelConfig() (ModelConfig, error) {
-	cfg, err := a.readConfigMap()
+	return a.readModelConfigForProfile(a.currentProfileID())
+}
+
+func (a *App) readModelConfigForProfile(profileID string) (ModelConfig, error) {
+	cfg, err := a.readConfigMapForProfile(profileID)
 	if err != nil {
 		return defaultModelConfig(), err
 	}
@@ -52,7 +56,7 @@ func (a *App) readModelConfig() (ModelConfig, error) {
 		Auxiliary:     map[string]AuxModel{},
 		RawProviders:  asMap(cfg["providers"]),
 	}
-	if mode := a.currentProfileAuxiliaryMode(); mode != "" {
+	if mode := a.profileAuxiliaryMode(profileID); mode != "" {
 		model.AuxiliaryMode = mode
 	}
 	if fallbacks, ok := cfg["fallback_providers"].([]interface{}); ok {
@@ -97,12 +101,21 @@ func defaultModelConfig() ModelConfig {
 }
 
 func (a *App) SaveModelConfig(model ModelConfig) error {
-	cfg, err := a.readConfigMap()
+	return a.SaveModelConfigForProfile(a.currentProfileID(), model)
+}
+
+func (a *App) SaveModelConfigForProfile(profileID string, model ModelConfig) error {
+	profileID, err := a.resolveProfileID(profileID)
 	if err != nil {
-		cfg = map[string]interface{}{}
+		return err
 	}
-	if _, err := os.Stat(a.configPath()); err == nil {
-		if err := a.backupFile(a.configPath(), "before-model-save"); err != nil {
+	configPath := a.profileConfigPath(profileID)
+	cfg, err := a.readConfigMapForProfile(profileID)
+	if err != nil {
+		return fmt.Errorf("读取 config.yaml 失败：%w", err)
+	}
+	if _, err := os.Stat(configPath); err == nil {
+		if err := a.backupFile(configPath, "before-model-save"); err != nil {
 			return err
 		}
 	}
@@ -154,16 +167,16 @@ func (a *App) SaveModelConfig(model ModelConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureDir(a.currentProfileDataDir()); err != nil {
+	if err := ensureDir(a.profileDataDir(profileID)); err != nil {
 		return err
 	}
-	if err := atomicWriteFile(a.configPath(), data, 0644); err != nil {
+	if err := atomicWriteFile(configPath, data, 0644); err != nil {
 		return err
 	}
-	if err := a.syncReferencedProviderEnv(providers); err != nil {
+	if err := a.syncReferencedProviderEnvForProfile(profileID, providers); err != nil {
 		return err
 	}
-	if err := a.updateCurrentProfileAuxiliaryMode(firstNonEmpty(model.AuxiliaryMode, "auto")); err != nil {
+	if err := a.updateProfileAuxiliaryMode(profileID, firstNonEmpty(model.AuxiliaryMode, "auto")); err != nil {
 		return err
 	}
 	return a.markRebuildRequired()
@@ -209,7 +222,11 @@ func (a *App) GetModelProviderPresets() []ModelProviderPreset {
 }
 
 func (a *App) readProviderConfig() (ProviderConfig, error) {
-	cfg, err := a.readConfigMap()
+	return a.readProviderConfigForProfile(a.currentProfileID())
+}
+
+func (a *App) readProviderConfigForProfile(profileID string) (ProviderConfig, error) {
+	cfg, err := a.readConfigMapForProfile(profileID)
 	if err != nil {
 		return normalizeProviderConfig(ProviderConfig{}), err
 	}
@@ -221,12 +238,21 @@ func (a *App) GetProviderConfig() (ProviderConfig, error) {
 }
 
 func (a *App) SaveProviderConfig(providers ProviderConfig) error {
-	cfg, err := a.readConfigMap()
+	return a.SaveProviderConfigForProfile(a.currentProfileID(), providers)
+}
+
+func (a *App) SaveProviderConfigForProfile(profileID string, providers ProviderConfig) error {
+	profileID, err := a.resolveProfileID(profileID)
 	if err != nil {
-		cfg = map[string]interface{}{}
+		return err
 	}
-	if _, err := os.Stat(a.configPath()); err == nil {
-		if err := a.backupFile(a.configPath(), "before-provider-save"); err != nil {
+	configPath := a.profileConfigPath(profileID)
+	cfg, err := a.readConfigMapForProfile(profileID)
+	if err != nil {
+		return fmt.Errorf("读取 config.yaml 失败：%w", err)
+	}
+	if _, err := os.Stat(configPath); err == nil {
+		if err := a.backupFile(configPath, "before-provider-save"); err != nil {
 			return err
 		}
 	}
@@ -250,13 +276,13 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureDir(a.currentProfileDataDir()); err != nil {
+	if err := ensureDir(a.profileDataDir(profileID)); err != nil {
 		return err
 	}
-	if err := atomicWriteFile(a.configPath(), data, 0644); err != nil {
+	if err := atomicWriteFile(configPath, data, 0644); err != nil {
 		return err
 	}
-	if err := a.syncReferencedProviderEnv(normalized); err != nil {
+	if err := a.syncReferencedProviderEnvForProfile(profileID, normalized); err != nil {
 		return err
 	}
 	state, _ := a.readState()
@@ -323,6 +349,32 @@ func (a *App) FetchProviderConfigModelList(provider ProviderConfigEntry) ([]Mode
 		provider.APIMode = "chat_completions"
 	}
 	return fetchModelListFromProvider(provider)
+}
+
+func (a *App) FetchProviderConfigModelListForProfile(profileID string, provider ProviderConfigEntry) ([]ModelOption, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return nil, err
+	}
+	if isMaskedSecretPlaceholder(provider.APIKey) {
+		existing, err := a.readProviderConfigForProfile(profileID)
+		if err != nil {
+			return nil, err
+		}
+		if entry, ok := existing.Providers[providerIDForEntry(existing, provider)]; ok {
+			provider.APIKey = entry.APIKey
+		}
+	}
+	return a.FetchProviderConfigModelList(provider)
+}
+
+func providerIDForEntry(config ProviderConfig, target ProviderConfigEntry) string {
+	for id, entry := range config.Providers {
+		if entry.Label == target.Label && entry.BaseURL == target.BaseURL && entry.ModelListURL == target.ModelListURL {
+			return id
+		}
+	}
+	return ""
 }
 
 func (a *App) FetchModelList(req ModelListRequest) ([]ModelOption, error) {
@@ -738,7 +790,11 @@ func (a *App) syncModelProviderEnv(model ModelConfig) error {
 }
 
 func (a *App) syncReferencedProviderEnv(providers ProviderConfig) error {
-	cfg, err := a.readConfigMap()
+	return a.syncReferencedProviderEnvForProfile(a.currentProfileID(), providers)
+}
+
+func (a *App) syncReferencedProviderEnvForProfile(profileID string, providers ProviderConfig) error {
+	cfg, err := a.readConfigMapForProfile(profileID)
 	if err != nil {
 		return err
 	}
@@ -746,7 +802,10 @@ func (a *App) syncReferencedProviderEnv(providers ProviderConfig) error {
 	if len(updates) == 0 {
 		return nil
 	}
-	existing, _ := readEnvFile(a.envPath())
+	existing, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	changed := false
 	for _, item := range updates {
 		if envValue(existing, item.Key) != item.Value {
@@ -757,7 +816,7 @@ func (a *App) syncReferencedProviderEnv(providers ProviderConfig) error {
 	if !changed {
 		return nil
 	}
-	return a.SaveEnvironment(updates)
+	return a.SaveEnvironmentForProfile(profileID, updates)
 }
 
 func referencedProviderEnvUpdates(cfg map[string]interface{}, providers ProviderConfig) []EnvVar {
@@ -886,8 +945,12 @@ func compactBody(body []byte) string {
 }
 
 func (a *App) readConfigMap() (map[string]interface{}, error) {
+	return a.readConfigMapForProfile(a.currentProfileID())
+}
+
+func (a *App) readConfigMapForProfile(profileID string) (map[string]interface{}, error) {
 	cfg := map[string]interface{}{}
-	err := parseYAMLFile(a.configPath(), &cfg)
+	err := parseYAMLFile(a.profileConfigPath(profileID), &cfg)
 	if err != nil {
 		return cfg, err
 	}

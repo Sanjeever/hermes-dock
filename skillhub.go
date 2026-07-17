@@ -131,6 +131,14 @@ type skillHubInstallMetadata struct {
 }
 
 func (a *App) ListSkillHubSkills(query SkillHubQuery) (SkillHubState, error) {
+	return a.ListSkillHubSkillsForProfile(a.currentProfileID(), query)
+}
+
+func (a *App) ListSkillHubSkillsForProfile(profileID string, query SkillHubQuery) (SkillHubState, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SkillHubState{}, err
+	}
 	query = normalizeSkillHubQuery(query)
 	categories, err := a.skillHubCategories()
 	if err != nil {
@@ -158,7 +166,7 @@ func (a *App) ListSkillHubSkills(query SkillHubQuery) (SkillHubState, error) {
 	if response.Code != 0 {
 		return SkillHubState{}, fmt.Errorf("SkillHub 返回错误：%s", firstNonEmpty(response.Message, strconv.Itoa(response.Code)))
 	}
-	installed := a.installedSkillHubSlugs()
+	installed := a.installedSkillHubSlugsForProfile(profileID)
 	state := SkillHubState{
 		Categories: categories,
 		Total:      response.Data.Total,
@@ -172,6 +180,14 @@ func (a *App) ListSkillHubSkills(query SkillHubQuery) (SkillHubState, error) {
 }
 
 func (a *App) GetSkillHubDetail(slug string) (SkillHubDetail, error) {
+	return a.GetSkillHubDetailForProfile(a.currentProfileID(), slug)
+}
+
+func (a *App) GetSkillHubDetailForProfile(profileID string, slug string) (SkillHubDetail, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SkillHubDetail{}, err
+	}
 	slug = strings.TrimSpace(slug)
 	if !validSkillHubSlug(slug) {
 		return SkillHubDetail{}, fmt.Errorf("SkillHub slug 不安全")
@@ -212,7 +228,7 @@ func (a *App) GetSkillHubDetail(slug string) (SkillHubDetail, error) {
 		return SkillHubDetail{}, err
 	}
 	detail := SkillHubDetail{
-		SkillHubSkill: skillHubListItemToSkill(item, categoryNames, a.installedSkillHubSlugs()),
+		SkillHubSkill: skillHubListItemToSkill(item, categoryNames, a.installedSkillHubSlugsForProfile(profileID)),
 		OwnerName:     firstNonEmpty(detailResponse.Owner.DisplayName, detailResponse.Owner.Handle),
 		Homepage:      detailResponse.Skill.SourceURL,
 		Files:         files.Files,
@@ -231,6 +247,14 @@ func (a *App) GetSkillHubDetail(slug string) (SkillHubDetail, error) {
 }
 
 func (a *App) InstallSkillHubSkill(slug string) error {
+	return a.InstallSkillHubSkillForProfile(a.currentProfileID(), slug)
+}
+
+func (a *App) InstallSkillHubSkillForProfile(profileID string, slug string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
 	slug = strings.TrimSpace(slug)
 	if !validSkillHubSlug(slug) {
 		return fmt.Errorf("SkillHub slug 不安全")
@@ -261,7 +285,7 @@ func (a *App) InstallSkillHubSkill(slug string) error {
 			return fmt.Errorf("SkillHub 技能包校验失败")
 		}
 	}
-	target := filepath.Join(a.currentProfileDataDir(), "skills", skillHubInstallSubdir, slug)
+	target := filepath.Join(a.profileDataDir(profileID), "skills", skillHubInstallSubdir, slug)
 	if err := ensureDir(filepath.Dir(target)); err != nil {
 		return err
 	}
@@ -451,8 +475,12 @@ func skillHubListItemToSkill(item skillHubListItem, categoryNames map[string]str
 }
 
 func (a *App) installedSkillHubSlugs() map[string]string {
+	return a.installedSkillHubSlugsForProfile(a.currentProfileID())
+}
+
+func (a *App) installedSkillHubSlugsForProfile(profileID string) map[string]string {
 	out := map[string]string{}
-	root := filepath.Join(a.currentProfileDataDir(), "skills", skillHubInstallSubdir)
+	root := filepath.Join(a.profileDataDir(profileID), "skills", skillHubInstallSubdir)
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return out

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -71,5 +72,37 @@ func TestPersistWeixinCredentialsUsesLoginProfile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(app.profileDataDir("support"), ".env")); !os.IsNotExist(err) {
 		t.Fatalf("support .env should not be created, stat err = %v", err)
+	}
+}
+
+func TestRemoveWeixinLoginContainerConfirmsContainerIsGone(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake docker script is unix-only")
+	}
+	for _, tt := range []struct {
+		name      string
+		psOutput  string
+		wantError bool
+	}{
+		{name: "already absent", psOutput: "", wantError: false},
+		{name: "still present", psOutput: "container-id", wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			dockerPath := filepath.Join(dir, "docker")
+			script := "#!/bin/sh\n" +
+				"if [ \"$1\" = \"rm\" ]; then exit 1; fi\n" +
+				"if [ \"$1\" = \"ps\" ]; then printf '%s' \"$PS_OUTPUT\"; exit 0; fi\n" +
+				"exit 1\n"
+			if err := os.WriteFile(dockerPath, []byte(script), 0755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("PS_OUTPUT", tt.psOutput)
+			err := removeWeixinLoginContainer("test-container")
+			if (err != nil) != tt.wantError {
+				t.Fatalf("removeWeixinLoginContainer() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
 	}
 }

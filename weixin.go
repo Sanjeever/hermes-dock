@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type weixinEvent struct {
@@ -23,21 +26,29 @@ type weixinEvent struct {
 }
 
 func (a *App) StartWeixinLogin() error {
-	if err := ensureDir(a.currentProfileDataDir()); err != nil {
+	return a.StartWeixinLoginForProfile(a.currentProfileID())
+}
+
+func (a *App) StartWeixinLoginForProfile(profileID string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
 		return err
 	}
-	ctx, err := a.startLoginSession("weixin", 10*time.Minute)
+	if err := ensureDir(a.profileDataDir(profileID)); err != nil {
+		return err
+	}
+	ctx, err := a.startLoginSession("weixin", profileID, 10*time.Minute)
 	if err != nil {
 		return err
 	}
 	helperPath, err := a.writeWeixinHelper()
 	if err != nil {
-		a.finishLoginSession("weixin")
+		a.finishLoginSession("weixin", nil)
 		return err
 	}
 	settings := a.readComposeSettings()
-	profileID := a.currentProfileID()
-	go a.runWeixinLogin(ctx, helperPath, settings.Image, profileID)
+	containerName := "hermes-dock-weixin-login-" + uuid.NewString()
+	go a.runWeixinLogin(ctx, helperPath, settings.Image, profileID, containerName)
 	return nil
 }
 
@@ -45,14 +56,15 @@ func (a *App) CancelWeixinLogin() {
 	a.cancelLoginSession("weixin")
 }
 
-func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image string, profileID string) {
-	defer a.finishLoginSession("weixin")
+func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image string, profileID string, containerName string) {
+	var sessionErr error
+	defer func() { a.finishLoginSession("weixin", sessionErr) }()
 	profileHome := "/opt/data"
 	if profileID != defaultProfileID {
 		profileHome = "/opt/data/profiles/" + profileID
 	}
 	args := []string{
-		"run", "--rm",
+		"run", "--rm", "--name", containerName,
 		"-v", a.dataDir() + ":/opt/data",
 		"-v", helperPath + ":/opt/hermes-dock/weixin_login.py:ro",
 		"-e", "HERMES_HOME=/opt/data",
@@ -111,9 +123,33 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 			a.emit("weixin-login:status", event)
 		}
 	}
-	if err := cmd.Wait(); err != nil && ctx.Err() == nil {
-		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
+	waitErr := cmd.Wait()
+	if ctx.Err() != nil {
+		if err := removeWeixinLoginContainer(containerName); err != nil {
+			sessionErr = err
+			a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
+		}
+	} else if waitErr != nil {
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(waitErr.Error())})
 	}
+}
+
+func removeWeixinLoginContainer(containerName string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	rmOutput, rmErr := backgroundCommandContext(ctx, "docker", "rm", "-f", containerName).CombinedOutput()
+	filter := "name=^/" + containerName + "$"
+	checkOutput, checkErr := backgroundCommandContext(ctx, "docker", "ps", "-aq", "--filter", filter).CombinedOutput()
+	if checkErr != nil {
+		return fmt.Errorf("确认微信扫码容器已停止失败：%w：%s", checkErr, redact(strings.TrimSpace(string(checkOutput))))
+	}
+	if strings.TrimSpace(string(checkOutput)) != "" {
+		if rmErr != nil {
+			return fmt.Errorf("停止微信扫码容器失败：%w：%s", rmErr, redact(strings.TrimSpace(string(rmOutput))))
+		}
+		return fmt.Errorf("微信扫码容器仍在运行：%s", containerName)
+	}
+	return nil
 }
 
 func (a *App) forwardWeixinHelperLine(line string) {
@@ -161,6 +197,9 @@ func isWeixinHelperNoise(line string) bool {
 }
 
 func (a *App) persistWeixinCredentials(profileID string, event weixinEvent) error {
+	if _, err := a.resolveProfileID(profileID); err != nil {
+		return err
+	}
 	path := filepath.Join(a.profileDataDir(profileID), ".env")
 	env, _ := readEnvFile(path)
 	updates := []EnvVar{

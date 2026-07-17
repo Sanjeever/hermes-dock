@@ -5,10 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os/exec"
 	"strings"
 )
+
+const maxCommandOutputLineBytes = 1024 * 1024
 
 type StreamEvent struct {
 	Line string `json:"line"`
@@ -57,19 +60,31 @@ func (a *App) runStreaming(ctx context.Context, event string, name string, args 
 		return err
 	}
 
-	done := make(chan struct{})
-	scan := func(scanner *bufio.Scanner) {
+	scanErrors := make(chan error, 2)
+	scan := func(reader io.ReadCloser) {
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, 64*1024), maxCommandOutputLineBytes)
 		for scanner.Scan() {
 			a.emit(event, StreamEvent{Line: redact(scanner.Text())})
 		}
-		done <- struct{}{}
+		scanErrors <- scanner.Err()
 	}
-	go scan(bufio.NewScanner(stdout))
-	go scan(bufio.NewScanner(stderr))
-	<-done
-	<-done
+	go scan(stdout)
+	go scan(stderr)
+	var scanErr error
+	for range 2 {
+		if err := <-scanErrors; err != nil && scanErr == nil {
+			scanErr = err
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+		}
+	}
 
 	err = cmd.Wait()
+	if scanErr != nil {
+		return fmt.Errorf("读取 Docker 命令输出失败：%w", scanErr)
+	}
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -82,9 +97,14 @@ func (a *App) runStreaming(ctx context.Context, event string, name string, args 
 }
 
 func (a *App) TailLogs() error {
-	a.StopTailLogs()
 	ctx, cancel := context.WithCancel(context.Background())
+	a.logMu.Lock()
+	previous := a.logCancel
 	a.logCancel = cancel
+	a.logMu.Unlock()
+	if previous != nil {
+		previous()
+	}
 	go func() {
 		err := a.runComposeStreaming(ctx, "logs:line", "logs", "-f", "hermes")
 		if err != nil && ctx.Err() == nil {
@@ -95,9 +115,12 @@ func (a *App) TailLogs() error {
 }
 
 func (a *App) StopTailLogs() {
-	if a.logCancel != nil {
-		a.logCancel()
-		a.logCancel = nil
+	a.logMu.Lock()
+	cancel := a.logCancel
+	a.logCancel = nil
+	a.logMu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
 }
 

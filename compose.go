@@ -5,10 +5,19 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	containerNamePattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
+	imageReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/:@-]*$`)
+	memoryLimitPattern    = regexp.MustCompile(`(?i)^[1-9][0-9]*(?:\.[0-9]+)?[bkmg]?(?:b)?$`)
 )
 
 const (
@@ -220,10 +229,16 @@ func (a *App) ensureComposeResourceDefaults() error {
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	previousSettings := a.readComposeSettings()
-	previousState, _ := a.readState()
+	previousState, err := a.readState()
+	if err != nil {
+		return err
+	}
 	password := settings.DufsPassword
 	settings.DufsPassword = ""
 	settings = withComposeDefaults(settings)
+	if err := validateComposeSettings(settings); err != nil {
+		return err
+	}
 	if err := a.validateDufsSettings(settings); err != nil {
 		return err
 	}
@@ -245,7 +260,7 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	if err := a.writeCompose(settings, "before-compose-save"); err != nil {
 		return err
 	}
-	state, _ := a.readState()
+	state := previousState
 	hermesUnchanged := renderHermesService(previousSettings, a.readProxySettings()) == renderHermesService(settings, a.readProxySettings())
 	dufsOnly := hermesUnchanged && (!previousState.NeedsRebuild || previousState.PendingDufsOnly)
 	state.PreviousHermesImage = state.HermesImage
@@ -259,6 +274,38 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 		return err
 	}
 	return a.syncHostBridge(settings.HostControlEnabled == "true")
+}
+
+func validateComposeSettings(settings ComposeSettings) error {
+	if !imageReferencePattern.MatchString(strings.TrimSpace(settings.Image)) {
+		return fmt.Errorf("Hermes 镜像格式无效")
+	}
+	if !containerNamePattern.MatchString(settings.ContainerName) {
+		return fmt.Errorf("容器名称格式无效")
+	}
+	for label, host := range map[string]string{"管理页监听地址": settings.DashboardHost, "消息入口监听地址": settings.GatewayHost} {
+		ip := net.ParseIP(strings.TrimSpace(host))
+		if ip == nil || ip.To4() == nil {
+			return fmt.Errorf("%s无效：%s", label, host)
+		}
+	}
+	for label, port := range map[string]string{"管理页端口": settings.DashboardPort, "消息入口端口": settings.GatewayPort} {
+		value, err := strconv.Atoi(strings.TrimSpace(port))
+		if err != nil || value < 1 || value > 65535 {
+			return fmt.Errorf("%s必须是 1 到 65535 之间的数字", label)
+		}
+	}
+	if !memoryLimitPattern.MatchString(strings.TrimSpace(settings.MemoryLimit)) {
+		return fmt.Errorf("内存限制格式无效")
+	}
+	if !memoryLimitPattern.MatchString(strings.TrimSpace(settings.ShmSize)) {
+		return fmt.Errorf("共享内存格式无效")
+	}
+	cpu, err := strconv.ParseFloat(strings.TrimSpace(settings.CPULimit), 64)
+	if err != nil || cpu <= 0 {
+		return fmt.Errorf("CPU 限制必须是大于 0 的数字")
+	}
+	return nil
 }
 
 const (
@@ -466,8 +513,8 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
 	dashboard := "1"
 	proxyEnv := renderComposeProxyEnvironment(proxy)
 	return fmt.Sprintf(`  hermes:
-    image: %s
-    container_name: %s
+    image: "%s"
+    container_name: "%s"
     restart: unless-stopped
     init: false
     stop_grace_period: 120s
@@ -482,7 +529,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       - 119.29.29.29
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    shm_size: %s
+    shm_size: "%s"
     ports:
       - "%s:%s:8642"
       - "%s:%s:9119"
@@ -516,9 +563,9 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
     deploy:
       resources:
         limits:
-          memory: %s
+          memory: "%s"
           cpus: "%s"
-`, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), settings.MemoryLimit, settings.CPULimit)
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayHost), yamlQuote(settings.GatewayPort), yamlQuote(settings.DashboardHost), yamlQuote(settings.DashboardPort), dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
 }
 
 func renderDufsService(settings ComposeSettings) string {
@@ -765,17 +812,28 @@ func runtimeStatusReady(manifest RuntimeManifest, status RuntimeStatus) (bool, e
 }
 
 func (a *App) TestModel() error {
-	if err := a.syncSavedModelProviderEnv(); err != nil {
+	return a.TestModelForProfile(a.currentProfileID())
+}
+
+func (a *App) TestModelForProfile(profileID string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
 		return err
 	}
-	args := append([]string{"run", "--rm"}, a.currentProfileComposeEnvArgs()...)
+	if err := a.syncSavedModelProviderEnvForProfile(profileID); err != nil {
+		return err
+	}
+	args := append([]string{"run", "--rm"}, a.profileComposeEnvArgs(profileID)...)
 	args = append(args, "hermes")
-	args = append(args, a.currentProfileHermesArgs("-z", "请只回复 OK。")...)
+	args = append(args, a.profileHermesArgs(profileID, "-z", "请只回复 OK。")...)
 	return a.runComposeStreaming(context.Background(), "docker:progress", args...)
 }
 
 func (a *App) currentProfileHermesArgs(args ...string) []string {
-	profileID := a.currentProfileID()
+	return a.profileHermesArgs(a.currentProfileID(), args...)
+}
+
+func (a *App) profileHermesArgs(profileID string, args ...string) []string {
 	out := []string{"hermes"}
 	if profileID != defaultProfileID {
 		out = append(out, "-p", profileID)
@@ -784,8 +842,11 @@ func (a *App) currentProfileHermesArgs(args ...string) []string {
 }
 
 func (a *App) currentProfileComposeEnvArgs() []string {
+	return a.profileComposeEnvArgs(a.currentProfileID())
+}
+
+func (a *App) profileComposeEnvArgs(profileID string) []string {
 	out := []string{"-e", "HERMES_HOME=/opt/data"}
-	profileID := a.currentProfileID()
 	profileHome := "/opt/data"
 	envFile := "data/.env"
 	if profileID != defaultProfileID {
@@ -797,14 +858,18 @@ func (a *App) currentProfileComposeEnvArgs() []string {
 }
 
 func (a *App) syncSavedModelProviderEnv() error {
-	cfg, err := a.readConfigMap()
+	return a.syncSavedModelProviderEnvForProfile(a.currentProfileID())
+}
+
+func (a *App) syncSavedModelProviderEnvForProfile(profileID string) error {
+	cfg, err := a.readConfigMapForProfile(profileID)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	return a.syncReferencedProviderEnv(normalizeProviderConfig(readProviderConfigFromMap(cfg)))
+	return a.syncReferencedProviderEnvForProfile(profileID, normalizeProviderConfig(readProviderConfigFromMap(cfg)))
 }
 
 func (a *App) composeAvailable(ctx context.Context) bool {

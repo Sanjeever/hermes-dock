@@ -59,9 +59,11 @@ func TestRegisterFeishuBotUsesLarkDomainAndProbesBot(t *testing.T) {
 }
 
 func TestPersistFeishuCredentialsUsesTargetProfileAndKeepsHomeChannel(t *testing.T) {
-	app := NewApp()
-	app.instanceRoot = t.TempDir()
+	app := newTestApp(t)
 	profileID := "sales"
+	if err := app.CreateProfile(CreateProfileRequest{ID: profileID, Name: "销售助手", Enabled: true, CopyMode: "clean"}); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(app.profileDataDir(profileID), ".env")
 	if err := app.saveEnvironmentTo(path, []EnvVar{{Key: "FEISHU_HOME_CHANNEL", Value: "oc_existing"}}); err != nil {
 		t.Fatal(err)
@@ -90,17 +92,46 @@ func TestPersistFeishuCredentialsUsesTargetProfileAndKeepsHomeChannel(t *testing
 
 func TestLoginSessionAllowsOnlyOnePlatform(t *testing.T) {
 	app := NewApp()
-	if _, err := app.startLoginSession("weixin", feishuLoginTimeout); err != nil {
+	if _, err := app.startLoginSession("weixin", defaultProfileID, feishuLoginTimeout); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.startLoginSession("feishu", feishuLoginTimeout); err == nil {
+	if _, err := app.startLoginSession("feishu", defaultProfileID, feishuLoginTimeout); err == nil {
 		t.Fatal("expected concurrent login session to be rejected")
 	}
 	app.cancelLoginSession("weixin")
-	app.finishLoginSession("weixin")
-	if _, err := app.startLoginSession("feishu", feishuLoginTimeout); err != nil {
+	app.finishLoginSession("weixin", nil)
+	if _, err := app.startLoginSession("feishu", defaultProfileID, feishuLoginTimeout); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestCancelLoginSessionAndWaitWaitsForWorkerExit(t *testing.T) {
+	app := NewApp()
+	ctx, err := app.startLoginSession("weixin", "sales", feishuLoginTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled := make(chan struct{})
+	release := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(canceled)
+		<-release
+		app.finishLoginSession("weixin", nil)
+	}()
+	returned := make(chan struct{})
+	go func() {
+		_ = app.cancelLoginSessionAndWait("weixin")
+		close(returned)
+	}()
+	<-canceled
+	select {
+	case <-returned:
+		t.Fatal("cancel-and-wait returned before the login worker exited")
+	default:
+	}
+	close(release)
+	<-returned
 }
 
 func TestAppendFeishuQRTracking(t *testing.T) {

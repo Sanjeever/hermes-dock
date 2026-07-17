@@ -20,6 +20,8 @@ export function DeleteProvider(arg1:string):Promise<void>;
 
 export function DeleteSkill(arg1:string):Promise<void>;
 
+export function DeleteSkillForProfile(arg1:string,arg2:string):Promise<void>;
+
 export function DismissUpdate(arg1:string):Promise<void>;
 
 export function ExportInstanceBackup(arg1:string):Promise<main.InstanceBackupManifest>;
@@ -30,11 +32,17 @@ export function FetchModelList(arg1:main.ModelListRequest):Promise<Array<main.Mo
 
 export function FetchProviderConfigModelList(arg1:main.ProviderConfigEntry):Promise<Array<main.ModelOption>>;
 
+export function FetchProviderConfigModelListForProfile(arg1:string,arg2:main.ProviderConfigEntry):Promise<Array<main.ModelOption>>;
+
 export function FetchProviderModelList(arg1:string):Promise<Array<main.ModelOption>>;
 
 export function GetAppState():Promise<main.AppState>;
 
+export function GetAppStateForProfile(arg1:string):Promise<main.AppState>;
+
 export function GetChannels():Promise<main.ChannelFile>;
+
+export function GetChannelsForProfile(arg1:string):Promise<main.ChannelFile>;
 
 export function GetModelProviderPresets():Promise<Array<main.ModelProviderPreset>>;
 
@@ -44,7 +52,11 @@ export function GetRecommendedResourceLimits():Promise<main.ResourceLimitsRecomm
 
 export function GetSkillDetail(arg1:string):Promise<main.SkillDetail>;
 
+export function GetSkillDetailForProfile(arg1:string,arg2:string):Promise<main.SkillDetail>;
+
 export function GetSkillHubDetail(arg1:string):Promise<main.SkillHubDetail>;
+
+export function GetSkillHubDetailForProfile(arg1:string,arg2:string):Promise<main.SkillHubDetail>;
 
 export function ImportInstanceBackup(arg1:main.InstanceBackupImportRequest):Promise<main.InstanceBackupImportResult>;
 
@@ -54,19 +66,27 @@ export function InspectInstanceBackup(arg1:string):Promise<main.InstanceBackupMa
 
 export function InstallSkillHubSkill(arg1:string):Promise<void>;
 
+export function InstallSkillHubSkillForProfile(arg1:string,arg2:string):Promise<void>;
+
 export function InstallUpdate(arg1:string):Promise<void>;
 
 export function ListProfileSkills():Promise<main.SkillsState>;
 
+export function ListProfileSkillsForProfile(arg1:string):Promise<main.SkillsState>;
+
 export function ListProfiles():Promise<main.ProfileRegistry>;
 
 export function ListSkillHubSkills(arg1:main.SkillHubQuery):Promise<main.SkillHubState>;
+
+export function ListSkillHubSkillsForProfile(arg1:string,arg2:main.SkillHubQuery):Promise<main.SkillHubState>;
 
 export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 
 export function OpenEndpoint(arg1:string):Promise<void>;
 
 export function OpenSkillDirectory(arg1:string):Promise<void>;
+
+export function OpenSkillDirectoryForProfile(arg1:string,arg2:string):Promise<void>;
 
 export function OpenUpdateURL(arg1:string):Promise<void>;
 
@@ -82,17 +102,29 @@ export function RestartHermes():Promise<void>;
 
 export function RestoreDefaultSkills():Promise<main.SyncBundledSkillsResult>;
 
+export function RestoreDefaultSkillsForProfile(arg1:string):Promise<main.SyncBundledSkillsResult>;
+
 export function RestoreDefaultSoul():Promise<void>;
+
+export function RestoreDefaultSoulForProfile(arg1:string):Promise<void>;
 
 export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 
 export function SaveEnvironment(arg1:Array<main.EnvVar>):Promise<void>;
 
+export function SaveEnvironmentForProfile(arg1:string,arg2:Array<main.EnvVar>):Promise<void>;
+
 export function SaveFeishuConfig(arg1:main.FeishuConfig):Promise<void>;
+
+export function SaveFeishuConfigForProfile(arg1:string,arg2:main.FeishuConfig):Promise<void>;
 
 export function SaveModelConfig(arg1:main.ModelConfig):Promise<void>;
 
+export function SaveModelConfigForProfile(arg1:string,arg2:main.ModelConfig):Promise<void>;
+
 export function SaveProviderConfig(arg1:main.ProviderConfig):Promise<void>;
+
+export function SaveProviderConfigForProfile(arg1:string,arg2:main.ProviderConfig):Promise<void>;
 
 export function SaveProxySettings(arg1:main.ProxySettings):Promise<void>;
 
@@ -100,23 +132,33 @@ export function SaveTextFile(arg1:main.TextFileRequest):Promise<void>;
 
 export function SaveWeComConfig(arg1:main.WeComConfig):Promise<void>;
 
+export function SaveWeComConfigForProfile(arg1:string,arg2:main.WeComConfig):Promise<void>;
+
 export function SaveWebSettings(arg1:main.WebSettingsRequest):Promise<void>;
 
 export function SelectProfile(arg1:string):Promise<void>;
 
 export function SendTestMessage(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function SendTestMessageForProfile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
 export function SetAutoUpdateEnabled(arg1:boolean):Promise<main.UpdateStatus>;
 
 export function SetHomeChannel(arg1:string,arg2:string):Promise<void>;
+
+export function SetHomeChannelForProfile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetProfileEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function StartFeishuLogin():Promise<void>;
 
+export function StartFeishuLoginForProfile(arg1:string):Promise<void>;
+
 export function StartHermes():Promise<void>;
 
 export function StartWeixinLogin():Promise<void>;
+
+export function StartWeixinLoginForProfile(arg1:string):Promise<void>;
 
 export function StopHermes():Promise<void>;
 
@@ -124,10 +166,16 @@ export function StopTailLogs():Promise<void>;
 
 export function SyncBundledSkills():Promise<main.SyncBundledSkillsResult>;
 
+export function SyncBundledSkillsForProfile(arg1:string):Promise<main.SyncBundledSkillsResult>;
+
 export function TailLogs():Promise<void>;
 
 export function TestModel():Promise<void>;
 
+export function TestModelForProfile(arg1:string):Promise<void>;
+
 export function UnbindPlatform(arg1:string):Promise<void>;
+
+export function UnbindPlatformForProfile(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateProfileName(arg1:string,arg2:string):Promise<void>;

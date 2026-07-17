@@ -34,7 +34,7 @@ describe('useOperationRunner', () => {
         expect(setNotice).toHaveBeenLastCalledWith({type: 'ok', message: '已保存'});
     });
 
-    it('reports action failures without refreshing', async () => {
+	it('reports action failures and refreshes real state', async () => {
         const refresh = vi.fn(async () => '');
         const appendLog = vi.fn();
         const setNotice = vi.fn();
@@ -50,7 +50,7 @@ describe('useOperationRunner', () => {
         await act(async () => {
             expect(await result.current('正在保存', async () => { throw new Error('failed'); })).toBe(false);
         });
-        expect(refresh).not.toHaveBeenCalled();
+		expect(refresh).toHaveBeenCalledTimes(1);
         expect(appendLog).toHaveBeenCalledWith('Error: failed');
         expect(setNotice).toHaveBeenLastCalledWith({type: 'error', message: 'Error: failed'});
     });

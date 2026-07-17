@@ -26,9 +26,9 @@ type App struct {
 	mu                  sync.Mutex
 	webSessionMu        sync.RWMutex
 	loginMu             sync.Mutex
+	logMu               sync.Mutex
 	logCancel           context.CancelFunc
-	loginCancel         context.CancelFunc
-	loginPlatform       string
+	loginSession        *loginSessionState
 	startupErr          error
 	web                 *webRuntime
 	hostBridge          *hostBridgeRuntime
@@ -66,11 +66,17 @@ func (a *App) shutdown(ctx context.Context) {
 	a.stopHostBridge(ctx)
 	a.cleanupHostNotifications()
 	a.stopWebServer(ctx)
-	a.cancelLoginSession("")
+	if err := a.cancelLoginSessionAndWait(""); err != nil {
+		a.emit("docker:progress", StreamEvent{Line: redact(fmt.Sprintf("停止扫码绑定失败：%v", err))})
+	}
 	a.StopTailLogs()
 }
 
 func (a *App) GetAppState() (AppState, error) {
+	return a.GetAppStateForProfile(a.currentProfileID())
+}
+
+func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 	if a.startupErr != nil {
 		if err := a.ensureInstanceReady(); err != nil {
 			return AppState{}, err
@@ -79,14 +85,36 @@ func (a *App) GetAppState() (AppState, error) {
 	} else if err := a.ensureInstanceReady(); err != nil {
 		return AppState{}, err
 	}
-	state, _ := a.readState()
-	profiles, _ := a.readProfileRegistry()
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return AppState{}, err
+	}
+	state, err := a.readState()
+	if err != nil {
+		return AppState{}, err
+	}
+	profiles, err := a.readProfileRegistry()
+	if err != nil {
+		return AppState{}, err
+	}
 	compose := a.readComposeSettings()
 	proxy := a.readProxySettings()
-	env, _ := readEnvFile(a.envPath())
-	model, _ := a.readModelConfig()
-	providers, _ := a.readProviderConfig()
-	channels, _ := a.GetChannels()
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return AppState{}, err
+	}
+	model, err := a.readModelConfigForProfile(profileID)
+	if err != nil {
+		return AppState{}, err
+	}
+	providers, err := a.readProviderConfigForProfile(profileID)
+	if err != nil {
+		return AppState{}, err
+	}
+	channels, err := a.GetChannelsForProfile(profileID)
+	if err != nil {
+		return AppState{}, err
+	}
 	containerStatus := a.containerStatus(context.Background())
 
 	return AppState{
@@ -95,7 +123,7 @@ func (a *App) GetAppState() (AppState, error) {
 		NeedsRebuild:     state.NeedsRebuild,
 		State:            state,
 		Profiles:         profiles,
-		ActiveProfile:    a.currentProfileID(),
+		ActiveProfile:    profileID,
 		ProfileStatus:    a.readRuntimeStatus(containerStatus),
 		Compose:          compose,
 		Proxy:            proxy,
@@ -302,18 +330,25 @@ func (a *App) writeOverrideIfMissing() error {
 	return nil
 }
 
-func (a *App) FactoryResetInstance() error {
+func (a *App) FactoryResetInstance() (err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	if err := a.validateResetRoot(); err != nil {
 		return err
 	}
+	hostBridgeWasRunning := a.hostBridgeStatus().Running
 	a.stopHostBridge(context.Background())
+	defer func() {
+		if err != nil && hostBridgeWasRunning {
+			if restartErr := a.startHostBridge(); restartErr != nil {
+				err = errors.Join(err, fmt.Errorf("恢复宿主机控制失败：%w", restartErr))
+			}
+		}
+	}()
 	a.StopTailLogs()
-	if a.loginCancel != nil {
-		a.loginCancel()
-		a.loginCancel = nil
+	if err := a.cancelLoginSessionAndWait(""); err != nil {
+		return fmt.Errorf("停止扫码绑定失败：%w", err)
 	}
 
 	if fileExists(a.composePath()) {

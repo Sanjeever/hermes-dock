@@ -9,6 +9,14 @@ import (
 )
 
 func (a *App) SaveWeComConfig(config WeComConfig) error {
+	return a.SaveWeComConfigForProfile(a.currentProfileID(), config)
+}
+
+func (a *App) SaveWeComConfigForProfile(profileID string, config WeComConfig) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
 	dmPolicy, err := normalizeOpenClosedPolicy(config.DMPolicy, "closed", "allowlist")
 	if err != nil {
 		return fmt.Errorf("企业微信私聊策略无效：%s", config.DMPolicy)
@@ -17,7 +25,10 @@ func (a *App) SaveWeComConfig(config WeComConfig) error {
 	if err != nil {
 		return fmt.Errorf("企业微信群聊策略无效：%s", config.GroupPolicy)
 	}
-	env, _ := readEnvFile(a.envPath())
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return err
+	}
 	updates := []EnvVar{
 		{Key: "WECOM_BOT_ID", Value: config.BotID},
 		{Key: "WECOM_SECRET", Value: keepExistingIfMaskedSecret(env, "WECOM_SECRET", config.Secret)},
@@ -27,10 +38,18 @@ func (a *App) SaveWeComConfig(config WeComConfig) error {
 		{Key: "WECOM_GROUP_POLICY", Value: groupPolicy},
 		{Key: "WECOM_GROUP_ALLOWED_USERS", Value: ""},
 	}
-	return a.SaveEnvironment(mergeEnv(env, updates))
+	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
 }
 
 func (a *App) SaveFeishuConfig(config FeishuConfig) error {
+	return a.SaveFeishuConfigForProfile(a.currentProfileID(), config)
+}
+
+func (a *App) SaveFeishuConfigForProfile(profileID string, config FeishuConfig) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
 	domain := firstNonEmpty(strings.TrimSpace(config.Domain), "feishu")
 	if !oneOf(domain, "feishu", "lark") {
 		return fmt.Errorf("飞书平台区域无效：%s", domain)
@@ -39,7 +58,10 @@ func (a *App) SaveFeishuConfig(config FeishuConfig) error {
 	if err != nil {
 		return fmt.Errorf("飞书群聊策略无效：%s", config.GroupPolicy)
 	}
-	env, _ := readEnvFile(a.envPath())
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return err
+	}
 	updates := []EnvVar{
 		{Key: "FEISHU_APP_ID", Value: strings.TrimSpace(config.AppID)},
 		{Key: "FEISHU_APP_SECRET", Value: keepExistingIfMaskedSecret(env, "FEISHU_APP_SECRET", config.AppSecret)},
@@ -49,12 +71,23 @@ func (a *App) SaveFeishuConfig(config FeishuConfig) error {
 		{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 		{Key: "FEISHU_GROUP_POLICY", Value: groupPolicy},
 	}
-	return a.SaveEnvironment(mergeEnv(env, updates))
+	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
 }
 
 func (a *App) UnbindPlatform(platform string) error {
+	return a.UnbindPlatformForProfile(a.currentProfileID(), platform)
+}
+
+func (a *App) UnbindPlatformForProfile(profileID string, platform string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
 	platform = strings.TrimSpace(platform)
-	env, _ := readEnvFile(a.envPath())
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return err
+	}
 	var updates []EnvVar
 	switch platform {
 	case "weixin":
@@ -94,7 +127,7 @@ func (a *App) UnbindPlatform(platform string) error {
 	default:
 		return fmt.Errorf("不支持的平台：%s", platform)
 	}
-	return a.SaveEnvironment(mergeEnv(env, updates))
+	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
 }
 
 func keepExistingIfMaskedSecret(existing []EnvVar, key string, value string) string {
@@ -144,10 +177,21 @@ func normalizeOpenClosedPolicy(value string, closeValue string, legacyCloseValue
 }
 
 func (a *App) GetChannels() (ChannelFile, error) {
+	return a.GetChannelsForProfile(a.currentProfileID())
+}
+
+func (a *App) GetChannelsForProfile(profileID string) (ChannelFile, error) {
 	out := ChannelFile{Platforms: map[string][]ChannelSummary{}}
-	data, err := os.ReadFile(a.channelDirectoryPath())
+	profileID, err := a.resolveProfileID(profileID)
 	if err != nil {
-		return out, nil
+		return out, err
+	}
+	data, err := os.ReadFile(a.profileChannelDirectoryPath(profileID))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return out, err
 	}
 	if err := json.Unmarshal(data, &out); err != nil {
 		return ChannelFile{Platforms: map[string][]ChannelSummary{}}, err
@@ -159,16 +203,35 @@ func (a *App) GetChannels() (ChannelFile, error) {
 }
 
 func (a *App) SetHomeChannel(platform string, channelID string) error {
-	env, _ := readEnvFile(a.envPath())
+	return a.SetHomeChannelForProfile(a.currentProfileID(), platform, channelID)
+}
+
+func (a *App) SetHomeChannelForProfile(profileID string, platform string, channelID string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return err
+	}
 	switch platform {
 	case "weixin":
-		return a.SaveEnvironment(mergeEnv(env, []EnvVar{{Key: "WEIXIN_HOME_CHANNEL", Value: channelID}}))
+		return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, []EnvVar{{Key: "WEIXIN_HOME_CHANNEL", Value: channelID}}))
 	default:
-		return nil
+		return fmt.Errorf("不支持的平台：%s", platform)
 	}
 }
 
 func (a *App) SendTestMessage(platform string, channelID string, message string) error {
+	return a.SendTestMessageForProfile(a.currentProfileID(), platform, channelID, message)
+}
+
+func (a *App) SendTestMessageForProfile(profileID string, platform string, channelID string, message string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
 	target := platform
 	if channelID != "" {
 		target = platform + ":" + channelID
@@ -176,8 +239,8 @@ func (a *App) SendTestMessage(platform string, channelID string, message string)
 	if message == "" {
 		message = "企智盒测试消息"
 	}
-	args := append([]string{"run", "--rm"}, a.currentProfileComposeEnvArgs()...)
+	args := append([]string{"run", "--rm"}, a.profileComposeEnvArgs(profileID)...)
 	args = append(args, "hermes")
-	args = append(args, a.currentProfileHermesArgs("send", "--to", target, message)...)
+	args = append(args, a.profileHermesArgs(profileID, "send", "--to", target, message)...)
 	return a.runComposeStreaming(context.Background(), "docker:progress", args...)
 }

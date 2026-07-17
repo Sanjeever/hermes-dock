@@ -23,6 +23,8 @@ const (
 	statusPath   = "/opt/data/.dock/profile-status.json"
 )
 
+const maxProfileLogLineBytes = 1024 * 1024
+
 var envKeyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type RuntimeManifest struct {
@@ -240,13 +242,21 @@ func (s *supervisor) runOnce(ctx context.Context, profile RuntimeManifestProfile
 	})
 	fmt.Printf("[%s] started pid=%d\n", profile.ID, cmd.Process.Pid)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go prefixLines(profile.ID, stdout, &wg)
-	go prefixLines(profile.ID, stderr, &wg)
-	wg.Wait()
+	logErrors := make(chan error, 2)
+	go prefixLines(profile.ID, stdout, logErrors)
+	go prefixLines(profile.ID, stderr, logErrors)
+	var logErr error
+	for range 2 {
+		if err := <-logErrors; err != nil && logErr == nil {
+			logErr = err
+			_ = cmd.Process.Kill()
+		}
+	}
 
 	err = cmd.Wait()
+	if logErr != nil {
+		err = fmt.Errorf("读取 profile 日志失败：%w", logErr)
+	}
 	exitCode := 0
 	if err != nil {
 		exitCode = 1
@@ -329,13 +339,13 @@ func setEnv(env []string, key string, value string) []string {
 	return append(env, item)
 }
 
-func prefixLines(profileID string, reader io.Reader, wg *sync.WaitGroup) {
-	defer wg.Done()
-	prefixLinesTo(os.Stdout, profileID, reader)
+func prefixLines(profileID string, reader io.Reader, errors chan<- error) {
+	errors <- prefixLinesTo(os.Stdout, profileID, reader)
 }
 
-func prefixLinesTo(writer io.Writer, profileID string, reader io.Reader) {
+func prefixLinesTo(writer io.Writer, profileID string, reader io.Reader) error {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), maxProfileLogLineBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -343,6 +353,7 @@ func prefixLinesTo(writer io.Writer, profileID string, reader io.Reader) {
 		}
 		fmt.Fprintf(writer, "[%s] %s\n", profileID, redact(line))
 	}
+	return scanner.Err()
 }
 
 func (s *supervisor) update(id string, next RuntimeProfileStatus) {

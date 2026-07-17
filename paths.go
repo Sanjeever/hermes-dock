@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,6 +66,24 @@ func (a *App) currentProfileID() string {
 	return "default"
 }
 
+func (a *App) resolveProfileID(profileID string) (string, error) {
+	profileID = strings.TrimSpace(profileID)
+	if profileID == "" {
+		profileID = a.currentProfileID()
+	}
+	registry, err := a.readProfileRegistry()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && profileID == defaultProfileID && fileExists(a.defaultDataDir()) {
+			return profileID, nil
+		}
+		return "", err
+	}
+	if !profileExists(registry, profileID) {
+		return "", fmt.Errorf("profile 不存在：%s", profileID)
+	}
+	return profileID, nil
+}
+
 func (a *App) currentProfileDataDir() string {
 	return a.profileDataDir(a.currentProfileID())
 }
@@ -78,7 +97,11 @@ func (a *App) overridePath() string {
 }
 
 func (a *App) envPath() string {
-	return filepath.Join(a.currentProfileDataDir(), ".env")
+	return a.profileEnvPath(a.currentProfileID())
+}
+
+func (a *App) profileEnvPath(profileID string) string {
+	return filepath.Join(a.profileDataDir(profileID), ".env")
 }
 
 func (a *App) defaultEnvPath() string {
@@ -86,7 +109,11 @@ func (a *App) defaultEnvPath() string {
 }
 
 func (a *App) configPath() string {
-	return filepath.Join(a.currentProfileDataDir(), "config.yaml")
+	return a.profileConfigPath(a.currentProfileID())
+}
+
+func (a *App) profileConfigPath(profileID string) string {
+	return filepath.Join(a.profileDataDir(profileID), "config.yaml")
 }
 
 func (a *App) defaultConfigPath() string {
@@ -94,7 +121,11 @@ func (a *App) defaultConfigPath() string {
 }
 
 func (a *App) soulPath() string {
-	return filepath.Join(a.currentProfileDataDir(), "SOUL.md")
+	return a.profileSoulPath(a.currentProfileID())
+}
+
+func (a *App) profileSoulPath(profileID string) string {
+	return filepath.Join(a.profileDataDir(profileID), "SOUL.md")
 }
 
 func (a *App) statePath() string {
@@ -146,7 +177,11 @@ func (a *App) runtimeStatusPath() string {
 }
 
 func (a *App) channelDirectoryPath() string {
-	return filepath.Join(a.currentProfileDataDir(), "channel_directory.json")
+	return a.profileChannelDirectoryPath(a.currentProfileID())
+}
+
+func (a *App) profileChannelDirectoryPath(profileID string) string {
+	return filepath.Join(a.profileDataDir(profileID), "channel_directory.json")
 }
 
 func (a *App) safePath(path string) (string, error) {

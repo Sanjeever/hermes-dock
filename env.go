@@ -36,7 +36,15 @@ func readEnvFile(path string) ([]EnvVar, error) {
 }
 
 func (a *App) SaveEnvironment(vars []EnvVar) error {
-	if err := a.saveEnvironmentTo(a.envPath(), vars); err != nil {
+	return a.SaveEnvironmentForProfile(a.currentProfileID(), vars)
+}
+
+func (a *App) SaveEnvironmentForProfile(profileID string, vars []EnvVar) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	if err := a.saveEnvironmentTo(a.profileEnvPath(profileID), vars); err != nil {
 		return err
 	}
 	return a.markRebuildRequired()

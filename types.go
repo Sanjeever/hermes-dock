@@ -65,9 +65,10 @@ type WebSettingsRequest struct {
 }
 
 type WebTextFileRequest struct {
-	Kind    string `json:"kind"`
-	Content string `json:"content"`
-	Confirm string `json:"confirm"`
+	ProfileID string `json:"profileId"`
+	Kind      string `json:"kind"`
+	Content   string `json:"content"`
+	Confirm   string `json:"confirm"`
 }
 
 type UpdateInfo struct {
@@ -95,12 +96,14 @@ type DeleteProfileRequest struct {
 }
 
 type DeleteSkillRequest struct {
-	Path    string `json:"path"`
-	Confirm bool   `json:"confirm"`
+	ProfileID string `json:"profileId"`
+	Path      string `json:"path"`
+	Confirm   bool   `json:"confirm"`
 }
 
 type RestoreDefaultRequest struct {
-	Confirm bool `json:"confirm"`
+	ProfileID string `json:"profileId"`
+	Confirm   bool   `json:"confirm"`
 }
 
 type InstanceBackupManifest struct {

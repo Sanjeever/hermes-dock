@@ -30,16 +30,24 @@ type skillFrontmatter struct {
 }
 
 func (a *App) ListProfileSkills() (SkillsState, error) {
+	return a.ListProfileSkillsForProfile(a.currentProfileID())
+}
+
+func (a *App) ListProfileSkillsForProfile(profileID string) (SkillsState, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SkillsState{}, err
+	}
 	bundled := a.bundledSkillNames()
-	skillsDir := filepath.Join(a.currentProfileDataDir(), "skills")
-	skills, err := a.scanInstalledSkills(skillsDir, bundled)
+	skillsDir := filepath.Join(a.profileDataDir(profileID), "skills")
+	skills, err := a.scanInstalledSkills(profileID, skillsDir, bundled)
 	if err != nil {
 		return SkillsState{}, err
 	}
 	markSkillConflicts(skills)
 	sortSkillSummaries(skills)
 	state := SkillsState{
-		ActiveProfile: a.currentProfileID(),
+		ActiveProfile: profileID,
 		Skills:        skills,
 		Total:         len(skills),
 	}
@@ -59,7 +67,15 @@ func (a *App) ListProfileSkills() (SkillsState, error) {
 }
 
 func (a *App) GetSkillDetail(path string) (SkillDetail, error) {
-	summary, dir, err := a.skillSummaryForPath(path)
+	return a.GetSkillDetailForProfile(a.currentProfileID(), path)
+}
+
+func (a *App) GetSkillDetailForProfile(profileID string, path string) (SkillDetail, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	summary, dir, err := a.skillSummaryForPathForProfile(profileID, path)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -77,7 +93,7 @@ func (a *App) GetSkillDetail(path string) (SkillDetail, error) {
 	detail.Files = files
 	detail.FileCount = count
 	detail.FilesTruncated = truncated
-	state, err := a.ListProfileSkills()
+	state, err := a.ListProfileSkillsForProfile(profileID)
 	if err == nil {
 		for _, item := range state.Skills {
 			if item.Name == summary.Name && item.Path != summary.Path {
@@ -89,7 +105,15 @@ func (a *App) GetSkillDetail(path string) (SkillDetail, error) {
 }
 
 func (a *App) DeleteSkill(path string) error {
-	summary, dir, err := a.skillSummaryForPath(path)
+	return a.DeleteSkillForProfile(a.currentProfileID(), path)
+}
+
+func (a *App) DeleteSkillForProfile(profileID string, path string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	summary, dir, err := a.skillSummaryForPathForProfile(profileID, path)
 	if err != nil {
 		return err
 	}
@@ -103,8 +127,15 @@ func (a *App) DeleteSkill(path string) error {
 }
 
 func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
-	profileID := a.currentProfileID()
-	targetRoot := a.currentProfileDataDir()
+	return a.SyncBundledSkillsForProfile(a.currentProfileID())
+}
+
+func (a *App) SyncBundledSkillsForProfile(profileID string) (SyncBundledSkillsResult, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SyncBundledSkillsResult{}, err
+	}
+	targetRoot := a.profileDataDir(profileID)
 	skillsDir := filepath.Join(targetRoot, "skills")
 	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}}
 	files, err := bundledSkillSeedFiles(targetRoot)
@@ -125,8 +156,15 @@ func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
 }
 
 func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
-	profileID := a.currentProfileID()
-	targetRoot := a.currentProfileDataDir()
+	return a.RestoreDefaultSkillsForProfile(a.currentProfileID())
+}
+
+func (a *App) RestoreDefaultSkillsForProfile(profileID string) (SyncBundledSkillsResult, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return SyncBundledSkillsResult{}, err
+	}
+	targetRoot := a.profileDataDir(profileID)
 	skillsDir := filepath.Join(targetRoot, "skills")
 	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}}
 	files, err := bundledSkillSeedFiles(targetRoot)
@@ -150,8 +188,15 @@ func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
 }
 
 func (a *App) RestoreDefaultSoul() error {
-	profileID := a.currentProfileID()
-	target := a.soulPath()
+	return a.RestoreDefaultSoulForProfile(a.currentProfileID())
+}
+
+func (a *App) RestoreDefaultSoulForProfile(profileID string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	target := a.profileSoulPath(profileID)
 	data, err := seedData.ReadFile("templates/seed-data/SOUL.md")
 	if err != nil {
 		return err
@@ -227,7 +272,15 @@ func writeBundledSkillSeedFiles(files []bundledSkillSeedFile, result SyncBundled
 }
 
 func (a *App) OpenSkillDirectory(path string) error {
-	_, dir, err := a.skillSummaryForPath(path)
+	return a.OpenSkillDirectoryForProfile(a.currentProfileID(), path)
+}
+
+func (a *App) OpenSkillDirectoryForProfile(profileID string, path string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	_, dir, err := a.skillSummaryForPathForProfile(profileID, path)
 	if err != nil {
 		return err
 	}
@@ -241,7 +294,7 @@ func (a *App) OpenSkillDirectory(path string) error {
 	}
 }
 
-func (a *App) scanInstalledSkills(root string, bundled map[string]bool) ([]SkillSummary, error) {
+func (a *App) scanInstalledSkills(profileID string, root string, bundled map[string]bool) ([]SkillSummary, error) {
 	if _, err := os.Stat(root); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -263,7 +316,7 @@ func (a *App) scanInstalledSkills(root string, bundled map[string]bool) ([]Skill
 		if entry.Name() != "SKILL.md" {
 			return nil
 		}
-		summary, err := a.skillSummaryFromDir(filepath.Dir(path), bundled)
+		summary, err := a.skillSummaryFromDirForProfile(profileID, filepath.Dir(path), bundled)
 		if err != nil {
 			return err
 		}
@@ -274,14 +327,18 @@ func (a *App) scanInstalledSkills(root string, bundled map[string]bool) ([]Skill
 }
 
 func (a *App) skillSummaryForPath(path string) (SkillSummary, string, error) {
-	rel, dir, err := a.resolveSkillDir(path)
+	return a.skillSummaryForPathForProfile(a.currentProfileID(), path)
+}
+
+func (a *App) skillSummaryForPathForProfile(profileID string, path string) (SkillSummary, string, error) {
+	rel, dir, err := a.resolveSkillDirForProfile(profileID, path)
 	if err != nil {
 		return SkillSummary{}, "", err
 	}
 	if !fileExists(filepath.Join(dir, "SKILL.md")) {
 		return SkillSummary{}, "", fmt.Errorf("不是有效技能目录：%s", rel)
 	}
-	summary, err := a.skillSummaryFromDir(dir, a.bundledSkillNames())
+	summary, err := a.skillSummaryFromDirForProfile(profileID, dir, a.bundledSkillNames())
 	if err != nil {
 		return SkillSummary{}, "", err
 	}
@@ -289,6 +346,10 @@ func (a *App) skillSummaryForPath(path string) (SkillSummary, string, error) {
 }
 
 func (a *App) resolveSkillDir(path string) (string, string, error) {
+	return a.resolveSkillDirForProfile(a.currentProfileID(), path)
+}
+
+func (a *App) resolveSkillDirForProfile(profileID string, path string) (string, string, error) {
 	path = filepath.ToSlash(strings.TrimSpace(path))
 	if path == "" {
 		return "", "", fmt.Errorf("技能路径不能为空")
@@ -300,8 +361,9 @@ func (a *App) resolveSkillDir(path string) (string, string, error) {
 	if clean == "." || clean == "skills" || !strings.HasPrefix(clean, "skills/") {
 		return "", "", fmt.Errorf("技能路径必须位于 skills/ 下")
 	}
-	base := filepath.Join(a.currentProfileDataDir(), "skills")
-	dir := filepath.Clean(filepath.Join(a.currentProfileDataDir(), filepath.FromSlash(clean)))
+	profileRoot := a.profileDataDir(profileID)
+	base := filepath.Join(profileRoot, "skills")
+	dir := filepath.Clean(filepath.Join(profileRoot, filepath.FromSlash(clean)))
 	root := filepath.Clean(base)
 	if dir != root && !strings.HasPrefix(dir, root+string(os.PathSeparator)) {
 		return "", "", fmt.Errorf("技能路径不能超出当前 profile")
@@ -317,7 +379,11 @@ func (a *App) resolveSkillDir(path string) (string, string, error) {
 }
 
 func (a *App) skillSummaryFromDir(dir string, bundled map[string]bool) (SkillSummary, error) {
-	rel, err := filepath.Rel(a.currentProfileDataDir(), dir)
+	return a.skillSummaryFromDirForProfile(a.currentProfileID(), dir, bundled)
+}
+
+func (a *App) skillSummaryFromDirForProfile(profileID string, dir string, bundled map[string]bool) (SkillSummary, error) {
+	rel, err := filepath.Rel(a.profileDataDir(profileID), dir)
 	if err != nil {
 		return SkillSummary{}, err
 	}

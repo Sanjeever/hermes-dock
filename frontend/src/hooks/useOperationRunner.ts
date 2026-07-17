@@ -33,6 +33,8 @@ export function useOperationRunner(options: {
             options.appendLog(message);
             options.setNotice({type: 'error', message});
             options.setLastOperationError(message);
+			const refreshMessage = await options.refresh();
+			if (refreshMessage) options.appendLog(`操作失败后刷新状态失败：${refreshMessage}`);
             return false;
         } finally {
             options.setBusy('');

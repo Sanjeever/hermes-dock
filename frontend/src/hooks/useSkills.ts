@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {DeleteSkill, GetSkillDetail, GetSkillHubDetail, InstallSkillHubSkill, ListProfileSkills, ListSkillHubSkills, OpenSkillDirectory, RestoreDefaultSkills, SyncBundledSkills} from '../services/api';
 import type {Notice, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState} from '../types';
 import {restoreDefaultSkillsMessage, syncBundledSkillsMessage} from '../appPolicies';
@@ -6,6 +6,7 @@ import {restoreDefaultSkillsMessage, syncBundledSkillsMessage} from '../appPolic
 type Run = (label: string, action: () => Promise<unknown>, options?: {rebuildRequired?: boolean}) => Promise<boolean>;
 
 export function useSkills(options: {
+	getProfileID: () => string;
     run: Run;
     refresh: () => Promise<string>;
     appendLog: (line: string) => void;
@@ -20,13 +21,22 @@ export function useSkills(options: {
     const [skillHubState, setSkillHubState] = useState<SkillHubState | null>(null);
     const [skillHubDetail, setSkillHubDetail] = useState<SkillHubDetail | null>(null);
     const [skillHubStatus, setSkillHubStatus] = useState('');
+    const skillsGeneration = useRef(0);
+    const skillDetailGeneration = useRef(0);
+    const skillHubGeneration = useRef(0);
+    const skillHubDetailGeneration = useRef(0);
 
     async function loadSkills() {
+		const profileID = options.getProfileID();
+        const generation = ++skillsGeneration.current;
         setSkillsStatus('正在读取技能');
         try {
-            setSkillsState(await ListProfileSkills() as SkillsState);
+            const next = await ListProfileSkills(profileID) as SkillsState;
+            if (generation !== skillsGeneration.current || profileID !== options.getProfileID()) return;
+			setSkillsState(next);
             setSkillsStatus('');
         } catch (error) {
+            if (generation !== skillsGeneration.current || profileID !== options.getProfileID()) return;
             const message = String(error);
             setSkillsStatus(message);
             options.appendLog(message);
@@ -34,11 +44,16 @@ export function useSkills(options: {
     }
 
     async function loadSkillDetail(path: string) {
+		const profileID = options.getProfileID();
+        const generation = ++skillDetailGeneration.current;
         setSkillsStatus('正在读取技能详情');
         try {
-            setSkillDetail(await GetSkillDetail(path) as SkillDetail);
+            const next = await GetSkillDetail(profileID, path) as SkillDetail;
+            if (generation !== skillDetailGeneration.current || profileID !== options.getProfileID()) return;
+			setSkillDetail(next);
             setSkillsStatus('');
         } catch (error) {
+            if (generation !== skillDetailGeneration.current || profileID !== options.getProfileID()) return;
             const message = String(error);
             setSkillDetail(null);
             setSkillsStatus(message);
@@ -47,7 +62,8 @@ export function useSkills(options: {
     }
 
     async function deleteSkill(path: string) {
-        const ok = await options.run('正在删除技能', () => DeleteSkill(path), {rebuildRequired: true});
+		const profileID = options.getProfileID();
+		const ok = await options.run('正在删除技能', () => DeleteSkill(profileID, path), {rebuildRequired: true});
         if (!ok) return false;
         setSkillDetail(null);
         await loadSkills();
@@ -56,13 +72,14 @@ export function useSkills(options: {
     }
 
     async function updateBundledSkills(restore: boolean) {
+		const profileID = options.getProfileID();
         const label = restore ? '正在恢复默认技能' : '正在同步内置技能';
         options.setBusy(label);
         options.setNotice({type: 'info', message: label});
         setSkillsStatus(label);
         options.setLastOperationError('');
         try {
-            const result = restore ? await RestoreDefaultSkills() : await SyncBundledSkills();
+			const result = restore ? await RestoreDefaultSkills(profileID) : await SyncBundledSkills(profileID);
             await options.refresh();
             await loadSkills();
             if (restore) setSkillDetail(null);
@@ -85,7 +102,7 @@ export function useSkills(options: {
 
     async function openSkillDirectory(path: string) {
         try {
-            await OpenSkillDirectory(path);
+			await OpenSkillDirectory(options.getProfileID(), path);
         } catch (error) {
             const message = String(error);
             options.appendLog(message);
@@ -95,11 +112,16 @@ export function useSkills(options: {
     }
 
     async function loadSkillHubSkills(query: SkillHubQuery) {
+		const profileID = options.getProfileID();
+        const generation = ++skillHubGeneration.current;
         setSkillHubStatus('正在读取技能中心');
         try {
-            setSkillHubState(await ListSkillHubSkills(query) as SkillHubState);
+            const next = await ListSkillHubSkills(profileID, query) as SkillHubState;
+            if (generation !== skillHubGeneration.current || profileID !== options.getProfileID()) return;
+			setSkillHubState(next);
             setSkillHubStatus('');
         } catch (error) {
+            if (generation !== skillHubGeneration.current || profileID !== options.getProfileID()) return;
             const message = String(error);
             setSkillHubStatus(message);
             options.appendLog(message);
@@ -107,11 +129,16 @@ export function useSkills(options: {
     }
 
     async function loadSkillHubDetail(slug: string) {
+		const profileID = options.getProfileID();
+        const generation = ++skillHubDetailGeneration.current;
         setSkillHubStatus('正在读取技能详情');
         try {
-            setSkillHubDetail(await GetSkillHubDetail(slug) as SkillHubDetail);
+            const next = await GetSkillHubDetail(profileID, slug) as SkillHubDetail;
+            if (generation !== skillHubDetailGeneration.current || profileID !== options.getProfileID()) return;
+			setSkillHubDetail(next);
             setSkillHubStatus('');
         } catch (error) {
+            if (generation !== skillHubDetailGeneration.current || profileID !== options.getProfileID()) return;
             const message = String(error);
             setSkillHubDetail(null);
             setSkillHubStatus(message);
@@ -120,7 +147,8 @@ export function useSkills(options: {
     }
 
     async function installSkillHubSkill(slug: string) {
-        const ok = await options.run('正在安装技能', () => InstallSkillHubSkill(slug), {rebuildRequired: true});
+		const profileID = options.getProfileID();
+		const ok = await options.run('正在安装技能', () => InstallSkillHubSkill(profileID, slug), {rebuildRequired: true});
         if (!ok) return false;
         await loadSkills();
         await loadSkillHubDetail(slug);
@@ -128,6 +156,11 @@ export function useSkills(options: {
     }
 
     function resetForProfile() {
+        skillsGeneration.current++;
+        skillDetailGeneration.current++;
+        skillHubGeneration.current++;
+        skillHubDetailGeneration.current++;
+        setSkillsState(null);
         setSkillDetail(null);
         setSkillHubDetail(null);
         setSkillHubState(null);

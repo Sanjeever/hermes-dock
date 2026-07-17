@@ -28,6 +28,16 @@ const (
 	instanceBackupChecksumsName = "checksums.txt"
 )
 
+var instanceBackupRestorableRoots = []string{
+	"data",
+	"launcher/state.json",
+	"launcher/profiles.json",
+	"launcher/web-server.json",
+	"launcher/dufs/config.yaml",
+	"docker-compose.override.yaml",
+	"docker-compose.yaml",
+}
+
 type instanceBackupEntry struct {
 	AbsPath string
 	RelPath string
@@ -112,9 +122,8 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		return InstanceBackupImportResult{}, err
 	}
 	a.StopTailLogs()
-	if a.loginCancel != nil {
-		a.loginCancel()
-		a.loginCancel = nil
+	if err := a.cancelLoginSessionAndWait(""); err != nil {
+		return InstanceBackupImportResult{}, fmt.Errorf("停止扫码绑定失败：%w", err)
 	}
 	if fileExists(a.composePath()) {
 		a.emit("backup:progress", StreamEvent{Line: "正在停止当前容器"})
@@ -294,15 +303,6 @@ func (a *App) exportInstanceBackupWithStoppedContainer(targetPath string) (manif
 }
 
 func (a *App) collectInstanceBackupEntries() ([]instanceBackupEntry, []string, error) {
-	roots := []string{
-		"data",
-		"launcher/state.json",
-		"launcher/profiles.json",
-		"launcher/web-server.json",
-		"launcher/dufs/config.yaml",
-		"docker-compose.override.yaml",
-		"docker-compose.yaml",
-	}
 	var entries []instanceBackupEntry
 	excludedSet := map[string]bool{}
 	addExcluded := func(path string) {
@@ -311,7 +311,7 @@ func (a *App) collectInstanceBackupEntries() ([]instanceBackupEntry, []string, e
 			excludedSet[path] = true
 		}
 	}
-	for _, relRoot := range roots {
+	for _, relRoot := range instanceBackupRestorableRoots {
 		absRoot := filepath.Join(a.instanceRoot, filepath.FromSlash(relRoot))
 		info, err := os.Lstat(absRoot)
 		if os.IsNotExist(err) {
@@ -621,12 +621,12 @@ func validateRestorableBackupPath(path string) error {
 		}
 		return nil
 	}
-	switch path {
-	case "launcher/state.json", "launcher/profiles.json", "launcher/web-server.json", "docker-compose.override.yaml", "docker-compose.yaml":
-		return nil
-	default:
-		return fmt.Errorf("备份包含不允许恢复的路径：%s", path)
+	for _, root := range instanceBackupRestorableRoots {
+		if path == root {
+			return nil
+		}
 	}
+	return fmt.Errorf("备份包含不允许恢复的路径：%s", path)
 }
 
 func validateInstanceBackupManifest(manifest InstanceBackupManifest) error {
@@ -724,13 +724,14 @@ func (a *App) replaceInstanceFromBackup(extractRoot string) error {
 		a.statePath(),
 		a.profilesPath(),
 		a.webServerPath(),
+		a.dufsConfigPath(),
 		a.webSessionsPath(),
 	} {
 		if err := os.RemoveAll(path); err != nil {
 			return err
 		}
 	}
-	for _, rel := range []string{"data", "launcher/state.json", "launcher/profiles.json", "launcher/web-server.json", "docker-compose.override.yaml", "docker-compose.yaml"} {
+	for _, rel := range instanceBackupRestorableRoots {
 		src := filepath.Join(extractRoot, filepath.FromSlash(rel))
 		if !fileExists(src) {
 			continue

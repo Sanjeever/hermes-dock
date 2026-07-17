@@ -3,9 +3,10 @@ import {gotoLine, openSearchPanel} from '@codemirror/search';
 import {EditorView} from '@codemirror/view';
 import {CornerDownRight, Download, FileCode2, FileSearch, Save, Search, Trash2, Upload} from 'lucide-react';
 import {CodeEditor} from '../components/CodeEditor';
+import {inspectedBackupMatchesInput} from '../backupPolicy';
 import type {InstanceBackupManifest} from '../types';
 
-export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; webRuntime: boolean; backupStatus: string; backupManifest: InstanceBackupManifest | null; onExportBackup: (targetPath: string) => Promise<void>; onInspectBackup: (path: string) => Promise<void>; onImportBackup: (path: string, confirm: string) => Promise<void>; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
+export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; webRuntime: boolean; backupStatus: string; backupManifest: InstanceBackupManifest | null; onExportBackup: (targetPath: string) => Promise<void>; onInspectBackup: (path: string) => Promise<void>; onImportBackup: (path: string, confirm: string) => Promise<void>; onClearBackupManifest: () => void; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
     const [exportPath, setExportPath] = useState('');
@@ -15,6 +16,7 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
     const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
     const importConfirmed = importConfirmText === '导入';
     const inspectedPath = props.backupManifest?.path || importPath;
+    const importReady = inspectedBackupMatchesInput(props.backupManifest, importPath, props.webRuntime);
 
     async function factoryReset() {
         if (!resetConfirmed) return;
@@ -95,16 +97,19 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                         {props.webRuntime && (
                             <label>
                                 <span>服务器备份路径</span>
-                                <input value={importPath} onChange={(event) => setImportPath(event.target.value)} placeholder="/path/to/hermes-dock-backup.hdbackup" disabled={props.busy}/>
+                                <input value={importPath} onChange={(event) => {
+                                    setImportPath(event.target.value);
+                                    props.onClearBackupManifest();
+                                }} placeholder="/path/to/hermes-dock-backup.hdbackup" disabled={props.busy}/>
                             </label>
                         )}
                         <div className="backup-button-row">
                             <button className="ghost" onClick={() => props.onInspectBackup(importPath)} disabled={props.busy || (props.webRuntime && importPath.trim() === '')}><FileSearch size={16}/>检查备份</button>
-                            <button className="danger-button compact" onClick={() => props.onImportBackup(inspectedPath, importConfirmText)} disabled={props.busy || !props.backupManifest || !importConfirmed}><Upload size={16}/>导入备份</button>
+                            <button className="danger-button compact" onClick={() => props.onImportBackup(inspectedPath, importConfirmText)} disabled={props.busy || !importReady || !importConfirmed}><Upload size={16}/>导入备份</button>
                         </div>
                         <label>
                             <span>输入「导入」确认覆盖当前实例</span>
-                            <input value={importConfirmText} onChange={(event) => setImportConfirmText(event.target.value)} disabled={props.busy || !props.backupManifest}/>
+                            <input value={importConfirmText} onChange={(event) => setImportConfirmText(event.target.value)} disabled={props.busy || !importReady}/>
                         </label>
                     </div>
                 </div>

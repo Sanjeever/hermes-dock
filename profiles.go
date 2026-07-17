@@ -170,12 +170,15 @@ func profileIndex(registry ProfileRegistry, id string) int {
 }
 
 func (a *App) currentProfileAuxiliaryMode() string {
+	return a.profileAuxiliaryMode(a.currentProfileID())
+}
+
+func (a *App) profileAuxiliaryMode(id string) string {
 	registry, err := a.readProfileRegistry()
 	if err != nil {
 		state, _ := a.readState()
 		return firstNonEmpty(state.ModelAuxiliaryMode, "auto")
 	}
-	id := a.currentProfileID()
 	idx := profileIndex(registry, id)
 	if idx < 0 {
 		return "auto"
@@ -184,11 +187,14 @@ func (a *App) currentProfileAuxiliaryMode() string {
 }
 
 func (a *App) updateCurrentProfileAuxiliaryMode(mode string) error {
+	return a.updateProfileAuxiliaryMode(a.currentProfileID(), mode)
+}
+
+func (a *App) updateProfileAuxiliaryMode(id string, mode string) error {
 	registry, err := a.readProfileRegistry()
 	if err != nil {
 		return err
 	}
-	id := a.currentProfileID()
 	idx := profileIndex(registry, id)
 	if idx < 0 {
 		return fmt.Errorf("profile 不存在：%s", id)
@@ -219,7 +225,7 @@ func (a *App) SelectProfile(id string) error {
 	return a.writeState(state)
 }
 
-func (a *App) CreateProfile(req CreateProfileRequest) error {
+func (a *App) CreateProfile(req CreateProfileRequest) (err error) {
 	id := strings.TrimSpace(req.ID)
 	if err := validateProfileID(id, false); err != nil {
 		return err
@@ -231,30 +237,42 @@ func (a *App) CreateProfile(req CreateProfileRequest) error {
 	if profileExists(registry, id) {
 		return fmt.Errorf("profile 已存在：%s", id)
 	}
+	copyMode := firstNonEmpty(req.CopyMode, profileCopyClean)
+	sourceID := firstNonEmpty(req.CopyFrom, a.currentProfileID())
+	if copyMode == profileCopyPersona {
+		if !profileExists(registry, sourceID) {
+			return fmt.Errorf("源 profile 不存在：%s", sourceID)
+		}
+	} else if copyMode != profileCopyClean {
+		return fmt.Errorf("不支持的创建方式：%s", copyMode)
+	}
 	target := a.profileDataDir(id)
 	if fileExists(target) {
 		return fmt.Errorf("profile 目录已存在，请先手动处理或恢复：%s", filepath.Join("data", "profiles", id))
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			if cleanupErr := os.RemoveAll(target); cleanupErr != nil {
+				err = errors.Join(err, fmt.Errorf("清理未完成的 profile 目录失败：%w", cleanupErr))
+			}
+		}
+	}()
 	if err := a.releaseSeedDataTo(target, id); err != nil {
 		return err
 	}
 	if err := a.ensureProfileEnvMarkers(id); err != nil {
 		return err
 	}
-	copyMode := firstNonEmpty(req.CopyMode, profileCopyClean)
 	if copyMode == profileCopyPersona {
-		sourceID := firstNonEmpty(req.CopyFrom, a.currentProfileID())
-		if !profileExists(registry, sourceID) {
-			return fmt.Errorf("源 profile 不存在：%s", sourceID)
-		}
 		if err := a.copyProfilePersonality(sourceID, id); err != nil {
 			return err
 		}
-	} else if copyMode != profileCopyClean {
-		return fmt.Errorf("不支持的创建方式：%s", copyMode)
 	}
+	originalRegistry := registry
+	originalRegistry.Profiles = append([]ProfileEntry(nil), registry.Profiles...)
 	now := time.Now().UTC().Format(time.RFC3339)
-	registry.Profiles = append(registry.Profiles, ProfileEntry{
+	registry.Profiles = append(append([]ProfileEntry(nil), registry.Profiles...), ProfileEntry{
 		ID:                 id,
 		Name:               firstNonEmpty(strings.TrimSpace(req.Name), id),
 		Enabled:            req.Enabled,
@@ -265,7 +283,15 @@ func (a *App) CreateProfile(req CreateProfileRequest) error {
 	if err := a.writeProfileRegistry(registry); err != nil {
 		return err
 	}
-	return a.SelectProfile(id)
+	if err := a.SelectProfile(id); err != nil {
+		if rollbackErr := a.writeProfileRegistry(originalRegistry); rollbackErr != nil {
+			committed = true
+			return errors.Join(err, fmt.Errorf("回滚 profile registry 失败：%w", rollbackErr))
+		}
+		return err
+	}
+	committed = true
+	return nil
 }
 
 func (a *App) CompleteProfileSetup(id string) error {
@@ -347,7 +373,7 @@ func (a *App) MoveProfile(id string, direction string) error {
 	return a.writeProfileRegistry(registry)
 }
 
-func (a *App) DeleteProfile(id string) error {
+func (a *App) DeleteProfile(id string) (err error) {
 	if id == defaultProfileID {
 		return fmt.Errorf("default profile 不能删除，只能停用")
 	}
@@ -358,6 +384,9 @@ func (a *App) DeleteProfile(id string) error {
 	idx := profileIndex(registry, id)
 	if idx < 0 {
 		return fmt.Errorf("profile 不存在：%s", id)
+	}
+	if err := a.cancelProfileLoginSessionAndWait(id); err != nil {
+		return fmt.Errorf("停止 profile 扫码绑定失败：%w", err)
 	}
 	if fileExists(a.composePath()) && a.containerStatus(context.Background()) == "running" {
 		if err := a.StopHermes(); err != nil {
@@ -370,25 +399,49 @@ func (a *App) DeleteProfile(id string) error {
 			return fmt.Errorf("备份 profile 失败：%w", err)
 		}
 	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	originalState := state
+	quarantine := ""
+	if fileExists(dir) {
+		quarantine = filepath.Join(a.hermesDockDir(), "backups", ".profile-delete-"+id+"-"+uuid.NewString())
+		if err := ensureDir(filepath.Dir(quarantine)); err != nil {
+			return err
+		}
+		if err := os.Rename(dir, quarantine); err != nil {
+			return fmt.Errorf("暂存待删除 profile 失败：%w", err)
+		}
+	}
+	restoreDirectory := func() error {
+		if quarantine == "" || !fileExists(quarantine) {
+			return nil
+		}
+		return os.Rename(quarantine, dir)
+	}
 	next := append([]ProfileEntry{}, registry.Profiles[:idx]...)
 	next = append(next, registry.Profiles[idx+1:]...)
 	registry.Profiles = next
-	if err := a.writeProfileRegistry(registry); err != nil {
-		return err
-	}
-	if fileExists(dir) {
-		if err := os.RemoveAll(dir); err != nil {
-			return err
-		}
-	}
-	state, _ := a.readState()
 	if state.UI.LastProfile == id {
 		state.UI.LastProfile = defaultProfileID
-		if err := a.writeState(state); err != nil {
-			return err
+	}
+	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := a.writeState(state); err != nil {
+		return errors.Join(err, restoreDirectory())
+	}
+	if err := a.writeProfileRegistry(registry); err != nil {
+		rollbackErr := a.writeState(originalState)
+		return errors.Join(err, rollbackErr, restoreDirectory())
+	}
+	if quarantine != "" {
+		if err := os.RemoveAll(quarantine); err != nil {
+			a.emit("docker:progress", StreamEvent{Line: redact(fmt.Sprintf("profile 已删除，但暂存目录清理失败并保留在备份目录：%v", err))})
 		}
 	}
-	return a.markRebuildRequired()
+	return nil
 }
 
 func (a *App) ensureProfileEnvMarkers(profileID string) error {

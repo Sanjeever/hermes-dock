@@ -44,10 +44,30 @@ func TestSetEnvReplacesExactKey(t *testing.T) {
 
 func TestPrefixLinesAddsProfileAndRedactsSecrets(t *testing.T) {
 	var out bytes.Buffer
-	prefixLinesTo(&out, "sales", strings.NewReader("ready\napi_key=secret-value\n\n"))
+	if err := prefixLinesTo(&out, "sales", strings.NewReader("ready\napi_key=secret-value\n\n")); err != nil {
+		t.Fatal(err)
+	}
 	got := out.String()
 	if !strings.Contains(got, "[sales] ready\n") || strings.Contains(got, "secret-value") {
 		t.Fatalf("unexpected prefixed log: %q", got)
+	}
+}
+
+func TestPrefixLinesSupportsLinesLargerThanScannerDefault(t *testing.T) {
+	line := strings.Repeat("x", 128*1024)
+	var out bytes.Buffer
+	if err := prefixLinesTo(&out, "sales", strings.NewReader(line+"\n")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "[sales] "+line) {
+		t.Fatalf("large line was not preserved, length=%d", out.Len())
+	}
+}
+
+func TestPrefixLinesReportsOversizedLine(t *testing.T) {
+	line := strings.Repeat("x", maxProfileLogLineBytes+1)
+	if err := prefixLinesTo(&bytes.Buffer{}, "sales", strings.NewReader(line+"\n")); err == nil {
+		t.Fatal("oversized line should return a scanner error")
 	}
 }
 

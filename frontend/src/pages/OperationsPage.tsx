@@ -62,6 +62,7 @@ export function OperationsPage(props: {
     onExportBackup: (targetPath: string) => Promise<void>;
     onInspectBackup: (path: string) => Promise<void>;
     onImportBackup: (path: string, confirm: string) => Promise<void>;
+	onClearBackupManifest: () => void;
     onFactoryReset: () => Promise<void>;
     resetConfirmPhrase: string;
     webStatus: WebStatus;
@@ -200,6 +201,7 @@ export function OperationsPage(props: {
                             onExportBackup={props.onExportBackup}
                             onInspectBackup={props.onInspectBackup}
                             onImportBackup={props.onImportBackup}
+							onClearBackupManifest={props.onClearBackupManifest}
                             onSave={props.onSaveAdvanced}
                             onFactoryReset={props.onFactoryReset}
                             resetConfirmPhrase={props.resetConfirmPhrase}

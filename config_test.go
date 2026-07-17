@@ -57,6 +57,91 @@ providers:
 	}
 }
 
+func TestSaveModelConfigRejectsInvalidExistingConfig(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	if err := ensureDir(app.defaultDataDir()); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("model: [\nterminal:\n  cwd: /opt/data\n")
+	if err := os.WriteFile(app.configPath(), original, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.SaveModelConfig(defaultModelConfig()); err == nil {
+		t.Fatal("invalid config.yaml should block model save")
+	}
+	saved, err := os.ReadFile(app.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(saved) != string(original) {
+		t.Fatalf("invalid config.yaml was overwritten: %q", saved)
+	}
+}
+
+func TestSaveProviderConfigRejectsInvalidExistingConfig(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	if err := ensureDir(app.defaultDataDir()); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("providers: {\nterminal:\n  cwd: /opt/data\n")
+	if err := os.WriteFile(app.configPath(), original, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.SaveProviderConfig(ProviderConfig{}); err == nil {
+		t.Fatal("invalid config.yaml should block provider save")
+	}
+	saved, err := os.ReadFile(app.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(saved) != string(original) {
+		t.Fatalf("invalid config.yaml was overwritten: %q", saved)
+	}
+}
+
+func TestProfileScopedModelSaveDoesNotFollowGlobalSelection(t *testing.T) {
+	app := newTestApp(t)
+	if err := app.CreateProfile(CreateProfileRequest{ID: "sales", CopyMode: profileCopyClean}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SelectProfile("sales"); err != nil {
+		t.Fatal(err)
+	}
+	model, err := app.readModelConfigForProfile("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	model.Default = "default-only-model"
+	if err := app.SaveModelConfigForProfile("default", model); err != nil {
+		t.Fatal(err)
+	}
+	defaultModel, err := app.readModelConfigForProfile("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	salesModel, err := app.readModelConfigForProfile("sales")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defaultModel.Default != "default-only-model" {
+		t.Fatalf("default model = %q", defaultModel.Default)
+	}
+	if salesModel.Default == "default-only-model" {
+		t.Fatal("profile-scoped save wrote to globally selected sales profile")
+	}
+	state, err := app.GetAppStateForProfile("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.ActiveProfile != "default" || state.Model.Default != "default-only-model" {
+		t.Fatalf("scoped app state = %+v", state)
+	}
+}
+
 func TestNormalizeAgnesDefaults(t *testing.T) {
 	app := NewApp()
 	model := app.normalizeModelConfigForSave(ModelConfig{

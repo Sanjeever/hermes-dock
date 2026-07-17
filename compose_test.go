@@ -5,7 +5,53 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+func TestValidateComposeSettingsRejectsInvalidValues(t *testing.T) {
+	base := defaultComposeSettings()
+	tests := []struct {
+		name   string
+		mutate func(*ComposeSettings)
+	}{
+		{name: "image newline", mutate: func(settings *ComposeSettings) { settings.Image = "valid/image:tag\nservices:" }},
+		{name: "container name", mutate: func(settings *ComposeSettings) { settings.ContainerName = "bad name" }},
+		{name: "gateway host", mutate: func(settings *ComposeSettings) { settings.GatewayHost = "localhost" }},
+		{name: "dashboard port", mutate: func(settings *ComposeSettings) { settings.DashboardPort = "70000" }},
+		{name: "memory", mutate: func(settings *ComposeSettings) { settings.MemoryLimit = "not-memory" }},
+		{name: "cpu", mutate: func(settings *ComposeSettings) { settings.CPULimit = "0" }},
+		{name: "shm", mutate: func(settings *ComposeSettings) { settings.ShmSize = "1g\nvolumes:" }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			settings := base
+			tt.mutate(&settings)
+			if err := validateComposeSettings(settings); err == nil {
+				t.Fatal("invalid compose settings should be rejected")
+			}
+		})
+	}
+}
+
+func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
+	settings := defaultComposeSettings()
+	content := renderCompose(settings, defaultProxySettings())
+	var parsed map[string]interface{}
+	if err := yaml.Unmarshal([]byte(content), &parsed); err != nil {
+		t.Fatalf("rendered compose is invalid YAML: %v\n%s", err, content)
+	}
+	for _, want := range []string{
+		`image: "` + settings.Image + `"`,
+		`container_name: "` + settings.ContainerName + `"`,
+		`shm_size: "` + settings.ShmSize + `"`,
+		`memory: "` + settings.MemoryLimit + `"`,
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("compose missing quoted scalar %q", want)
+		}
+	}
+}
 
 func TestCalculateRecommendedResourceLimits(t *testing.T) {
 	const gib = int64(1024 * 1024 * 1024)

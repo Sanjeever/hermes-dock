@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -213,16 +214,20 @@ func writeFilePrivate(path string, data []byte) error {
 }
 
 func (a *App) startWebServer() {
+	_ = a.startWebServerChecked()
+}
+
+func (a *App) startWebServerChecked() error {
 	cfg, err := a.readWebConfig()
 	if err != nil {
 		a.webLogf("server start failed error=%s", err.Error())
 		a.setWebError(err.Error())
-		return
+		return err
 	}
 	if !cfg.Enabled {
 		a.webLogf("server disabled")
 		a.stopWebServer(context.Background())
-		return
+		return nil
 	}
 	if a.web == nil {
 		a.web = newWebRuntime()
@@ -230,7 +235,7 @@ func (a *App) startWebServer() {
 	a.web.mu.Lock()
 	if a.web.running {
 		a.web.mu.Unlock()
-		return
+		return nil
 	}
 	a.web.mu.Unlock()
 
@@ -238,7 +243,7 @@ func (a *App) startWebServer() {
 	if err != nil {
 		a.webLogf("server start failed error=%s", err.Error())
 		a.setWebError(err.Error())
-		return
+		return err
 	}
 	mux := http.NewServeMux()
 	a.registerWebRoutes(mux, http.FileServer(http.FS(dist)))
@@ -247,7 +252,7 @@ func (a *App) startWebServer() {
 	if err != nil {
 		a.webLogf("server start failed addr=%s error=%s", addr, err.Error())
 		a.setWebError(err.Error())
-		return
+		return err
 	}
 	server := &http.Server{Addr: addr, Handler: mux}
 
@@ -268,6 +273,7 @@ func (a *App) startWebServer() {
 		a.web.mu.Unlock()
 		a.webLogf("server stopped addr=%s", addr)
 	}()
+	return nil
 }
 
 func (a *App) stopWebServer(ctx context.Context) {
@@ -759,98 +765,78 @@ func writeJSON(w http.ResponseWriter, status int, value interface{}) {
 
 func (a *App) webRPCHandlers() map[string]webRPCHandler {
 	return map[string]webRPCHandler{
-		"GetAppState": func(params []json.RawMessage) (interface{}, error) {
-			return a.GetAppState()
-		},
-		"StartHermes":             a.webLocked(a.StartHermes),
-		"StopHermes":              a.webLocked(a.StopHermes),
-		"RestartHermes":           a.webLocked(a.RestartHermes),
-		"RebuildHermes":           a.webLocked(a.RebuildHermes),
-		"TailLogs":                oneArg[string](a.webStartLogTail),
-		"StopTailLogs":            oneArg[string](a.webStopLogTail),
-		"StartWeixinLogin":        noResult(a.StartWeixinLogin),
-		"CancelWeixinLogin":       noResult(func() error { a.CancelWeixinLogin(); return nil }),
-		"StartFeishuLogin":        noResult(a.StartFeishuLogin),
-		"CancelFeishuLogin":       noResult(func() error { a.CancelFeishuLogin(); return nil }),
-		"TestModel":               a.webLocked(a.TestModel),
-		"GetModelProviderPresets": noParams(func() (interface{}, error) { return a.GetModelProviderPresets(), nil }),
-		"GetProviderConfig": noParams(func() (interface{}, error) {
-			return a.GetProviderConfig()
-		}),
-		"ListProfiles": noParams(func() (interface{}, error) { return a.ListProfiles() }),
-		"GetChannels":  noParams(func() (interface{}, error) { return a.GetChannels() }),
-		"GetWebStatus": noParams(func() (interface{}, error) { return a.webStatus(), nil }),
+		"GetAppStateForProfile":      oneArgValue[string, AppState](a.GetAppStateForProfile),
+		"StartHermes":                a.webLocked(a.StartHermes),
+		"StopHermes":                 a.webLocked(a.StopHermes),
+		"RestartHermes":              a.webLocked(a.RestartHermes),
+		"RebuildHermes":              a.webLocked(a.RebuildHermes),
+		"TailLogs":                   oneArg[string](a.webStartLogTail),
+		"StopTailLogs":               oneArg[string](a.webStopLogTail),
+		"CancelWeixinLogin":          noResult(func() error { a.CancelWeixinLogin(); return nil }),
+		"CancelFeishuLogin":          noResult(func() error { a.CancelFeishuLogin(); return nil }),
+		"StartWeixinLoginForProfile": oneArg[string](a.StartWeixinLoginForProfile),
+		"StartFeishuLoginForProfile": oneArg[string](a.StartFeishuLoginForProfile),
+		"TestModelForProfile":        webLockedOneArg[string](a, a.TestModelForProfile),
+		"GetModelProviderPresets":    noParams(func() (interface{}, error) { return a.GetModelProviderPresets(), nil }),
+		"ListProfiles":               noParams(func() (interface{}, error) { return a.ListProfiles() }),
+		"GetWebStatus":               noParams(func() (interface{}, error) { return a.webStatus(), nil }),
 		"GetRecommendedResourceLimits": noParams(func() (interface{}, error) {
 			return a.GetRecommendedResourceLimits()
 		}),
-		"SaveComposeSettings":  oneArg[ComposeSettings](a.SaveComposeSettings),
-		"SaveProxySettings":    oneArg[ProxySettings](a.SaveProxySettings),
-		"SaveModelConfig":      oneArg[ModelConfig](a.SaveModelConfig),
-		"SaveProviderConfig":   oneArg[ProviderConfig](a.SaveProviderConfig),
-		"SaveWeComConfig":      oneArg[WeComConfig](a.SaveWeComConfig),
-		"SaveFeishuConfig":     oneArg[FeishuConfig](a.SaveFeishuConfig),
-		"UnbindPlatform":       oneArg[string](a.UnbindPlatform),
-		"CreateProfile":        oneArg[CreateProfileRequest](a.CreateProfile),
-		"DeleteProfile":        oneArg[DeleteProfileRequest](a.webDeleteProfile),
-		"CompleteProfileSetup": oneArg[string](a.CompleteProfileSetup),
-		"UpdateProfileName":    twoArgs[string, string](a.UpdateProfileName),
-		"SetProfileEnabled":    twoArgs[string, bool](a.SetProfileEnabled),
-		"MoveProfile":          twoArgs[string, string](a.MoveProfile),
-		"SelectProfile":        oneArg[string](a.SelectProfile),
-		"FetchProviderConfigModelList": func(params []json.RawMessage) (interface{}, error) {
-			provider, err := decodeParam[ProviderConfigEntry](params, 0)
+		"SaveComposeSettings":          oneArg[ComposeSettings](a.SaveComposeSettings),
+		"SaveProxySettings":            oneArg[ProxySettings](a.SaveProxySettings),
+		"SaveModelConfigForProfile":    twoArgs[string, ModelConfig](a.SaveModelConfigForProfile),
+		"SaveProviderConfigForProfile": twoArgs[string, ProviderConfig](a.SaveProviderConfigForProfile),
+		"SaveWeComConfigForProfile":    twoArgs[string, WeComConfig](a.SaveWeComConfigForProfile),
+		"SaveFeishuConfigForProfile":   twoArgs[string, FeishuConfig](a.SaveFeishuConfigForProfile),
+		"UnbindPlatformForProfile":     twoArgs[string, string](a.UnbindPlatformForProfile),
+		"CreateProfile":                oneArg[CreateProfileRequest](a.CreateProfile),
+		"DeleteProfile":                oneArg[DeleteProfileRequest](a.webDeleteProfile),
+		"CompleteProfileSetup":         oneArg[string](a.CompleteProfileSetup),
+		"UpdateProfileName":            twoArgs[string, string](a.UpdateProfileName),
+		"SetProfileEnabled":            twoArgs[string, bool](a.SetProfileEnabled),
+		"MoveProfile":                  twoArgs[string, string](a.MoveProfile),
+		"SelectProfile":                oneArg[string](a.SelectProfile),
+		"FetchProviderConfigModelListForProfile": func(params []json.RawMessage) (interface{}, error) {
+			profileID, err := decodeParam[string](params, 0)
 			if err != nil {
 				return nil, err
 			}
-			provider = a.fillMaskedProviderSecret(provider)
-			return a.FetchProviderConfigModelList(provider)
+			provider, err := decodeParam[ProviderConfigEntry](params, 1)
+			if err != nil {
+				return nil, err
+			}
+			return a.FetchProviderConfigModelListForProfile(profileID, provider)
 		},
-		"SetHomeChannel":        twoArgs[string, string](a.SetHomeChannel),
-		"SendTestMessage":       threeArgs[string, string, string](a.SendTestMessage),
-		"ListProfileSkills":     noParams(func() (interface{}, error) { return a.ListProfileSkills() }),
-		"GetSkillDetail":        oneArgValue[string, SkillDetail](a.GetSkillDetail),
-		"DeleteSkill":           oneArg[DeleteSkillRequest](a.webDeleteSkill),
-		"SyncBundledSkills":     noParams(func() (interface{}, error) { return a.SyncBundledSkills() }),
-		"RestoreDefaultSkills":  oneArgValue[RestoreDefaultRequest, SyncBundledSkillsResult](a.webRestoreDefaultSkills),
-		"RestoreDefaultSoul":    oneArg[RestoreDefaultRequest](a.webRestoreDefaultSoul),
-		"ListSkillHubSkills":    oneArgValue[SkillHubQuery, SkillHubState](a.ListSkillHubSkills),
-		"GetSkillHubDetail":     oneArgValue[string, SkillHubDetail](a.GetSkillHubDetail),
-		"InstallSkillHubSkill":  oneArg[string](a.InstallSkillHubSkill),
-		"ReadWebTextFile":       oneArgValue[string, string](a.webReadTextFile),
-		"SaveWebTextFile":       oneArg[WebTextFileRequest](a.webSaveTextFile),
-		"FactoryResetInstance":  a.webLocked(a.FactoryResetInstance),
-		"ExportInstanceBackup":  oneArgValue[string, InstanceBackupManifest](a.ExportInstanceBackup),
-		"InspectInstanceBackup": oneArgValue[string, InstanceBackupManifest](a.InspectInstanceBackup),
-		"ImportInstanceBackup":  oneArgValue[InstanceBackupImportRequest, InstanceBackupImportResult](a.ImportInstanceBackup),
-		"OpenSkillDirectory":    oneArg[string](a.OpenSkillDirectory),
-		"OpenEndpoint":          oneArgValue[string, string](a.webEndpointURL),
-		"SaveWebSettings":       oneArg[WebSettingsRequest](a.SaveWebSettings),
-		"ChangeWebPassword":     twoArgs[string, string](a.ChangeWebPassword),
-		"ResetWebPassword":      noResult(a.ResetWebPassword),
-		"CheckForUpdates":       oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
-		"DismissUpdate":         oneArg[string](a.DismissUpdate),
-		"InstallUpdate":         oneArg[string](a.InstallUpdate),
-		"SetAutoUpdateEnabled":  oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
-		"OpenUpdateURL":         oneArg[string](a.OpenUpdateURL),
-		"OpenWebManagement":     noResult(a.OpenWebManagement),
+		"SetHomeChannelForProfile":       threeArgs[string, string, string](a.SetHomeChannelForProfile),
+		"SendTestMessageForProfile":      fourArgs[string, string, string, string](a.SendTestMessageForProfile),
+		"ListProfileSkillsForProfile":    oneArgValue[string, SkillsState](a.ListProfileSkillsForProfile),
+		"GetSkillDetailForProfile":       twoArgsValue[string, string, SkillDetail](a.GetSkillDetailForProfile),
+		"DeleteSkillForProfile":          oneArg[DeleteSkillRequest](a.webDeleteSkill),
+		"SyncBundledSkillsForProfile":    oneArgValue[string, SyncBundledSkillsResult](a.SyncBundledSkillsForProfile),
+		"RestoreDefaultSkillsForProfile": oneArgValue[RestoreDefaultRequest, SyncBundledSkillsResult](a.webRestoreDefaultSkills),
+		"RestoreDefaultSoulForProfile":   oneArg[RestoreDefaultRequest](a.webRestoreDefaultSoul),
+		"ListSkillHubSkillsForProfile":   twoArgsValue[string, SkillHubQuery, SkillHubState](a.ListSkillHubSkillsForProfile),
+		"GetSkillHubDetailForProfile":    twoArgsValue[string, string, SkillHubDetail](a.GetSkillHubDetailForProfile),
+		"InstallSkillHubSkillForProfile": twoArgs[string, string](a.InstallSkillHubSkillForProfile),
+		"ReadWebTextFile":                twoArgsValue[string, string, string](a.webReadTextFile),
+		"SaveWebTextFile":                oneArg[WebTextFileRequest](a.webSaveTextFile),
+		"FactoryResetInstance":           a.webLocked(a.FactoryResetInstance),
+		"ExportInstanceBackup":           oneArgValue[string, InstanceBackupManifest](a.ExportInstanceBackup),
+		"InspectInstanceBackup":          oneArgValue[string, InstanceBackupManifest](a.InspectInstanceBackup),
+		"ImportInstanceBackup":           oneArgValue[InstanceBackupImportRequest, InstanceBackupImportResult](a.ImportInstanceBackup),
+		"OpenSkillDirectoryForProfile":   twoArgs[string, string](a.OpenSkillDirectoryForProfile),
+		"OpenEndpoint":                   oneArgValue[string, string](a.webEndpointURL),
+		"SaveWebSettings":                oneArg[WebSettingsRequest](a.SaveWebSettings),
+		"ChangeWebPassword":              twoArgs[string, string](a.ChangeWebPassword),
+		"ResetWebPassword":               noResult(a.ResetWebPassword),
+		"CheckForUpdates":                oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
+		"DismissUpdate":                  oneArg[string](a.DismissUpdate),
+		"InstallUpdate":                  oneArg[string](a.InstallUpdate),
+		"SetAutoUpdateEnabled":           oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
+		"OpenUpdateURL":                  oneArg[string](a.OpenUpdateURL),
+		"OpenWebManagement":              noResult(a.OpenWebManagement),
 	}
-}
-
-func (a *App) fillMaskedProviderSecret(provider ProviderConfigEntry) ProviderConfigEntry {
-	if !isMaskedSecretPlaceholder(provider.APIKey) {
-		return provider
-	}
-	existing, err := a.readProviderConfig()
-	if err != nil {
-		return provider
-	}
-	for _, item := range existing.Providers {
-		if item.Label == provider.Label && item.BaseURL == provider.BaseURL && item.ModelListURL == provider.ModelListURL {
-			provider.APIKey = item.APIKey
-			return provider
-		}
-	}
-	return provider
 }
 
 func (a *App) webStartLogTail(clientID string) error {
@@ -899,25 +885,25 @@ func (a *App) webDeleteSkill(req DeleteSkillRequest) error {
 	if !req.Confirm {
 		return fmt.Errorf("请确认删除技能")
 	}
-	return a.DeleteSkill(req.Path)
+	return a.DeleteSkillForProfile(req.ProfileID, req.Path)
 }
 
 func (a *App) webRestoreDefaultSkills(req RestoreDefaultRequest) (SyncBundledSkillsResult, error) {
 	if !req.Confirm {
 		return SyncBundledSkillsResult{}, fmt.Errorf("请确认恢复默认技能")
 	}
-	return a.RestoreDefaultSkills()
+	return a.RestoreDefaultSkillsForProfile(req.ProfileID)
 }
 
 func (a *App) webRestoreDefaultSoul(req RestoreDefaultRequest) error {
 	if !req.Confirm {
 		return fmt.Errorf("请确认恢复默认人格")
 	}
-	return a.RestoreDefaultSoul()
+	return a.RestoreDefaultSoulForProfile(req.ProfileID)
 }
 
-func (a *App) webReadTextFile(kind string) (string, error) {
-	path, err := a.webTextFilePath(kind)
+func (a *App) webReadTextFile(profileID string, kind string) (string, error) {
+	path, err := a.webTextFilePath(profileID, kind)
 	if err != nil {
 		return "", err
 	}
@@ -928,15 +914,18 @@ func (a *App) webSaveTextFile(req WebTextFileRequest) error {
 	if strings.TrimSpace(req.Kind) == "compose_override" && req.Confirm != "确认" {
 		return fmt.Errorf("保存 Docker Compose 覆盖文件前请输入“确认”")
 	}
-	path, err := a.webTextFilePath(req.Kind)
+	path, err := a.webTextFilePath(req.ProfileID, req.Kind)
 	if err != nil {
 		return err
 	}
 	return a.SaveTextFile(TextFileRequest{Path: path, Content: req.Content, Reason: "before-web-text-save"})
 }
 
-func (a *App) webTextFilePath(kind string) (string, error) {
-	profileID := a.currentProfileID()
+func (a *App) webTextFilePath(profileID string, kind string) (string, error) {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return "", err
+	}
 	var path string
 	switch strings.TrimSpace(kind) {
 	case "profile_config":
@@ -988,7 +977,7 @@ func (a *App) webEndpointURL(endpoint string) (string, error) {
 }
 
 func (a *App) SaveWebSettings(req WebSettingsRequest) error {
-	cfg, err := a.readWebConfig()
+	previous, err := a.readWebConfig()
 	if err != nil {
 		return err
 	}
@@ -998,17 +987,43 @@ func (a *App) SaveWebSettings(req WebSettingsRequest) error {
 	if strings.TrimSpace(req.Port) == "" {
 		return fmt.Errorf("端口不能为空")
 	}
-	cfg.Enabled = req.Enabled
-	cfg.Host = req.Host
-	cfg.Port = strings.TrimSpace(req.Port)
-	cfg.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := a.writeWebConfig(cfg); err != nil {
+	port := strings.TrimSpace(req.Port)
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return fmt.Errorf("端口必须是 1 到 65535 之间的数字")
+	}
+	next := previous
+	next.Enabled = req.Enabled
+	next.Host = req.Host
+	next.Port = port
+	next.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	addressChanged := previous.Host != next.Host || previous.Port != next.Port
+	if next.Enabled && addressChanged && previous.Port != next.Port {
+		probe, err := net.Listen("tcp", net.JoinHostPort(next.Host, next.Port))
+		if err != nil {
+			return fmt.Errorf("Web 管理监听地址不可用：%w", err)
+		}
+		if err := probe.Close(); err != nil {
+			return err
+		}
+	}
+	if err := a.writeWebConfig(next); err != nil {
 		return err
+	}
+	if previous.Enabled == next.Enabled && !addressChanged {
+		return nil
 	}
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		a.stopWebServer(context.Background())
-		a.startWebServer()
+		if err := a.startWebServerChecked(); err != nil {
+			a.webLogf("server restart failed, rolling back error=%s", err.Error())
+			if writeErr := a.writeWebConfig(previous); writeErr != nil {
+				a.setWebError(errors.Join(err, writeErr).Error())
+				return
+			}
+			_ = a.startWebServerChecked()
+		}
 	}()
 	return nil
 }

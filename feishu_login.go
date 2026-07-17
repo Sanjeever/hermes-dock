@@ -45,14 +45,21 @@ type feishuCredentials struct {
 }
 
 func (a *App) StartFeishuLogin() error {
-	if err := ensureDir(a.currentProfileDataDir()); err != nil {
-		return err
-	}
-	ctx, err := a.startLoginSession("feishu", feishuLoginTimeout)
+	return a.StartFeishuLoginForProfile(a.currentProfileID())
+}
+
+func (a *App) StartFeishuLoginForProfile(profileID string) error {
+	profileID, err := a.resolveProfileID(profileID)
 	if err != nil {
 		return err
 	}
-	profileID := a.currentProfileID()
+	if err := ensureDir(a.profileDataDir(profileID)); err != nil {
+		return err
+	}
+	ctx, err := a.startLoginSession("feishu", profileID, feishuLoginTimeout)
+	if err != nil {
+		return err
+	}
 	go a.runFeishuLogin(ctx, profileID)
 	return nil
 }
@@ -62,7 +69,7 @@ func (a *App) CancelFeishuLogin() {
 }
 
 func (a *App) runFeishuLogin(ctx context.Context, profileID string) {
-	defer a.finishLoginSession("feishu")
+	defer a.finishLoginSession("feishu", nil)
 	credentials, err := a.registerFeishuBot(ctx, profileID)
 	if err != nil {
 		message := "飞书扫码绑定失败"
@@ -156,6 +163,9 @@ func (a *App) registerFeishuBot(ctx context.Context, profileID string) (feishuCr
 }
 
 func (a *App) persistFeishuCredentials(profileID string, credentials feishuCredentials) error {
+	if _, err := a.resolveProfileID(profileID); err != nil {
+		return err
+	}
 	path := filepath.Join(a.profileDataDir(profileID), ".env")
 	env, _ := readEnvFile(path)
 	updates := []EnvVar{

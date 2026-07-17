@@ -22,7 +22,7 @@ export function ProfilesPage(props: {
     onRename: (id: string, name: string) => void;
     onEnabled: (id: string, enabled: boolean) => void;
     onMove: (id: string, direction: string) => void;
-    onDelete: (id: string) => void;
+	onDelete: (id: string) => Promise<boolean>;
 }) {
     const profiles = props.registry?.profiles || [];
     const canCreate = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])$/.test(props.newProfileID) && props.newProfileID !== 'default';
@@ -85,11 +85,12 @@ export function ProfilesPage(props: {
                                 {deleteID === profile.id && (
                                     <div className="profile-rename danger-confirm">
                                         <input value={deleteConfirmText} onChange={(event) => setDeleteConfirmText(event.target.value)} placeholder={`输入 ${profile.id} 确认删除`} disabled={props.busy}/>
-                                        <button className="danger-button compact" onClick={() => {
-                                            props.onDelete(profile.id);
-                                            setDeleteID('');
-                                            setDeleteConfirmText('');
-                                        }} disabled={props.busy || deleteConfirmText !== profile.id}>确认删除</button>
+										<button className="danger-button compact" onClick={async () => {
+											if (await props.onDelete(profile.id)) {
+												setDeleteID('');
+												setDeleteConfirmText('');
+											}
+										}} disabled={props.busy || deleteConfirmText !== profile.id}>确认删除</button>
                                         <button className="ghost" onClick={() => {
                                             setDeleteID('');
                                             setDeleteConfirmText('');
