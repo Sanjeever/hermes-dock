@@ -126,6 +126,9 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 		action := ""
 		skillRoot := skillRoots[file.rel]
 		action = classifyBundledFile(!os.IsNotExist(readErr), currentHash, templateHash, state.Files[file.rel], skillRoot != "" && skippedSkillRoots[skillRoot])
+		if file.rel == "SOUL.md" && readErr == nil && currentHash != templateHash {
+			action = "updated"
+		}
 		plans = append(plans, bundledSyncPlan{file: file, action: action})
 		if action == "added" || action == "updated" {
 			if file.rel == "SOUL.md" && readErr == nil {

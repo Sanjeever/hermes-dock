@@ -211,7 +211,7 @@ UI 和功能边界：
 - `enabled` 只表示参与运行，不影响编辑。
 - 保存配置不自动应用运行态；显示未应用变更，由用户手动“应用配置”。
 - Profiles 总览支持从一个 profile 向多个 profile 一次性复制模型、人格和指定 skills；API Key 默认不复制。
-- 启动器内置 `SOUL.md` 和 skills 支持批量安全同步：新增缺失文件、更新未被用户修改的文件，保留用户修改、自定义 skills 和模板已移除的旧 skills。
+- 启动器内置 `SOUL.md` 和 skills 支持批量同步：同步内置人格时先备份再直接重置 `SOUL.md`；内置 skills 新增缺失文件、更新未被用户修改的文件，并保留用户修改、自定义 skills 和模板已移除的旧 skills。
 - 模型测试和平台测试消息只针对当前 profile。
 - 桌面和 Web 高级编辑都以当前 profile 为上下文，可打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。

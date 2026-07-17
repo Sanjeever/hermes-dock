@@ -107,6 +107,43 @@ func TestReleaseSeedDataDoesNotAdoptExistingContentWithoutBaseline(t *testing.T)
 	}
 }
 
+func TestSyncBundledContentResetsModifiedSoul(t *testing.T) {
+	app := newTestApp(t)
+	modified := []byte("user customized soul\n")
+	if err := atomicWriteFile(app.profileSoulPath(defaultProfileID), modified, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.SyncBundledContent(BundledContentSyncRequest{
+		TargetProfileIDs: []string{defaultProfileID},
+		SyncSoul:         true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 1 || result.Skipped != 0 {
+		t.Fatalf("unexpected sync result: %+v", result)
+	}
+	want, err := seedData.ReadFile("templates/seed-data/SOUL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(app.profileSoulPath(defaultProfileID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("modified SOUL.md was not reset to the bundled template")
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Backups) == 0 || state.Backups[len(state.Backups)-1].Reason != "before-sync-bundled-soul-default" {
+		t.Fatal("modified SOUL.md was not backed up before reset")
+	}
+}
+
 func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *testing.T) {
 	app := newTestApp(t)
 	modified := filepath.Join(app.profileDataDir(defaultProfileID), "skills", "hermes-dock", "SKILL.md")

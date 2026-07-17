@@ -213,7 +213,7 @@ export function ProfileBatchTools(props: {
                                 <label className="mini-toggle"><input type="checkbox" checked={syncSoul} onChange={(event) => setSyncSoul(event.target.checked)} disabled={props.busy}/>内置人格</label>
                                 <label className="mini-toggle"><input type="checkbox" checked={syncSkills} onChange={(event) => setSyncSkills(event.target.checked)} disabled={props.busy}/>内置技能</label>
                             </div>
-                            <p className="field-hint">只新增或安全更新未修改内容；用户修改、自定义技能和旧技能都会保留。</p>
+                            <p className="field-hint">内置人格会先备份再重置；内置技能只安全更新未修改内容，自定义技能和旧技能会保留。</p>
                         </fieldset>
                     )}
 
