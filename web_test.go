@@ -60,6 +60,8 @@ func TestWebRPCProfileOperationsRequireExplicitProfile(t *testing.T) {
 		"SaveFeishuConfigForProfile",
 		"ListProfileSkillsForProfile",
 		"ReadWebTextFile",
+		"BatchCopyProfileConfig",
+		"SyncBundledContent",
 	} {
 		if handlers[name] == nil {
 			t.Fatalf("missing profile-scoped Web RPC handler %s", name)

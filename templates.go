@@ -16,10 +16,11 @@ func (a *App) releaseSeedData() error {
 }
 
 func (a *App) releaseSeedDataTo(targetRoot string, profileID string) error {
+	initializeBundledState := !fileExists(filepath.Join(targetRoot, "SOUL.md")) && !fileExists(filepath.Join(targetRoot, "skills"))
 	if err := ensureDir(targetRoot); err != nil {
 		return err
 	}
-	return fs.WalkDir(seedData, "templates/seed-data", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(seedData, "templates/seed-data", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -47,7 +48,13 @@ func (a *App) releaseSeedDataTo(targetRoot string, profileID string) error {
 			return err
 		}
 		return os.WriteFile(target, data, mode)
-	})
+	}); err != nil {
+		return err
+	}
+	if !initializeBundledState || fileExists(a.bundledContentStatePath(profileID)) {
+		return nil
+	}
+	return a.recordBundledContentState(profileID, targetRoot)
 }
 
 func profileSeedData(data []byte, rel string, profileID string) []byte {

@@ -1,14 +1,74 @@
 export namespace main {
 	
+	export class BundledContentAvailability {
+	    available: boolean;
+	    pendingProfiles: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BundledContentAvailability(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.pendingProfiles = source["pendingProfiles"];
+	    }
+	}
+	export class ApplyConfigStatus {
+	    id: string;
+	    generation: string;
+	    state: string;
+	    phase: string;
+	    message: string;
+	    strategy: string;
+	    active: boolean;
+	    startedAt: string;
+	    updatedAt: string;
+	    completedAt: string;
+	    runnableProfiles: number;
+	    runningProfiles: number;
+	    error: string;
+	    composeHash: string;
+	    dufsHash: string;
+	    inputHash: string;
+	    hermesImage: string;
+	    dufsRecreate: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ApplyConfigStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.generation = source["generation"];
+	        this.state = source["state"];
+	        this.phase = source["phase"];
+	        this.message = source["message"];
+	        this.strategy = source["strategy"];
+	        this.active = source["active"];
+	        this.startedAt = source["startedAt"];
+	        this.updatedAt = source["updatedAt"];
+	        this.completedAt = source["completedAt"];
+	        this.runnableProfiles = source["runnableProfiles"];
+	        this.runningProfiles = source["runningProfiles"];
+	        this.error = source["error"];
+	        this.composeHash = source["composeHash"];
+	        this.dufsHash = source["dufsHash"];
+	        this.inputHash = source["inputHash"];
+	        this.hermesImage = source["hermesImage"];
+	        this.dufsRecreate = source["dufsRecreate"];
+	    }
+	}
 	export class UpdateStatus {
 	    autoUpdateEnabled: boolean;
 	    taskRegistered: boolean;
 	    lastError: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new UpdateStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.autoUpdateEnabled = source["autoUpdateEnabled"];
@@ -42,11 +102,11 @@ export namespace main {
 	    lanUrls: string[];
 	    primaryUrl: string;
 	    usingDefaultPassword: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DufsStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.enabled = source["enabled"];
@@ -583,6 +643,8 @@ export namespace main {
 	    dufs: DufsStatus;
 	    hostBridge: HostBridgeStatus;
 	    update: UpdateStatus;
+	    applyConfig: ApplyConfigStatus;
+	    bundledContent: BundledContentAvailability;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -610,6 +672,8 @@ export namespace main {
 	        this.dufs = this.convertValues(source["dufs"], DufsStatus);
 	        this.hostBridge = this.convertValues(source["hostBridge"], HostBridgeStatus);
 	        this.update = this.convertValues(source["update"], UpdateStatus);
+	        this.applyConfig = this.convertValues(source["applyConfig"], ApplyConfigStatus);
+	        this.bundledContent = this.convertValues(source["bundledContent"], BundledContentAvailability);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -632,6 +696,168 @@ export namespace main {
 	}
 	
 	
+	
+	export class BatchProfileConfigRequest {
+	    sourceProfileId: string;
+	    targetProfileIds: string[];
+	    copyMainModel: boolean;
+	    copyAuxiliary: boolean;
+	    copySoul: boolean;
+	    skillPaths: string[];
+	    copyProviders: boolean;
+	    includeApiKeys: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchProfileConfigRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceProfileId = source["sourceProfileId"];
+	        this.targetProfileIds = source["targetProfileIds"];
+	        this.copyMainModel = source["copyMainModel"];
+	        this.copyAuxiliary = source["copyAuxiliary"];
+	        this.copySoul = source["copySoul"];
+	        this.skillPaths = source["skillPaths"];
+	        this.copyProviders = source["copyProviders"];
+	        this.includeApiKeys = source["includeApiKeys"];
+	    }
+	}
+	export class ProfileOperationResult {
+	    profileId: string;
+	    success: boolean;
+	    changed: boolean;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProfileOperationResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profileId = source["profileId"];
+	        this.success = source["success"];
+	        this.changed = source["changed"];
+	        this.error = source["error"];
+	    }
+	}
+	export class BatchProfileConfigResult {
+	    results: ProfileOperationResult[];
+	    succeeded: number;
+	    failed: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatchProfileConfigResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.results = this.convertValues(source["results"], ProfileOperationResult);
+	        this.succeeded = source["succeeded"];
+	        this.failed = source["failed"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class BundledContentProfileResult {
+	    profileId: string;
+	    success: boolean;
+	    added: number;
+	    updated: number;
+	    unchanged: number;
+	    skipped: number;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BundledContentProfileResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profileId = source["profileId"];
+	        this.success = source["success"];
+	        this.added = source["added"];
+	        this.updated = source["updated"];
+	        this.unchanged = source["unchanged"];
+	        this.skipped = source["skipped"];
+	        this.error = source["error"];
+	    }
+	}
+	export class BundledContentSyncRequest {
+	    targetProfileIds: string[];
+	    syncSoul: boolean;
+	    syncSkills: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new BundledContentSyncRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetProfileIds = source["targetProfileIds"];
+	        this.syncSoul = source["syncSoul"];
+	        this.syncSkills = source["syncSkills"];
+	    }
+	}
+	export class BundledContentSyncResult {
+	    results: BundledContentProfileResult[];
+	    succeeded: number;
+	    failed: number;
+	    added: number;
+	    updated: number;
+	    unchanged: number;
+	    skipped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BundledContentSyncResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.results = this.convertValues(source["results"], BundledContentProfileResult);
+	        this.succeeded = source["succeeded"];
+	        this.failed = source["failed"];
+	        this.added = source["added"];
+	        this.updated = source["updated"];
+	        this.unchanged = source["unchanged"];
+	        this.skipped = source["skipped"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class ChannelSummary {
 	    id: string;
@@ -672,6 +898,7 @@ export namespace main {
 	        this.copyMode = source["copyMode"];
 	    }
 	}
+	
 	
 	export class FeishuConfig {
 	    appId: string;
@@ -873,6 +1100,7 @@ export namespace main {
 	        this.modelListUrl = source["modelListUrl"];
 	    }
 	}
+	
 	
 	
 	
@@ -1302,6 +1530,7 @@ export namespace main {
 	    activeProfile: string;
 	    syncedSkills: string[];
 	    syncedFiles: number;
+	    skippedFiles: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new SyncBundledSkillsResult(source);
@@ -1312,6 +1541,7 @@ export namespace main {
 	        this.activeProfile = source["activeProfile"];
 	        this.syncedSkills = source["syncedSkills"];
 	        this.syncedFiles = source["syncedFiles"];
+	        this.skippedFiles = source["skippedFiles"];
 	    }
 	}
 	export class TextFileRequest {
@@ -1392,6 +1622,7 @@ export namespace main {
 		}
 	}
 	
+	
 	export class WeComConfig {
 	    botId: string;
 	    secret: string;
@@ -1434,3 +1665,4 @@ export namespace main {
 	}
 
 }
+

@@ -32,6 +32,7 @@ var instanceBackupRestorableRoots = []string{
 	"data",
 	"launcher/state.json",
 	"launcher/profiles.json",
+	"launcher/profile-content",
 	"launcher/web-server.json",
 	"launcher/dufs/config.yaml",
 	"docker-compose.override.yaml",
@@ -45,6 +46,11 @@ type instanceBackupEntry struct {
 }
 
 func (a *App) ExportInstanceBackup(targetPath string) (InstanceBackupManifest, error) {
+	release, err := a.beginExclusiveOperation("导出实例备份")
+	if err != nil {
+		return InstanceBackupManifest{}, err
+	}
+	defer release()
 	targetPath = strings.TrimSpace(targetPath)
 	if targetPath == "" {
 		if a.ctx == nil {
@@ -86,6 +92,11 @@ func (a *App) InspectInstanceBackup(path string) (InstanceBackupManifest, error)
 }
 
 func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBackupImportResult, error) {
+	release, err := a.beginExclusiveOperation("导入实例备份")
+	if err != nil {
+		return InstanceBackupImportResult{}, err
+	}
+	defer release()
 	if strings.TrimSpace(req.Confirm) != instanceBackupConfirmPhrase {
 		return InstanceBackupImportResult{}, fmt.Errorf("请输入“%s”确认导入", instanceBackupConfirmPhrase)
 	}
@@ -362,7 +373,7 @@ func (a *App) collectInstanceBackupEntries() ([]instanceBackupEntry, []string, e
 			return nil, nil, err
 		}
 	}
-	for _, rel := range []string{"launcher/backups", "launcher/logs", "launcher/web-sessions.json", "data/.dock", "shared"} {
+	for _, rel := range []string{"launcher/backups", "launcher/logs", "launcher/web-sessions.json", "launcher/apply-status.json", "data/.dock", "shared"} {
 		if fileExists(filepath.Join(a.instanceRoot, filepath.FromSlash(rel))) {
 			addExcluded(rel)
 		}
@@ -386,6 +397,7 @@ func shouldExcludeInstanceBackupPath(rel string) bool {
 		rel == "launcher/logs" ||
 		strings.HasPrefix(rel, "launcher/logs/") ||
 		rel == "launcher/web-sessions.json" ||
+		rel == "launcher/apply-status.json" ||
 		rel == "data/.dock" ||
 		strings.HasPrefix(rel, "data/.dock/")
 }
@@ -621,6 +633,9 @@ func validateRestorableBackupPath(path string) error {
 		}
 		return nil
 	}
+	if path == "launcher/profile-content" || strings.HasPrefix(path, "launcher/profile-content/") {
+		return nil
+	}
 	for _, root := range instanceBackupRestorableRoots {
 		if path == root {
 			return nil
@@ -723,6 +738,8 @@ func (a *App) replaceInstanceFromBackup(extractRoot string) error {
 		a.overridePath(),
 		a.statePath(),
 		a.profilesPath(),
+		filepath.Dir(a.bundledContentStatePath(defaultProfileID)),
+		a.applyStatusPath(),
 		a.webServerPath(),
 		a.dufsConfigPath(),
 		a.webSessionsPath(),

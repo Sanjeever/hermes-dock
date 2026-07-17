@@ -1,16 +1,17 @@
 import {useEffect, useState} from 'react';
-import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, Server, SlidersHorizontal, Trash2, X} from 'lucide-react';
+import {Activity, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FolderOpen, MoreHorizontal, Plus, RefreshCcw, RotateCcw, Save, Search, Server, SlidersHorizontal, Trash2, X} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
-import type {AppState, AuxModel, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
+import type {AppState, AuxModel, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
 import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, providerReferenceLabels, slugProfileID} from '../utils';
 import {assistantStatusClass, assistantStatusLabel, createProfileValidationMessage, formatBytes, skillSummaryLabel, suggestProfileID, wizardStepHelp} from './assistantUtils';
 import {AssistantWizard} from './AssistantWizard';
 import {AuxiliaryModelsPanel} from './AuxiliaryModelsPanel';
 import {ProvidersPage} from './ProvidersPage';
 import {SkillsPanel} from './SkillsPanel';
+import {ProfileBatchTools} from './ProfileBatchTools';
 
 export function AssistantsPage(props: {
     state: AppState;
@@ -97,6 +98,8 @@ export function AssistantsPage(props: {
     onSkillHubDetail: (slug: string) => void;
     onInstallSkillHubSkill: (slug: string) => Promise<boolean>;
     onSkillsModeChange: (enabled: boolean) => void;
+    onBatchCopyProfiles: (request: BatchProfileConfigRequest) => Promise<BatchProfileConfigResult | null>;
+    onSyncBundledContent: (request: BundledContentSyncRequest) => Promise<BundledContentSyncResult | null>;
 }) {
     const [showCreate, setShowCreate] = useState(false);
     const [editingID, setEditingID] = useState('');
@@ -106,6 +109,7 @@ export function AssistantsPage(props: {
     const [showAdvancedModels, setShowAdvancedModels] = useState(false);
     const [showSkills, setShowSkills] = useState(false);
     const [showProviders, setShowProviders] = useState(false);
+    const [managementTool, setManagementTool] = useState<'copy' | 'sync' | null>(null);
     const profiles = props.state.profiles?.profiles || [];
     const activeProfile = profiles.find((profile) => profile.id === props.state.activeProfile) || profiles[0];
     const activeIndex = activeProfile ? profiles.findIndex((profile) => profile.id === activeProfile.id) : -1;
@@ -178,6 +182,8 @@ export function AssistantsPage(props: {
                         </select>
                     </label>
                     <button className="ghost" onClick={startCreate} disabled={props.busy}><Plus size={16}/>新建助手</button>
+                    <button className="ghost assistant-batch-action" onClick={() => setManagementTool('copy')} disabled={props.busy || profiles.length < 2}><Copy size={16}/>批量配置</button>
+                    <button className="ghost assistant-batch-action" onClick={() => setManagementTool('sync')} disabled={props.busy}><RefreshCcw size={16}/>同步内置内容{props.state.bundledContent?.available ? <span className="action-dot"/> : null}</button>
                     <details className="more-menu">
                         <summary title="管理当前助手"><MoreHorizontal size={17}/></summary>
                         <div className="more-menu-popover">
@@ -264,6 +270,17 @@ export function AssistantsPage(props: {
                         </div>
                     </aside>
                 </div>
+            )}
+            {showAssistantManagement && managementTool && (
+                <ProfileBatchTools
+                    mode={managementTool}
+                    profiles={profiles}
+                    activeProfile={activeProfile?.id || 'default'}
+                    busy={props.busy}
+                    onClose={() => setManagementTool(null)}
+                    onCopy={props.onBatchCopyProfiles}
+                    onSync={props.onSyncBundledContent}
+                />
             )}
 
             <div className="assistant-detail">

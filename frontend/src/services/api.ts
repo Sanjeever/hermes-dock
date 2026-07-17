@@ -1,6 +1,10 @@
 import * as wailsApp from '../../wailsjs/go/main/App';
 import type {
     AppState,
+    BatchProfileConfigRequest,
+    BatchProfileConfigResult,
+    BundledContentSyncRequest,
+    BundledContentSyncResult,
     ComposeSettings,
     InstanceBackupImportResult,
     InstanceBackupManifest,
@@ -86,6 +90,8 @@ export const MoveProfile = (id: string, direction: string) => wailsOrRPC<void>('
 export const UpdateProfileName = (id: string, name: string) => wailsOrRPC<void>('UpdateProfileName', [id, name]);
 export const SetProfileEnabled = (id: string, enabled: boolean) => wailsOrRPC<void>('SetProfileEnabled', [id, enabled]);
 export const SelectProfile = (id: string) => wailsOrRPC<void>('SelectProfile', [id]);
+export const BatchCopyProfileConfig = (req: BatchProfileConfigRequest) => wailsOrRPC<BatchProfileConfigResult>('BatchCopyProfileConfig', [req]);
+export const SyncBundledContent = (req: BundledContentSyncRequest) => wailsOrRPC<BundledContentSyncResult>('SyncBundledContent', [req]);
 export const GetRecommendedResourceLimits = () => wailsOrRPC<ResourceLimitsRecommendation>('GetRecommendedResourceLimits');
 export const SaveComposeSettings = (settings: ComposeSettings) => wailsOrRPC<void>('SaveComposeSettings', [settings]);
 export const SaveProxySettings = (settings: ProxySettings) => wailsOrRPC<void>('SaveProxySettings', [settings]);

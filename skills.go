@@ -135,24 +135,22 @@ func (a *App) SyncBundledSkillsForProfile(profileID string) (SyncBundledSkillsRe
 	if err != nil {
 		return SyncBundledSkillsResult{}, err
 	}
-	targetRoot := a.profileDataDir(profileID)
-	skillsDir := filepath.Join(targetRoot, "skills")
-	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}}
-	files, err := bundledSkillSeedFiles(targetRoot)
+	synced, err := a.SyncBundledContent(BundledContentSyncRequest{TargetProfileIDs: []string{profileID}, SyncSkills: true})
+	result := SyncBundledSkillsResult{ActiveProfile: profileID, SyncedSkills: []string{}, SyncedFiles: synced.Added + synced.Updated}
+	result.SkippedFiles = synced.Skipped
 	if err != nil {
 		return result, err
 	}
-	if len(files) == 0 {
-		return result, nil
+	if result.SyncedFiles > 0 {
+		for name := range a.bundledSkillNames() {
+			result.SyncedSkills = append(result.SyncedSkills, name)
+		}
+		sort.Strings(result.SyncedSkills)
 	}
-	if err := a.backupDirectory(skillsDir, "before-sync-bundled-skills"); err != nil {
-		return result, err
+	if synced.Failed > 0 && len(synced.Results) > 0 {
+		return result, fmt.Errorf("%s", synced.Results[0].Error)
 	}
-	result, err = writeBundledSkillSeedFiles(files, result)
-	if err != nil || result.SyncedFiles == 0 {
-		return result, err
-	}
-	return result, a.markRebuildRequired()
+	return result, nil
 }
 
 func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {

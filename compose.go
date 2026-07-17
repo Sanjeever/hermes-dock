@@ -614,6 +614,11 @@ func renderComposeProxyEnvironment(proxy ProxySettings) string {
 }
 
 func (a *App) StartHermes() error {
+	release, err := a.beginExclusiveOperation("启动 Hermes")
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
 		return err
 	}
@@ -644,60 +649,29 @@ func (a *App) StartHermes() error {
 }
 
 func (a *App) StopHermes() error {
+	release, err := a.beginExclusiveOperation("停止 Hermes")
+	if err != nil {
+		return err
+	}
+	defer release()
+	return a.stopHermesRuntime()
+}
+
+func (a *App) stopHermesRuntime() error {
 	return a.runComposeStreaming(context.Background(), "docker:progress", "stop")
 }
 
 func (a *App) RestartHermes() error {
+	release, err := a.beginExclusiveOperation("重启 Hermes")
+	if err != nil {
+		return err
+	}
+	defer release()
 	return a.runComposeStreaming(context.Background(), "docker:progress", "restart", "hermes")
 }
 
 func (a *App) RebuildHermes() error {
-	settings := a.readComposeSettings()
-	if err := ensureWritableDirectory(settings.SharedDirectory); err != nil {
-		return err
-	}
-	composeHash, err := a.composeRuntimeHash()
-	if err != nil {
-		return err
-	}
-	dufsHash, err := a.dufsRuntimeHash()
-	if err != nil {
-		return err
-	}
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
-	if state.PendingDufsOnly {
-		if err := a.applyDufsRuntime(settings, state.LastAppliedDufsHash != dufsHash); err != nil {
-			return err
-		}
-		return a.markRebuildApplied(composeHash)
-	}
-	if err := a.ensureContainerInitHelpers(); err != nil {
-		return err
-	}
-	if err := a.ensureProfileRunnerHelper(); err != nil {
-		return err
-	}
-	if err := a.syncSavedModelProviderEnv(); err != nil {
-		return err
-	}
-	manifest, err := a.writeRuntimeManifest()
-	if err != nil {
-		return err
-	}
-	recreate := shouldRecreateComposeRuntime(state.LastAppliedComposeHash, composeHash, a.containerStatus(context.Background()))
-	if err := a.applyComposeRuntime(recreate); err != nil {
-		return err
-	}
-	if err := a.applyDufsRuntime(settings, state.LastAppliedDufsHash != dufsHash); err != nil {
-		return err
-	}
-	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
-		return fmt.Errorf("配置已应用，但%w", err)
-	}
-	return a.markRebuildApplied(composeHash)
+	return a.startApplyConfigTask()
 }
 
 func (a *App) markRebuildApplied(composeHash string) error {
@@ -705,6 +679,8 @@ func (a *App) markRebuildApplied(composeHash string) error {
 	if err != nil {
 		return err
 	}
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
 	state, err := a.readState()
 	if err != nil {
 		return err
@@ -715,7 +691,46 @@ func (a *App) markRebuildApplied(composeHash string) error {
 	state.NeedsRebuild = false
 	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.writeStateUnlocked(state)
+}
+
+func (a *App) finalizeRebuildAppliedSnapshot(composeHash string, dufsHash string, inputHash string, hermesImage string) (bool, error) {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	currentComposeHash, err := a.composeRuntimeHash()
+	if err != nil {
+		return false, err
+	}
+	currentDufsHash, err := a.dufsRuntimeHash()
+	if err != nil {
+		return false, err
+	}
+	unchanged := currentComposeHash == composeHash && currentDufsHash == dufsHash
+	if unchanged && inputHash != "" {
+		currentInputHash, err := a.applyRuntimeInputHash(currentComposeHash, currentDufsHash)
+		if err != nil {
+			return false, err
+		}
+		unchanged = currentInputHash == inputHash
+	}
+	state, err := a.readState()
+	if err != nil {
+		return false, err
+	}
+	state.LastAppliedComposeHash = composeHash
+	state.LastAppliedDufsHash = dufsHash
+	if state.HermesImage == hermesImage {
+		state.LastSuccessfulHermesImage = hermesImage
+	}
+	if unchanged {
+		state.NeedsRebuild = false
+		state.PendingDufsOnly = false
+	}
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := a.writeStateUnlocked(state); err != nil {
+		return false, err
+	}
+	return unchanged, nil
 }
 
 func (a *App) composeRuntimeHash() (string, error) {
@@ -739,24 +754,32 @@ func shouldRecreateComposeRuntime(lastAppliedHash string, currentHash string, co
 }
 
 func (a *App) applyComposeRuntime(recreate bool) error {
+	return a.applyComposeRuntimeContext(context.Background(), recreate)
+}
+
+func (a *App) applyComposeRuntimeContext(ctx context.Context, recreate bool) error {
 	if recreate {
 		a.emit("docker:progress", StreamEvent{Line: "检测到容器配置变化，正在重建 Hermes 容器"})
-		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate", "--remove-orphans", "hermes")
+		return a.runComposeStreaming(ctx, "docker:progress", "up", "-d", "--force-recreate", "--remove-orphans", "hermes")
 	}
 	a.emit("docker:progress", StreamEvent{Line: "容器配置未变化，正在快速重启 Hermes 服务"})
-	return a.runComposeStreaming(context.Background(), "docker:progress", "restart", "hermes")
+	return a.runComposeStreaming(ctx, "docker:progress", "restart", "hermes")
 }
 
 func (a *App) applyDufsRuntime(settings ComposeSettings, recreate bool) error {
+	return a.applyDufsRuntimeContext(context.Background(), settings, recreate)
+}
+
+func (a *App) applyDufsRuntimeContext(ctx context.Context, settings ComposeSettings, recreate bool) error {
 	if !settings.DufsEnabled {
 		a.emit("docker:progress", StreamEvent{Line: "正在关闭 Dufs 文件管理并移除旧容器"})
-		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--remove-orphans", "hermes")
+		return a.runComposeStreaming(ctx, "docker:progress", "up", "-d", "--remove-orphans", "hermes")
 	}
 	if recreate {
 		a.emit("docker:progress", StreamEvent{Line: "检测到文件管理配置变化，正在重建 Dufs 容器"})
-		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate", "dufs")
+		return a.runComposeStreaming(ctx, "docker:progress", "up", "-d", "--force-recreate", "dufs")
 	}
-	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "dufs")
+	return a.runComposeStreaming(ctx, "docker:progress", "up", "-d", "dufs")
 }
 
 func (a *App) waitForRuntimeStatus(manifest RuntimeManifest, timeout time.Duration) error {

@@ -136,6 +136,14 @@ func (a *App) profilesPath() string {
 	return filepath.Join(a.hermesDockDir(), "profiles.json")
 }
 
+func (a *App) applyStatusPath() string {
+	return filepath.Join(a.hermesDockDir(), "apply-status.json")
+}
+
+func (a *App) bundledContentStatePath(profileID string) string {
+	return filepath.Join(a.hermesDockDir(), "profile-content", profileID+".json")
+}
+
 func (a *App) hostBridgeTokenPath() string {
 	return filepath.Join(a.hermesDockDir(), "host-bridge.token")
 }
@@ -202,6 +210,36 @@ func (a *App) safePath(path string) (string, error) {
 	return resolved, nil
 }
 
+func ensureNoSymlinkComponents(root string, path string) error {
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("路径超出允许范围")
+	}
+	current := root
+	components := []string{}
+	if rel != "." {
+		components = strings.Split(rel, string(os.PathSeparator))
+	}
+	for _, component := range append([]string{""}, components...) {
+		if component != "" {
+			current = filepath.Join(current, component)
+		}
+		info, err := os.Lstat(current)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("路径包含符号链接：%s", current)
+		}
+	}
+	return nil
+}
+
 func (a *App) readState() (LauncherState, error) {
 	var state LauncherState
 	data, err := os.ReadFile(a.statePath())
@@ -215,6 +253,12 @@ func (a *App) readState() (LauncherState, error) {
 }
 
 func (a *App) writeState(state LauncherState) error {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	return a.writeStateUnlocked(state)
+}
+
+func (a *App) writeStateUnlocked(state LauncherState) error {
 	if err := ensureDir(filepath.Dir(a.statePath())); err != nil {
 		return err
 	}
@@ -227,6 +271,8 @@ func (a *App) writeState(state LauncherState) error {
 }
 
 func (a *App) markRebuildRequired() error {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
 	state, err := a.readState()
 	if err != nil {
 		return err
@@ -237,7 +283,7 @@ func (a *App) markRebuildRequired() error {
 	state.NeedsRebuild = true
 	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.writeStateUnlocked(state)
 }
 
 func defaultState() LauncherState {

@@ -24,6 +24,8 @@ type App struct {
 	ctx                 context.Context
 	instanceRoot        string
 	mu                  sync.Mutex
+	stateMu             sync.Mutex
+	operationMu         sync.Mutex
 	webSessionMu        sync.RWMutex
 	loginMu             sync.Mutex
 	logMu               sync.Mutex
@@ -41,10 +43,20 @@ type App struct {
 	notificationReady   bool
 	updateMu            sync.Mutex
 	updateWatcherCancel context.CancelFunc
+	applyMu             sync.Mutex
+	applyCancel         context.CancelFunc
+	applyActiveID       string
+	applyOwnsOperation  bool
+	applySlowAfter      time.Duration
+	applyPollInterval   time.Duration
 }
 
 func NewApp() *App {
-	return &App{hostBridgeAddr: hostBridgeAddress}
+	return &App{
+		hostBridgeAddr:    hostBridgeAddress,
+		applySlowAfter:    2 * time.Minute,
+		applyPollInterval: 500 * time.Millisecond,
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -53,6 +65,7 @@ func (a *App) startup(ctx context.Context) {
 	a.startUpdateWatcher()
 	a.startupErr = a.ensureInstanceReady()
 	if a.startupErr == nil {
+		a.resumeApplyConfigTask()
 		a.acknowledgeInstalledUpdate()
 		a.startHostBridge()
 		a.startWebServer()
@@ -61,6 +74,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.cancelApplyConfigTask()
 	a.stopUpdateWatcher()
 	a.stopTray()
 	a.stopHostBridge(ctx)
@@ -138,6 +152,8 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 		Dufs:             a.dufsStatus(),
 		HostBridge:       a.hostBridgeStatus(),
 		Update:           a.updateStatus(),
+		ApplyConfig:      a.readApplyConfigStatus(),
+		BundledContent:   a.bundledContentAvailability(profiles),
 	}, nil
 }
 
@@ -331,6 +347,11 @@ func (a *App) writeOverrideIfMissing() error {
 }
 
 func (a *App) FactoryResetInstance() (err error) {
+	release, err := a.beginExclusiveOperation("恢复出厂设置")
+	if err != nil {
+		return err
+	}
+	defer release()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

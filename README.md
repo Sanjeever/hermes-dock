@@ -146,6 +146,8 @@ Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `la
 - 一个 profile 可以同时绑定个人微信、企业微信和飞书，表示同一个助手服务多个入口。
 - 平台入口固定归属一个 profile，第一版不做按消息内容跨 profile 路由。
 - 配置保存后只写入文件，不自动应用运行态；用户手动点击“应用配置”后统一生效。
+- 可以从一个助手向多个助手批量复制主模型、辅助模型、人格和指定技能；供应商密钥默认不复制。
+- 可以把启动器最新版内置人格和技能安全同步到多个助手；用户修改、自定义技能和旧技能默认保留。
 
 隔离边界：
 
@@ -243,7 +245,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - 重启：`docker compose restart hermes`
 - 重建：`docker compose up -d --force-recreate --remove-orphans hermes`
 
-“应用配置”会比较 Hermes、Dufs 和 override 的当前指纹与上次成功应用的指纹。只修改 profile 的 `.env`、`config.yaml`、`SOUL.md`、skills、平台绑定或启停状态时，复用现有容器并重启 `hermes` 服务；镜像、端口、资源、代理或 Compose override 变化时才重新创建 Hermes 容器。只修改 Dufs 开关、端口或共享账号时仅更新 Dufs，不重启 Hermes。涉及 Hermes 的两种路径都会等待当前 runtime generation 上报就绪后再标记应用成功。
+“应用配置”会比较 Hermes、Dufs 和 override 的当前指纹与上次成功应用的指纹。只修改 profile 的 `.env`、`config.yaml`、`SOUL.md`、skills、平台绑定或启停状态时，复用现有容器并重启 `hermes` 服务；镜像、端口、资源、代理或 Compose override 变化时才重新创建 Hermes 容器。只修改 Dufs 开关、端口或共享账号时仅更新 Dufs，不重启 Hermes。应用过程作为后台任务运行并绑定当前 runtime generation；超过两分钟只提示启动较慢，仍会继续等待。当前 generation 的所有 runnable profile 上报 `running` 后才标记成功并自动刷新桌面端和 Web 端状态。
 
 ## 模型供应商
 

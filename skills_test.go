@@ -60,7 +60,7 @@ func TestDeleteSkillBacksUpAndRejectsUnsafePath(t *testing.T) {
 	}
 }
 
-func TestSyncBundledSkillsOverwritesBundledFilesOnly(t *testing.T) {
+func TestSyncBundledSkillsPreservesModifiedBundledAndCustomFiles(t *testing.T) {
 	app := newTestApp(t)
 	skillPath := filepath.Join(app.currentProfileDataDir(), "skills", "hermes-dock", "SKILL.md")
 	if err := os.WriteFile(skillPath, []byte("local edit"), 0644); err != nil {
@@ -79,18 +79,15 @@ func TestSyncBundledSkillsOverwritesBundledFilesOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SyncedFiles == 0 {
-		t.Fatalf("expected bundled files to be synced")
-	}
-	if !containsString(result.SyncedSkills, "hermes-dock") {
-		t.Fatalf("synced skills = %#v, want hermes-dock", result.SyncedSkills)
+	if result.SyncedFiles != 0 {
+		t.Fatalf("synced files = %d, want no unsafe overwrite", result.SyncedFiles)
 	}
 	synced, err := os.ReadFile(skillPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(synced) == "local edit" {
-		t.Fatalf("bundled skill was not overwritten")
+	if string(synced) != "local edit" {
+		t.Fatalf("modified bundled skill was overwritten")
 	}
 	data, err := os.ReadFile(customPath)
 	if err != nil {
@@ -98,13 +95,6 @@ func TestSyncBundledSkillsOverwritesBundledFilesOnly(t *testing.T) {
 	}
 	if string(data) != string(customContent) {
 		t.Fatalf("custom skill was modified")
-	}
-	state, err := app.readState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(state.Backups) == 0 {
-		t.Fatalf("sync did not record a backup")
 	}
 }
 

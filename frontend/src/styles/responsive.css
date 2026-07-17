@@ -53,6 +53,10 @@
         padding: 20px;
     }
 
+    .batch-options {
+        grid-template-columns: 1fr;
+    }
+
     .web-management-header,
     .web-management-grid {
         grid-template-columns: 1fr;
@@ -161,6 +165,7 @@
     .channel-head,
     .update-banner,
     .rebuild-banner,
+    .apply-config-banner,
     .topbar {
         align-items: stretch;
         flex-direction: column;

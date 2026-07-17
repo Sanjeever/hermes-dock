@@ -797,6 +797,8 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"SetProfileEnabled":            twoArgs[string, bool](a.SetProfileEnabled),
 		"MoveProfile":                  twoArgs[string, string](a.MoveProfile),
 		"SelectProfile":                oneArg[string](a.SelectProfile),
+		"BatchCopyProfileConfig":       oneArgValue[BatchProfileConfigRequest, BatchProfileConfigResult](a.BatchCopyProfileConfig),
+		"SyncBundledContent":           oneArgValue[BundledContentSyncRequest, BundledContentSyncResult](a.SyncBundledContent),
 		"FetchProviderConfigModelListForProfile": func(params []json.RawMessage) (interface{}, error) {
 			profileID, err := decodeParam[string](params, 0)
 			if err != nil {

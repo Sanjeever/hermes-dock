@@ -374,6 +374,11 @@ func (a *App) MoveProfile(id string, direction string) error {
 }
 
 func (a *App) DeleteProfile(id string) (err error) {
+	release, err := a.beginExclusiveOperation("删除助手")
+	if err != nil {
+		return err
+	}
+	defer release()
 	if id == defaultProfileID {
 		return fmt.Errorf("default profile 不能删除，只能停用")
 	}
@@ -389,7 +394,7 @@ func (a *App) DeleteProfile(id string) (err error) {
 		return fmt.Errorf("停止 profile 扫码绑定失败：%w", err)
 	}
 	if fileExists(a.composePath()) && a.containerStatus(context.Background()) == "running" {
-		if err := a.StopHermes(); err != nil {
+		if err := a.stopHermesRuntime(); err != nil {
 			return fmt.Errorf("停止 Hermes 容器失败：%w", err)
 		}
 	}
@@ -440,6 +445,9 @@ func (a *App) DeleteProfile(id string) (err error) {
 		if err := os.RemoveAll(quarantine); err != nil {
 			a.emit("docker:progress", StreamEvent{Line: redact(fmt.Sprintf("profile 已删除，但暂存目录清理失败并保留在备份目录：%v", err))})
 		}
+	}
+	if err := os.Remove(a.bundledContentStatePath(id)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("删除 profile 内置内容状态失败：%w", err)
 	}
 	return nil
 }

@@ -85,7 +85,7 @@ func (a *App) syncProfileRunner(source string, target string, goos string) error
 		return nil
 	}
 	if goos == "windows" && fileExists(a.composePath()) && a.containerStatus(context.Background()) == "running" {
-		if err := a.StopHermes(); err != nil {
+		if err := a.stopHermesRuntime(); err != nil {
 			return fmt.Errorf("停止 Hermes 容器以更新 profile runner 失败：%w", err)
 		}
 	}

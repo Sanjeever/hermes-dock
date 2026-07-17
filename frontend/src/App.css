@@ -351,6 +351,37 @@ h2 {
     cursor: pointer;
 }
 
+.apply-config-banner {
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: -8px 0 18px;
+    padding: 10px 13px;
+    border-radius: 10px;
+    background: #eef7ce;
+    color: #263018;
+    box-shadow: 0 12px 30px rgba(38, 48, 24, 0.08);
+}
+
+.apply-config-banner.slow {
+    background: #fff6d8;
+    color: #7a4b0b;
+}
+
+.apply-config-banner > div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.apply-config-banner span {
+    color: inherit;
+    font-size: 12px;
+    opacity: 0.72;
+}
+
 .update-banner {
     min-height: 58px;
     display: flex;
@@ -834,13 +865,24 @@ button:disabled {
 .assistant-switcher {
     min-height: 72px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(200px, 260px) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(190px, 240px) auto auto auto auto;
     align-items: flex-start;
     gap: 12px;
     padding: 14px;
     border-radius: 14px;
     background: rgba(255, 250, 240, 0.92);
     box-shadow: 0 18px 48px rgba(38, 31, 18, 0.08);
+}
+
+.assistant-batch-action {
+    white-space: nowrap;
+}
+
+.action-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #d97706;
 }
 
 .assistant-switcher h2 {
@@ -942,6 +984,120 @@ button:disabled {
     background: #fffaf0;
     box-shadow: -24px 0 64px rgba(21, 25, 22, 0.22);
     overflow: hidden;
+}
+
+.profile-batch-drawer {
+    width: min(600px, calc(100vw - 32px));
+}
+
+.profile-batch-body {
+    min-height: 0;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    overflow: auto;
+    padding-bottom: 4px;
+}
+
+.batch-fieldset {
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    border: 0;
+    border-radius: 12px;
+    padding: 14px;
+    background: #f4f1e8;
+}
+
+.batch-fieldset legend {
+    padding: 0;
+    color: #30362f;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.batch-target-list,
+.batch-skill-list {
+    display: grid;
+    gap: 7px;
+    max-height: 210px;
+    overflow: auto;
+}
+
+.batch-target {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    border-radius: 8px;
+    padding: 9px 10px;
+    background: #fffdf8;
+    cursor: pointer;
+}
+
+.batch-target input {
+    width: 16px;
+    min-height: 16px;
+}
+
+.batch-target span {
+    overflow: hidden;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.batch-target code {
+    color: #6f756d;
+    font-size: 11px;
+}
+
+.batch-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.batch-options .mini-toggle {
+    justify-content: flex-start;
+}
+
+.sensitive-option {
+    color: #9a4e0b;
+}
+
+.batch-result {
+    display: grid;
+    gap: 8px;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #4d554c;
+    background: #ece8dc;
+}
+
+.batch-result strong {
+    color: #30362f;
+}
+
+.batch-result ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.batch-result li {
+    display: grid;
+    grid-template-columns: minmax(76px, auto) minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+}
+
+.batch-result li span {
+    overflow-wrap: anywhere;
 }
 
 .assistant-create-head {

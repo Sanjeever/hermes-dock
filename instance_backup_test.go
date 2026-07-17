@@ -18,6 +18,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "web-sessions.json"), "{}\n", 0600)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "logs", "web-server.log"), "secret log\n", 0600)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "launcher", "backups", "old.hdbackup"), "old\n", 0600)
+	mustWriteFile(t, app.applyStatusPath(), "{\"state\":\"succeeded\",\"active\":false}\n", 0644)
 	mustWriteFile(t, filepath.Join(app.sharedDir(), "report.txt"), "shared\n", 0644)
 
 	target := filepath.Join(t.TempDir(), "export.hdbackup")
@@ -31,7 +32,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 	if !manifest.IncludesSecrets {
 		t.Fatalf("backup should include secrets")
 	}
-	for _, want := range []string{"data/.dock", "launcher/backups", "launcher/logs", "launcher/web-sessions.json", "shared"} {
+	for _, want := range []string{"data/.dock", "launcher/backups", "launcher/logs", "launcher/web-sessions.json", "launcher/apply-status.json", "shared"} {
 		if !containsPathPrefix(manifest.ExcludedPaths, want) {
 			t.Fatalf("excluded paths missing %s: %#v", want, manifest.ExcludedPaths)
 		}
@@ -43,13 +44,14 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 		"launcher/web-sessions.json",
 		"launcher/logs/web-server.log",
 		"launcher/backups/old.hdbackup",
+		"launcher/apply-status.json",
 		"shared/report.txt",
 	} {
 		if names[forbidden] {
 			t.Fatalf("backup included forbidden path %s", forbidden)
 		}
 	}
-	for _, want := range []string{"manifest.json", "checksums.txt", "data/.env", "launcher/profiles.json", "launcher/web-server.json", "launcher/dufs/config.yaml", "docker-compose.yaml"} {
+	for _, want := range []string{"manifest.json", "checksums.txt", "data/.env", "launcher/profiles.json", "launcher/profile-content/default.json", "launcher/web-server.json", "launcher/dufs/config.yaml", "docker-compose.yaml"} {
 		if !names[want] {
 			t.Fatalf("backup missing %s", want)
 		}
@@ -92,6 +94,11 @@ func TestImportInstanceBackupRestoresFilesAfterPreImportBackup(t *testing.T) {
 	app := newTestApp(t)
 	installFakeDocker(t, false)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "data", ".env"), "API_KEY=before\n", 0600)
+	baselinePath := app.bundledContentStatePath(defaultProfileID)
+	baselineBefore, err := os.ReadFile(baselinePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	target := filepath.Join(t.TempDir(), "source.hdbackup")
 	if _, err := app.ExportInstanceBackup(target); err != nil {
 		t.Fatal(err)
@@ -99,6 +106,8 @@ func TestImportInstanceBackupRestoresFilesAfterPreImportBackup(t *testing.T) {
 
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "data", ".env"), "API_KEY=after\n", 0600)
 	mustWriteFile(t, filepath.Join(app.instanceRoot, "data", ".dock", "profile-status.json"), "{}\n", 0644)
+	mustWriteFile(t, baselinePath, "{\"templateVersion\":\"changed\"}\n", 0644)
+	mustWriteFile(t, app.applyStatusPath(), "{\"state\":\"succeeded\",\"active\":false}\n", 0644)
 
 	result, err := app.ImportInstanceBackup(InstanceBackupImportRequest{Path: target, Confirm: "导入"})
 	if err != nil {
@@ -116,6 +125,16 @@ func TestImportInstanceBackupRestoresFilesAfterPreImportBackup(t *testing.T) {
 	}
 	if fileExists(filepath.Join(app.instanceRoot, "data", ".dock", "profile-status.json")) {
 		t.Fatalf("runtime status should not be restored")
+	}
+	restoredBaseline, err := os.ReadFile(baselinePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restoredBaseline) != string(baselineBefore) {
+		t.Fatalf("bundled content baseline was not restored")
+	}
+	if fileExists(app.applyStatusPath()) {
+		t.Fatal("device-local apply task status should be cleared during import")
 	}
 	logData, err := os.ReadFile(fakeDockerLogPath(t))
 	if err != nil {

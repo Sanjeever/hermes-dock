@@ -8,6 +8,7 @@ import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
     CancelFeishuLogin,
+    BatchCopyProfileConfig,
     CompleteProfileSetup,
     CreateProfile,
     DeleteProfile,
@@ -47,6 +48,7 @@ import {
     StopHermes,
     StopTailLogs,
     SyncBundledSkills,
+    SyncBundledContent,
     TailLogs,
     TestModel,
     UnbindPlatform,
@@ -62,9 +64,9 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
+import type {ApplyConfigStatus, AppState, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
-import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, syncBundledSkillsMessage} from './appPolicies';
+import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, shouldPollRuntimeStatus, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
 import {useSkills} from './hooks/useSkills';
 import {useUpdates} from './hooks/useUpdates';
@@ -156,6 +158,17 @@ function App() {
                 appendLog(`命令退出，代码 ${event.code}`);
             }
         });
+        const offApply = EventsOn('apply:status', (event: ApplyConfigStatus) => {
+            setState((current) => current ? {...current, applyConfig: event} : current);
+            if (event.state === 'succeeded') {
+                setNotice({type: 'ok', message: event.message || '配置已应用'});
+                refresh();
+            } else if (event.state === 'failed') {
+                setNotice({type: 'error', message: event.error || event.message || '应用配置失败'});
+                setLastOperationError(event.error || event.message || '应用配置失败');
+                refresh();
+            }
+        });
         const offBackup = EventsOn('backup:progress', (event: { line?: string }) => {
             if (!event.line) return;
             setBackupStatus(event.line);
@@ -226,6 +239,7 @@ function App() {
         });
         return () => {
             offDocker();
+            offApply();
             offBackup();
             offLogs();
             offQR();
@@ -298,9 +312,10 @@ function App() {
     }, [state?.activeProfile, state?.profiles?.profiles, wizardStep]);
 
     useEffect(() => {
-        if (!state || busy || state.containerStatus !== 'running') return;
-        const hasStartingProfile = Object.values(state.profileStatus?.profiles || {}).some((status) => status.state === 'starting');
-        if (!hasStartingProfile) return;
+        if (!state) return;
+        const applyActive = !!state.applyConfig?.active;
+        const profileStates = Object.values(state.profileStatus?.profiles || {}).map((status) => status.state);
+        if (!shouldPollRuntimeStatus(applyActive, !!busy, state.containerStatus, profileStates)) return;
         const timer = window.setTimeout(() => {
             refresh();
         }, 1500);
@@ -663,17 +678,72 @@ function App() {
 
     async function finishProfileSetup(apply: boolean) {
         const profileID = state?.activeProfile || 'default';
-        return await run(apply ? '正在完成并重建' : '正在完成配置', async () => {
-            await CompleteProfileSetup(profileID);
-            if (apply) {
-                await RebuildHermes();
-            }
-        }, {
+        const completed = await run('正在完成配置', () => CompleteProfileSetup(profileID), {
             afterSuccess: () => {
-                if (apply) setNeedsRebuild(false);
                 setWizardStep(null);
             },
         });
+        if (!completed || !apply) return completed;
+        return startApplyConfiguration();
+    }
+
+    async function startApplyConfiguration() {
+        setBusy('正在启动应用任务');
+        setNotice({type: 'info', message: '正在启动应用配置任务'});
+        setLastOperationError('');
+        try {
+            await RebuildHermes();
+            await refresh();
+            return true;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            await refresh();
+            return false;
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function batchCopyProfiles(request: BatchProfileConfigRequest): Promise<BatchProfileConfigResult | null> {
+        setBusy('正在批量应用配置');
+        setNotice({type: 'info', message: '正在批量应用配置'});
+        try {
+            const result = await BatchCopyProfileConfig(request);
+            await refresh();
+            setNotice({type: result.failed ? 'error' : 'ok', message: `已完成 ${result.succeeded} 个助手${result.failed ? `，${result.failed} 个失败` : ''}`});
+            return result;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+            return null;
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function syncBundledContent(request: BundledContentSyncRequest): Promise<BundledContentSyncResult | null> {
+        setBusy('正在同步内置内容');
+        setNotice({type: 'info', message: '正在同步内置内容'});
+        try {
+            const result = await SyncBundledContent(request);
+            await refresh();
+            setNotice({
+                type: result.failed ? 'error' : 'ok',
+                message: `新增 ${result.added} 项，更新 ${result.updated} 项，保留 ${result.skipped} 项用户修改${result.failed ? `；${result.failed} 个助手失败` : ''}`,
+            });
+            return result;
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+            return null;
+        } finally {
+            setBusy('');
+        }
     }
 
     function hasUnsavedChanges() {
@@ -1091,8 +1161,10 @@ function App() {
     const visibleModelOptions = currentModelOptionsKey === modelOptionsKey ? modelOptions : [];
     const activeProfile = state?.profiles?.profiles?.find((profile) => profile.id === state.activeProfile);
     const activeSetupDone = !!activeProfile?.setupCompletedAt;
+    const applyActive = !!state?.applyConfig?.active;
+    const blockingBusy = busy || (applyActive ? '正在应用配置' : '');
     const showContainerStatus = page !== 'assistants' || activeSetupDone;
-    const showRebuildBanner = needsRebuild && (page !== 'assistants' || activeSetupDone);
+    const showRebuildBanner = needsRebuild && !applyActive && (page !== 'assistants' || activeSetupDone);
     const unsavedChanges = hasUnsavedChanges();
     const updateInfo = updates.info;
     const showUpdateBanner = !!updateInfo?.available && !updateInfo.dismissed;
@@ -1137,7 +1209,7 @@ function App() {
                         {(page === 'operations' || page === 'settings') && state?.profiles?.profiles && (
                             <label className="profile-picker">
                                 <span>当前助手</span>
-                                <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!busy}>
+                                <select value={state.activeProfile || 'default'} onChange={(event) => selectProfile(event.target.value)} disabled={!!blockingBusy}>
                                     {state.profiles.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name || profile.id}</option>)}
                                 </select>
                             </label>
@@ -1166,7 +1238,7 @@ function App() {
                         <div className="update-actions">
                             <button className="primary" onClick={() => {
                                 if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
-                            }} disabled={updates.busy || !!busy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
+                            }} disabled={updates.busy || !!blockingBusy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
                             {updateInfo.releaseUrl && <button onClick={() => updates.open(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
                             <button onClick={updates.dismiss}>忽略</button>
                         </div>
@@ -1175,6 +1247,15 @@ function App() {
                 {unsavedChanges && (
                     <div className="dirty-banner">
                         <span>当前有未保存修改，请回到对应页面保存或放弃修改后再切换助手。</span>
+                    </div>
+                )}
+                {state?.applyConfig?.active && (
+                    <div className={`apply-config-banner ${state.applyConfig.state === 'slow' ? 'slow' : ''}`}>
+                        <div>
+                            <strong>{state.applyConfig.message || '正在应用配置'}</strong>
+                            <span>{state.applyConfig.strategy === 'recreate' ? '正在重建容器' : state.applyConfig.strategy === 'dufs-only' ? '正在更新文件管理' : '正在更新运行配置'}</span>
+                        </div>
+                        <button className="ghost" onClick={() => openOperations('diagnostics')}>查看日志</button>
                     </div>
                 )}
                 {!state && refreshError && (
@@ -1189,7 +1270,7 @@ function App() {
                 {showRebuildBanner && (
                     <div className="rebuild-banner">
                         <span>配置已保存，应用后生效。</span>
-                        <button onClick={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})} disabled={!!busy}>
+                        <button onClick={startApplyConfiguration} disabled={!!blockingBusy}>
                             <RotateCcw size={16}/>应用配置
                         </button>
                     </div>
@@ -1199,12 +1280,12 @@ function App() {
                     <OverviewPage
                         state={state}
                         needsRebuild={needsRebuild}
-                        busy={busy}
+                        busy={blockingBusy}
                         lastOperationError={lastOperationError}
                         logs={logs}
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
-                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={startApplyConfiguration}
                         onOpenAssistants={() => navigatePage('assistants')}
                         onOpenLogs={() => {
                             setOperationsTab('diagnostics');
@@ -1247,7 +1328,7 @@ function App() {
                         setSelectedAux={setSelectedAux}
                         auxModelOptions={auxModelOptions}
                         auxModelListStatus={auxModelListStatus}
-                        busy={!!busy}
+                        busy={!!blockingBusy}
                         showApiKey={showApiKey}
                         setShowApiKey={setShowApiKey}
                         newProfileID={newProfileID}
@@ -1306,7 +1387,7 @@ function App() {
                         onUnbindPlatform={unbindPlatform}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
-                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={startApplyConfiguration}
                         onOpenOperations={openOperations}
                         onRefreshSkills={skills.loadSkills}
                         onSyncBundledSkills={skills.syncBundledSkills}
@@ -1318,6 +1399,8 @@ function App() {
                         onSkillHubDetail={skills.loadSkillHubDetail}
                         onInstallSkillHubSkill={skills.installSkillHubSkill}
                         onSkillsModeChange={setAssistantSkillsMode}
+                        onBatchCopyProfiles={batchCopyProfiles}
+                        onSyncBundledContent={syncBundledContent}
                     />
                 )}
 
@@ -1339,7 +1422,7 @@ function App() {
                         }}
                         deployDirty={deployDirty}
                         needsRebuild={needsRebuild}
-                        busy={busy}
+                        busy={blockingBusy}
                         logs={logs}
                         activeProfileName={state.profiles?.profiles?.find((profile) => profile.id === state.activeProfile)?.name || state.activeProfile || 'default'}
                         weixinBound={!!weixinBound}
@@ -1370,7 +1453,7 @@ function App() {
                         onStart={() => run('正在启动', StartHermes)}
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
-                        onRebuild={() => run('正在应用配置', RebuildHermes, {afterSuccess: () => setNeedsRebuild(false)})}
+                        onRebuild={startApplyConfiguration}
                         onLogs={tailLogs}
                         onClearLogs={() => setLogs([])}
                         onCopyLogs={copyLogs}
@@ -1398,7 +1481,7 @@ function App() {
                         onResetWebPassword={() => run('正在重置 Web 访问密码', ResetWebPassword)}
                         updateInfo={updates.info}
                         updateStatus={state.update}
-                        updateBusy={updates.busy || !!busy}
+                        updateBusy={updates.busy || !!blockingBusy}
                         updateProgress={updates.progress}
                         onCheckUpdate={() => updates.check(true)}
                         onInstallUpdate={() => {

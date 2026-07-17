@@ -162,12 +162,25 @@ h2 {
 
 .dirty-banner,
 .rebuild-banner,
+.apply-config-banner,
 .next-error {
     border: 1px solid #fcd34d;
     border-radius: 10px;
     background: #fffbeb;
     color: #92400e;
     box-shadow: var(--shadow-panel);
+}
+
+.apply-config-banner {
+    border-color: #bbd886;
+    background: #f2f8e8;
+    color: #365314;
+}
+
+.apply-config-banner.slow {
+    border-color: #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
 }
 
 .rebuild-banner {

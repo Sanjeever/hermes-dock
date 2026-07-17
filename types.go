@@ -1,26 +1,54 @@
 package main
 
 type AppState struct {
-	AppVersion       string           `json:"appVersion"`
-	InstanceRoot     string           `json:"instanceRoot"`
-	NeedsRebuild     bool             `json:"needsRebuild"`
-	State            LauncherState    `json:"state"`
-	Profiles         ProfileRegistry  `json:"profiles"`
-	ActiveProfile    string           `json:"activeProfile"`
-	ProfileStatus    RuntimeStatus    `json:"profileStatus"`
-	Compose          ComposeSettings  `json:"compose"`
-	Proxy            ProxySettings    `json:"proxy"`
-	Environment      []EnvVar         `json:"environment"`
-	Model            ModelConfig      `json:"model"`
-	Providers        ProviderConfig   `json:"providers"`
-	Channels         ChannelFile      `json:"channels"`
-	DockerAvailable  bool             `json:"dockerAvailable"`
-	ComposeAvailable bool             `json:"composeAvailable"`
-	ContainerStatus  string           `json:"containerStatus"`
-	Web              WebStatus        `json:"web"`
-	Dufs             DufsStatus       `json:"dufs"`
-	HostBridge       HostBridgeStatus `json:"hostBridge"`
-	Update           UpdateStatus     `json:"update"`
+	AppVersion       string                     `json:"appVersion"`
+	InstanceRoot     string                     `json:"instanceRoot"`
+	NeedsRebuild     bool                       `json:"needsRebuild"`
+	State            LauncherState              `json:"state"`
+	Profiles         ProfileRegistry            `json:"profiles"`
+	ActiveProfile    string                     `json:"activeProfile"`
+	ProfileStatus    RuntimeStatus              `json:"profileStatus"`
+	Compose          ComposeSettings            `json:"compose"`
+	Proxy            ProxySettings              `json:"proxy"`
+	Environment      []EnvVar                   `json:"environment"`
+	Model            ModelConfig                `json:"model"`
+	Providers        ProviderConfig             `json:"providers"`
+	Channels         ChannelFile                `json:"channels"`
+	DockerAvailable  bool                       `json:"dockerAvailable"`
+	ComposeAvailable bool                       `json:"composeAvailable"`
+	ContainerStatus  string                     `json:"containerStatus"`
+	Web              WebStatus                  `json:"web"`
+	Dufs             DufsStatus                 `json:"dufs"`
+	HostBridge       HostBridgeStatus           `json:"hostBridge"`
+	Update           UpdateStatus               `json:"update"`
+	ApplyConfig      ApplyConfigStatus          `json:"applyConfig"`
+	BundledContent   BundledContentAvailability `json:"bundledContent"`
+}
+
+type ApplyConfigStatus struct {
+	ID               string `json:"id"`
+	Generation       string `json:"generation"`
+	State            string `json:"state"`
+	Phase            string `json:"phase"`
+	Message          string `json:"message"`
+	Strategy         string `json:"strategy"`
+	Active           bool   `json:"active"`
+	StartedAt        string `json:"startedAt"`
+	UpdatedAt        string `json:"updatedAt"`
+	CompletedAt      string `json:"completedAt"`
+	RunnableProfiles int    `json:"runnableProfiles"`
+	RunningProfiles  int    `json:"runningProfiles"`
+	Error            string `json:"error"`
+	ComposeHash      string `json:"composeHash"`
+	DufsHash         string `json:"dufsHash"`
+	InputHash        string `json:"inputHash"`
+	HermesImage      string `json:"hermesImage"`
+	DufsRecreate     bool   `json:"dufsRecreate"`
+}
+
+type BundledContentAvailability struct {
+	Available       bool `json:"available"`
+	PendingProfiles int  `json:"pendingProfiles"`
 }
 
 type UpdateStatus struct {
@@ -202,6 +230,56 @@ type CreateProfileRequest struct {
 	CopyMode string `json:"copyMode"`
 }
 
+type BatchProfileConfigRequest struct {
+	SourceProfileID  string   `json:"sourceProfileId"`
+	TargetProfileIDs []string `json:"targetProfileIds"`
+	CopyMainModel    bool     `json:"copyMainModel"`
+	CopyAuxiliary    bool     `json:"copyAuxiliary"`
+	CopySoul         bool     `json:"copySoul"`
+	SkillPaths       []string `json:"skillPaths"`
+	CopyProviders    bool     `json:"copyProviders"`
+	IncludeAPIKeys   bool     `json:"includeApiKeys"`
+}
+
+type ProfileOperationResult struct {
+	ProfileID string `json:"profileId"`
+	Success   bool   `json:"success"`
+	Changed   bool   `json:"changed"`
+	Error     string `json:"error"`
+}
+
+type BatchProfileConfigResult struct {
+	Results   []ProfileOperationResult `json:"results"`
+	Succeeded int                      `json:"succeeded"`
+	Failed    int                      `json:"failed"`
+}
+
+type BundledContentSyncRequest struct {
+	TargetProfileIDs []string `json:"targetProfileIds"`
+	SyncSoul         bool     `json:"syncSoul"`
+	SyncSkills       bool     `json:"syncSkills"`
+}
+
+type BundledContentProfileResult struct {
+	ProfileID string `json:"profileId"`
+	Success   bool   `json:"success"`
+	Added     int    `json:"added"`
+	Updated   int    `json:"updated"`
+	Unchanged int    `json:"unchanged"`
+	Skipped   int    `json:"skipped"`
+	Error     string `json:"error"`
+}
+
+type BundledContentSyncResult struct {
+	Results   []BundledContentProfileResult `json:"results"`
+	Succeeded int                           `json:"succeeded"`
+	Failed    int                           `json:"failed"`
+	Added     int                           `json:"added"`
+	Updated   int                           `json:"updated"`
+	Unchanged int                           `json:"unchanged"`
+	Skipped   int                           `json:"skipped"`
+}
+
 type RuntimeManifest struct {
 	SchemaVersion int                      `json:"schemaVersion"`
 	Generation    string                   `json:"generation"`
@@ -371,6 +449,7 @@ type SyncBundledSkillsResult struct {
 	ActiveProfile string   `json:"activeProfile"`
 	SyncedSkills  []string `json:"syncedSkills"`
 	SyncedFiles   int      `json:"syncedFiles"`
+	SkippedFiles  int      `json:"skippedFiles"`
 }
 
 type SkillSummary struct {

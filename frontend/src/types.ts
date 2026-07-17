@@ -80,6 +80,50 @@ export type ProfileEntry = { id: string; name: string; enabled: boolean; created
 export type ProfileRegistry = { schemaVersion: number; profiles: ProfileEntry[] };
 export type RuntimeProfileStatus = { enabled: boolean; state: string; pid: number; startedAt: string; lastExitCode: number; restartCount: number; message: string };
 export type RuntimeStatus = { generation: string; updatedAt: string; profiles: Record<string, RuntimeProfileStatus> };
+export type ApplyConfigStatus = {
+    id: string;
+    generation: string;
+    state: 'idle' | 'validating' | 'applying' | 'waiting' | 'slow' | 'succeeded' | 'failed';
+    phase: string;
+    message: string;
+    strategy: string;
+    active: boolean;
+    startedAt: string;
+    updatedAt: string;
+    completedAt: string;
+    runnableProfiles: number;
+    runningProfiles: number;
+    error: string;
+    composeHash: string;
+    dufsHash: string;
+    inputHash: string;
+    hermesImage: string;
+    dufsRecreate: boolean;
+};
+export type BundledContentAvailability = { available: boolean; pendingProfiles: number };
+export type ProfileOperationResult = { profileId: string; success: boolean; changed: boolean; error: string };
+export type BatchProfileConfigRequest = {
+    sourceProfileId: string;
+    targetProfileIds: string[];
+    copyMainModel: boolean;
+    copyAuxiliary: boolean;
+    copySoul: boolean;
+    skillPaths: string[];
+    copyProviders: boolean;
+    includeApiKeys: boolean;
+};
+export type BatchProfileConfigResult = { results: ProfileOperationResult[]; succeeded: number; failed: number };
+export type BundledContentSyncRequest = { targetProfileIds: string[]; syncSoul: boolean; syncSkills: boolean };
+export type BundledContentProfileResult = { profileId: string; success: boolean; added: number; updated: number; unchanged: number; skipped: number; error: string };
+export type BundledContentSyncResult = {
+    results: BundledContentProfileResult[];
+    succeeded: number;
+    failed: number;
+    added: number;
+    updated: number;
+    unchanged: number;
+    skipped: number;
+};
 export type SkillSummary = {
     name: string;
     description: string;
@@ -103,7 +147,7 @@ export type SkillsState = {
     customCount: number;
     conflictCount: number;
 };
-export type SyncBundledSkillsResult = { activeProfile: string; syncedSkills: string[]; syncedFiles: number };
+export type SyncBundledSkillsResult = { activeProfile: string; syncedSkills: string[]; syncedFiles: number; skippedFiles: number };
 export type SkillFileInfo = { path: string; sizeBytes: number; updatedAt: string };
 export type SkillDetail = SkillSummary & {
     preview: string;
@@ -214,6 +258,8 @@ export type AppState = {
     dufs: DufsStatus;
     hostBridge: HostBridgeStatus;
     update: UpdateStatus;
+    applyConfig: ApplyConfigStatus;
+    bundledContent: BundledContentAvailability;
 };
 
 export type DufsStatus = {
