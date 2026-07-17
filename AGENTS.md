@@ -20,7 +20,8 @@ Hermes Dock 是一个 Wails 桌面启动器，用来管理当前用户下单个 
 - 启动器接管标准 `~/.hermes-dock/docker-compose.yaml`。
 - 高级 Docker 自定义放在 `~/.hermes-dock/docker-compose.override.yaml`。
 - `~/.hermes-dock/data` 是用户数据，默认永不覆盖。
-- 只做显式保存、绑定或迁移，不做静默重置。
+- 不自动迁移或修补已有 profile 的 `config.yaml`；内置模板只用于创建缺失文件。
+- 只做显式保存、绑定或实例迁移，不做静默重置。
 - 不把真实运行态、日志、会话、缓存、数据库、auth 文件或微信账号凭据放进内置模板。
 - 多 profile 第一版不为每个 profile 单独暴露 HTTP/API/Dashboard 端口；profile gateway 只服务各自平台入口。
 

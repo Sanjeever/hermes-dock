@@ -148,9 +148,6 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.ensureProfileRegistry(); err != nil {
 			return err
 		}
-		if err := a.migrateProfileStreamingDefaults(); err != nil {
-			return err
-		}
 		return a.ensureWebConfig()
 	}
 	if err := ensureDir(a.instanceRoot); err != nil {
@@ -208,15 +205,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.ensureProfileRegistry(); err != nil {
 			return err
 		}
-		if err := a.migrateProfileStreamingDefaults(); err != nil {
-			return err
-		}
 		return a.ensureWebConfig()
 	}
 	if err := a.ensureProfileRegistry(); err != nil {
-		return err
-	}
-	if err := a.migrateProfileStreamingDefaults(); err != nil {
 		return err
 	}
 	if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
@@ -299,9 +290,6 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		return LauncherState{}, err
 	}
 	if err := a.ensureProfileRegistry(); err != nil {
-		return LauncherState{}, err
-	}
-	if err := a.migrateProfileStreamingDefaults(); err != nil {
 		return LauncherState{}, err
 	}
 	return a.readState()

@@ -77,6 +77,15 @@ func appendIfMissingMigration(records []MigrationRecord, next MigrationRecord) [
 	return append(records, next)
 }
 
+func migrationApplied(records []MigrationRecord, id string) bool {
+	for _, record := range records {
+		if record.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 func toJSONMap(value string) (map[string]interface{}, error) {
 	if strings.TrimSpace(value) == "" {
 		return map[string]interface{}{}, nil

@@ -54,6 +54,61 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 	}
 }
 
+func TestEnsureInstanceReadyDoesNotRewriteExistingProfileConfigs(t *testing.T) {
+	app := newTestApp(t)
+	if err := app.CreateProfile(CreateProfileRequest{ID: "sales", Name: "销售助手", Enabled: true, CopyMode: profileCopyClean}); err != nil {
+		t.Fatal(err)
+	}
+
+	configs := map[string][]byte{
+		defaultProfileID: []byte("# 保留用户原始格式\nstreaming:\n  enabled: false\ncustom_setting: keep\n"),
+		"sales":          []byte("display:\n  platforms:\n    feishu:\n      streaming: false\n"),
+	}
+	for id, content := range configs {
+		if err := atomicWriteFile(filepath.Join(app.profileDataDir(id), "config.yaml"), content, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations := state.Migrations[:0]
+	for _, migration := range state.Migrations {
+		if migration.ID != "profile-streaming-v2" {
+			migrations = append(migrations, migration)
+		}
+	}
+	state.Migrations = migrations
+	state.NeedsRebuild = false
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.ensureInstanceReady(); err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range configs {
+		got, err := os.ReadFile(filepath.Join(app.profileDataDir(id), "config.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(want) {
+			t.Fatalf("%s config.yaml was rewritten:\n%s", id, got)
+		}
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.NeedsRebuild {
+		t.Fatal("instance preparation marked unchanged profile configs for rebuild")
+	}
+	if migrationApplied(state.Migrations, "profile-streaming-v2") {
+		t.Fatal("instance preparation recorded the removed profile config migration")
+	}
+}
+
 func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

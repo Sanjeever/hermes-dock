@@ -115,7 +115,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
       patch-wecom-filenames
 ```
 
-`data/` 是用户数据，也是 `default` profile 的 Hermes home。非 default profile 使用 `data/profiles/<id>/`，保持和 Hermes 原生 profile 结构兼容。Hermes Dock 默认不会覆盖已有用户数据，只在明确保存配置、绑定平台或执行迁移时写入对应文件。
+`data/` 是用户数据，也是 `default` profile 的 Hermes home。非 default profile 使用 `data/profiles/<id>/`，保持和 Hermes 原生 profile 结构兼容。Hermes Dock 不会自动迁移或修补已有 profile 的 `config.yaml`；内置模板只用于创建缺失文件。除用户明确保存配置或执行整实例覆盖导入外，已有配置不会被写入。
 
 `launcher/` 是启动器自己的元数据目录。这里保存状态、profile registry、备份和临时 helper，不应该放用户业务数据或密钥。
 
