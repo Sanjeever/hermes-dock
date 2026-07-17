@@ -12,6 +12,7 @@ import type {
     SkillHubQuery,
     SyncBundledSkillsResult,
     UpdateInfo,
+    UpdateStatus,
     WebSettingsRequest,
     WebTextFileKind,
 } from '../types';
@@ -134,6 +135,8 @@ export const OpenWebManagement = () => {
 };
 export const CheckForUpdates = (force: boolean) => wailsOrRPC<UpdateInfo>('CheckForUpdates', [force]);
 export const DismissUpdate = (version: string) => wailsOrRPC<void>('DismissUpdate', [version]);
+export const InstallUpdate = (version: string) => wailsOrRPC<void>('InstallUpdate', [version]);
+export const SetAutoUpdateEnabled = (enabled: boolean) => wailsOrRPC<UpdateStatus>('SetAutoUpdateEnabled', [enabled]);
 export const OpenUpdateURL = (url: string) => {
     if (isWebRuntime()) {
         window.open(url, '_blank', 'noopener,noreferrer');

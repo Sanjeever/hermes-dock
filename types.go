@@ -20,6 +20,13 @@ type AppState struct {
 	Web              WebStatus        `json:"web"`
 	Dufs             DufsStatus       `json:"dufs"`
 	HostBridge       HostBridgeStatus `json:"hostBridge"`
+	Update           UpdateStatus     `json:"update"`
+}
+
+type UpdateStatus struct {
+	AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
+	TaskRegistered    bool   `json:"taskRegistered"`
+	LastError         string `json:"lastError"`
 }
 
 type HostBridgeStatus struct {
@@ -71,6 +78,8 @@ type UpdateInfo struct {
 	ReleaseURL     string             `json:"releaseUrl"`
 	AssetURL       string             `json:"assetUrl"`
 	AssetName      string             `json:"assetName"`
+	AssetSize      int64              `json:"-"`
+	ChecksumURL    string             `json:"-"`
 	Mirrors        []UpdateMirrorLink `json:"mirrors"`
 	CheckedAt      string             `json:"checkedAt"`
 }

@@ -1,5 +1,21 @@
 export namespace main {
 	
+	export class UpdateStatus {
+	    autoUpdateEnabled: boolean;
+	    taskRegistered: boolean;
+	    lastError: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.autoUpdateEnabled = source["autoUpdateEnabled"];
+	        this.taskRegistered = source["taskRegistered"];
+	        this.lastError = source["lastError"];
+	    }
+	}
 	export class HostBridgeStatus {
 	    enabled: boolean;
 	    running: boolean;
@@ -566,6 +582,7 @@ export namespace main {
 	    web: WebStatus;
 	    dufs: DufsStatus;
 	    hostBridge: HostBridgeStatus;
+	    update: UpdateStatus;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppState(source);
@@ -592,6 +609,7 @@ export namespace main {
 	        this.web = this.convertValues(source["web"], WebStatus);
 	        this.dufs = this.convertValues(source["dufs"], DufsStatus);
 	        this.hostBridge = this.convertValues(source["hostBridge"], HostBridgeStatus);
+	        this.update = this.convertValues(source["update"], UpdateStatus);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

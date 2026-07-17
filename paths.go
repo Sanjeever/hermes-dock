@@ -14,6 +14,9 @@ import (
 )
 
 func detectInstanceRoot() string {
+	if instanceRootOverride != "" {
+		return instanceRootOverride
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		cwd, _ := os.Getwd()
@@ -112,6 +115,22 @@ func (a *App) dufsConfigPath() string {
 
 func (a *App) updateStatePath() string {
 	return filepath.Join(a.hermesDockDir(), "update.json")
+}
+
+func (a *App) updateDir() string {
+	return filepath.Join(a.hermesDockDir(), "updates")
+}
+
+func (a *App) updateRequestPath() string {
+	return filepath.Join(a.updateDir(), "request.json")
+}
+
+func (a *App) updatePIDPath() string {
+	return filepath.Join(a.updateDir(), "app.pid")
+}
+
+func (a *App) updateLockPath() string {
+	return filepath.Join(a.updateDir(), "update.lock")
 }
 
 func (a *App) dockDataDir() string {

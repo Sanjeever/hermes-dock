@@ -97,6 +97,12 @@ jobs:
           $env:GOARCH = "amd64"
           go build -buildvcs=false -trimpath -ldflags="-s -w" -o build/windows/profile-runner/hermes-profile-runner-linux-amd64 ./cmd/hermes-profile-runner
 
+      - name: Build updater
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/windows/updater | Out-Null
+          go build -buildvcs=false -trimpath -ldflags="-s -w" -o build/windows/updater/hermes-dock-updater.exe ./cmd/hermes-dock-updater
+
       - name: Build
         shell: pwsh
         run: wails build -clean -platform windows/amd64 -nsis -webview2 download
@@ -108,6 +114,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           New-Item -ItemType Directory -Force dist/windows-portable | Out-Null
           Copy-Item build/bin/hermes-dock.exe dist/windows-portable/hermes-dock.exe
+          Copy-Item build/windows/updater/hermes-dock-updater.exe dist/windows-portable/hermes-dock-updater.exe
           Copy-Item build/windows/profile-runner/hermes-profile-runner-linux-amd64 dist/windows-portable/hermes-profile-runner-linux-amd64
           Compress-Archive -Path dist/windows-portable/* -DestinationPath "dist/hermes-dock-$version-windows-amd64-portable.zip" -Force
           Remove-Item -Recurse -Force dist/windows-portable
@@ -168,6 +175,7 @@ jobs:
           mkdir -p "$(dirname "$runner")"
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -buildvcs=false -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
           install -m 755 "$runner" build/bin/hermes-dock.app/Contents/MacOS/hermes-profile-runner-linux-arm64
+          go build -buildvcs=false -trimpath -ldflags="-s -w" -o build/bin/hermes-dock.app/Contents/MacOS/hermes-dock-updater ./cmd/hermes-dock-updater
           ditto -c -k --keepParent build/bin/hermes-dock.app "dist/hermes-dock-${version}-darwin-arm64.zip"
 
       - name: Upload artifacts
@@ -239,12 +247,14 @@ jobs:
           runner="build/profile-runner/hermes-profile-runner-linux-amd64"
           mkdir -p "$(dirname "$runner")"
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -trimpath -ldflags="-s -w" -o "$runner" ./cmd/hermes-profile-runner
+          go build -buildvcs=false -trimpath -ldflags="-s -w" -o build/bin/hermes-dock-updater ./cmd/hermes-dock-updater
           install -Dm755 "$runner" build/bin/hermes-profile-runner
-          tar -C build/bin -czf "dist/hermes-dock-${version}-linux-amd64.tar.gz" hermes-dock hermes-profile-runner
+          tar -C build/bin -czf "dist/hermes-dock-${version}-linux-amd64.tar.gz" hermes-dock hermes-dock-updater hermes-profile-runner
 
           package_root="dist/deb/hermes-dock"
           install -Dm755 build/bin/hermes-dock "$package_root/opt/hermes-dock/hermes-dock"
           install -Dm755 "$runner" "$package_root/opt/hermes-dock/hermes-profile-runner"
+          install -Dm755 build/bin/hermes-dock-updater "$package_root/opt/hermes-dock/hermes-dock-updater"
           install -Dm644 build/appicon.png "$package_root/opt/hermes-dock/hermes-dock.png"
           mkdir -p "$package_root/usr/share/applications"
           cat > "$package_root/usr/share/applications/hermes-dock.desktop" <<'DESKTOP'

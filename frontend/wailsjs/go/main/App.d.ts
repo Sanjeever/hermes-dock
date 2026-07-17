@@ -54,6 +54,8 @@ export function InspectInstanceBackup(arg1:string):Promise<main.InstanceBackupMa
 
 export function InstallSkillHubSkill(arg1:string):Promise<void>;
 
+export function InstallUpdate(arg1:string):Promise<void>;
+
 export function ListProfileSkills():Promise<main.SkillsState>;
 
 export function ListProfiles():Promise<main.ProfileRegistry>;
@@ -103,6 +105,8 @@ export function SaveWebSettings(arg1:main.WebSettingsRequest):Promise<void>;
 export function SelectProfile(arg1:string):Promise<void>;
 
 export function SendTestMessage(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SetAutoUpdateEnabled(arg1:boolean):Promise<main.UpdateStatus>;
 
 export function SetHomeChannel(arg1:string,arg2:string):Promise<void>;
 

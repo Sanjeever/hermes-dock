@@ -1,14 +1,22 @@
 import {useEffect, useState} from 'react';
-import {CheckForUpdates, DismissUpdate, OpenUpdateURL} from '../services/api';
-import type {Notice, UpdateInfo} from '../types';
+import {CheckForUpdates, DismissUpdate, InstallUpdate, OpenUpdateURL, SetAutoUpdateEnabled} from '../services/api';
+import {EventsOn} from '../services/events';
+import type {Notice, UpdateInfo, UpdateStatus} from '../types';
 
 export function useUpdates(options: {
     appVersion?: string;
     appendLog: (line: string) => void;
     setNotice: (value: Notice | null) => void;
+    onStatusChanged: (status: UpdateStatus) => void;
 }) {
     const [info, setInfo] = useState<UpdateInfo | null>(null);
     const [busy, setBusy] = useState(false);
+    const [progress, setProgress] = useState('');
+
+    useEffect(() => EventsOn<{message: string; percent: number}>('update:progress', (event) => {
+        const suffix = event.percent > 0 && event.percent < 100 ? ` ${event.percent}%` : '';
+        setProgress(`${event.message}${suffix}`);
+    }), []);
 
     useEffect(() => {
         if (!options.appVersion) return;
@@ -47,6 +55,38 @@ export function useUpdates(options: {
         }
     }
 
+    async function install() {
+        if (!info?.available || !info.assetUrl) return;
+        setBusy(true);
+        setProgress('正在准备更新');
+        try {
+            await InstallUpdate(info.latestVersion);
+            setProgress('正在重启企智盒');
+            options.setNotice({type: 'ok', message: '更新已下载并验证，正在重启企智盒'});
+        } catch (error) {
+            const message = String(error);
+            options.appendLog(message);
+            options.setNotice({type: 'error', message});
+            setProgress('');
+            setBusy(false);
+        }
+    }
+
+    async function setAutoUpdate(enabled: boolean) {
+        setBusy(true);
+        try {
+            const status = await SetAutoUpdateEnabled(enabled);
+            options.onStatusChanged(status);
+            options.setNotice({type: 'ok', message: enabled ? '已开启静默自动升级' : '已关闭静默自动升级'});
+        } catch (error) {
+            const message = String(error);
+            options.appendLog(message);
+            options.setNotice({type: 'error', message});
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function open(url: string) {
         if (!url) return;
         try {
@@ -58,18 +98,5 @@ export function useUpdates(options: {
         }
     }
 
-    async function copyInstallCommand(url: string) {
-        if (!info?.assetName || !url) return;
-        const command = `curl -L -o ${info.assetName} ${url}\nsudo apt install -y ./${info.assetName}`;
-        try {
-            await navigator.clipboard.writeText(command);
-            options.setNotice({type: 'ok', message: '已复制安装命令'});
-        } catch (error) {
-            const message = String(error);
-            options.appendLog(message);
-            options.setNotice({type: 'error', message});
-        }
-    }
-
-    return {info, busy, check, dismiss, open, copyInstallCommand};
+    return {info, busy, progress, check, dismiss, install, open, setAutoUpdate};
 }

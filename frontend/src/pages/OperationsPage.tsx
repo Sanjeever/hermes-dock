@@ -1,11 +1,11 @@
 import type {RefObject} from 'react';
 import {useEffect, useState} from 'react';
-import {CheckCircle2, CircleAlert, Clipboard, ExternalLink, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Clipboard, Download, ExternalLink, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
-import type {AppState, ComposeSettings, InstanceBackupManifest, OperationsTab, ProxySettings, WebSettingsRequest, WebStatus} from '../types';
+import type {AppState, ComposeSettings, InstanceBackupManifest, OperationsTab, ProxySettings, UpdateInfo, UpdateStatus, WebSettingsRequest, WebStatus} from '../types';
 import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
@@ -68,10 +68,18 @@ export function OperationsPage(props: {
     onSaveWebSettings: (settings: WebSettingsRequest) => Promise<boolean>;
     onChangeWebPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
     onResetWebPassword: () => Promise<boolean>;
+    updateInfo: UpdateInfo | null;
+    updateStatus: UpdateStatus;
+    updateBusy: boolean;
+    updateProgress: string;
+    onCheckUpdate: () => void;
+    onInstallUpdate: () => void;
+    onSetAutoUpdate: (enabled: boolean) => Promise<void>;
 }) {
     const tabs: Array<{ id: OperationsTab; label: string }> = props.scope === 'settings' ? [
         {id: 'basic', label: '基础设置'},
         {id: 'network', label: '网络设置'},
+        {id: 'update', label: '软件更新'},
         {id: 'advanced', label: '高级设置'},
         {id: 'remote', label: 'Web 管理'},
     ] : [
@@ -147,6 +155,20 @@ export function OperationsPage(props: {
                     />
                 </section>
             )}
+            {activeTab === 'update' && (
+                <section className="operations-context">
+                    <UpdateSettingsCard
+                        currentVersion={props.state.appVersion}
+                        info={props.updateInfo}
+                        status={props.updateStatus}
+                        busy={props.updateBusy}
+                        progress={props.updateProgress}
+                        onCheck={props.onCheckUpdate}
+                        onInstall={props.onInstallUpdate}
+                        onSetAutoUpdate={props.onSetAutoUpdate}
+                    />
+                </section>
+            )}
             {activeTab === 'basic' && (
                 <section className="advanced-ops-stack">
                     <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
@@ -186,6 +208,48 @@ export function OperationsPage(props: {
                 </section>
             )}
         </section>
+    );
+}
+
+function UpdateSettingsCard(props: {
+    currentVersion: string;
+    info: UpdateInfo | null;
+    status: UpdateStatus;
+    busy: boolean;
+    progress: string;
+    onCheck: () => void;
+    onInstall: () => void;
+    onSetAutoUpdate: (enabled: boolean) => Promise<void>;
+}) {
+    const available = !!props.info?.available;
+    return (
+        <div className="panel update-settings-card">
+            <div className="web-management-header">
+                <div>
+                    <p className="eyebrow">软件更新</p>
+                    <h3>{available ? `发现新版本 v${props.info?.latestVersion}` : '企智盒版本管理'}</h3>
+                    <p>更新只会重启启动器，正在运行的 Hermes Agent Docker 容器不会停止。</p>
+                </div>
+                <div className={`status-pill ${available ? 'warn' : 'ok'}`}>{available ? '可更新' : `v${props.currentVersion}`}</div>
+            </div>
+            <div className="update-version-grid">
+                <div><span>当前版本</span><strong>v{props.currentVersion}</strong></div>
+                <div><span>最新版本</span><strong>{props.info?.latestVersion ? `v${props.info.latestVersion}` : '尚未检查'}</strong></div>
+            </div>
+            <div className="update-settings-actions">
+                <button className="ghost" onClick={props.onCheck} disabled={props.busy}><RefreshCcw size={16} className={props.busy && !props.progress ? 'spin' : undefined}/>{props.busy && !props.progress ? '检查中' : '检查更新'}</button>
+                {available && <button className="primary no-margin" onClick={props.onInstall} disabled={props.busy || !props.info?.assetUrl}><Download size={16}/>{props.busy ? (props.progress || '正在更新') : '立即更新'}</button>}
+            </div>
+            <label className="update-auto-row">
+                <span>
+                    <strong>自动下载安装更新</strong>
+                    <small>开启后注册系统定时任务，每天凌晨 2 点检查并安装稳定版本。默认关闭。</small>
+                </span>
+                <input type="checkbox" checked={props.status.autoUpdateEnabled} onChange={(event) => props.onSetAutoUpdate(event.target.checked)} disabled={props.busy}/>
+            </label>
+            {props.status.autoUpdateEnabled && !props.status.taskRegistered && <div className="form-warning">自动更新已开启，但系统定时任务未注册。</div>}
+            {props.status.lastError && <div className="operation-error">自动更新：{props.status.lastError}</div>}
+        </div>
     );
 }
 

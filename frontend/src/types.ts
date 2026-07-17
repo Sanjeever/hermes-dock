@@ -1,6 +1,6 @@
 export type Page = 'overview' | 'assistants' | 'operations' | 'settings';
 export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
-export type OperationsTab = 'runtime' | 'remote' | 'diagnostics' | 'basic' | 'network' | 'advanced';
+export type OperationsTab = 'runtime' | 'remote' | 'diagnostics' | 'basic' | 'network' | 'update' | 'advanced';
 export type PlatformKey = 'weixin' | 'wecom' | 'feishu';
 
 export type EnvVar = { key: string; value: string; secret: boolean };
@@ -164,6 +164,11 @@ export type UpdateInfo = {
     mirrors: UpdateMirrorLink[];
     checkedAt: string;
 };
+export type UpdateStatus = {
+    autoUpdateEnabled: boolean;
+    taskRegistered: boolean;
+    lastError: string;
+};
 export type InstanceBackupProfile = {
     id: string;
     name: string;
@@ -208,6 +213,7 @@ export type AppState = {
     web: WebStatus;
     dufs: DufsStatus;
     hostBridge: HostBridgeStatus;
+    update: UpdateStatus;
 };
 
 export type DufsStatus = {

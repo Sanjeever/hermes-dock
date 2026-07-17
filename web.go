@@ -829,6 +829,8 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"ResetWebPassword":      noResult(a.ResetWebPassword),
 		"CheckForUpdates":       oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
 		"DismissUpdate":         oneArg[string](a.DismissUpdate),
+		"InstallUpdate":         oneArg[string](a.InstallUpdate),
+		"SetAutoUpdateEnabled":  oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
 		"OpenUpdateURL":         oneArg[string](a.OpenUpdateURL),
 		"OpenWebManagement":     noResult(a.OpenWebManagement),
 	}

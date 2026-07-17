@@ -21,24 +21,26 @@ const (
 )
 
 type App struct {
-	ctx               context.Context
-	instanceRoot      string
-	mu                sync.Mutex
-	webSessionMu      sync.RWMutex
-	loginMu           sync.Mutex
-	logCancel         context.CancelFunc
-	loginCancel       context.CancelFunc
-	loginPlatform     string
-	startupErr        error
-	web               *webRuntime
-	hostBridge        *hostBridgeRuntime
-	hostBridgeMu      sync.RWMutex
-	hostBridgeAddr    string
-	hostRPAMu         sync.Mutex
-	hostRPAOwner      string
-	hostRPAExpiresAt  time.Time
-	notificationMu    sync.Mutex
-	notificationReady bool
+	ctx                 context.Context
+	instanceRoot        string
+	mu                  sync.Mutex
+	webSessionMu        sync.RWMutex
+	loginMu             sync.Mutex
+	logCancel           context.CancelFunc
+	loginCancel         context.CancelFunc
+	loginPlatform       string
+	startupErr          error
+	web                 *webRuntime
+	hostBridge          *hostBridgeRuntime
+	hostBridgeMu        sync.RWMutex
+	hostBridgeAddr      string
+	hostRPAMu           sync.Mutex
+	hostRPAOwner        string
+	hostRPAExpiresAt    time.Time
+	notificationMu      sync.Mutex
+	notificationReady   bool
+	updateMu            sync.Mutex
+	updateWatcherCancel context.CancelFunc
 }
 
 func NewApp() *App {
@@ -48,8 +50,10 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.instanceRoot = detectInstanceRoot()
+	a.startUpdateWatcher()
 	a.startupErr = a.ensureInstanceReady()
 	if a.startupErr == nil {
+		a.acknowledgeInstalledUpdate()
 		a.startHostBridge()
 		a.startWebServer()
 		a.startTray()
@@ -57,6 +61,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.stopUpdateWatcher()
 	a.stopTray()
 	a.stopHostBridge(ctx)
 	a.cleanupHostNotifications()
@@ -104,6 +109,7 @@ func (a *App) GetAppState() (AppState, error) {
 		Web:              a.webStatus(),
 		Dufs:             a.dufsStatus(),
 		HostBridge:       a.hostBridgeStatus(),
+		Update:           a.updateStatus(),
 	}, nil
 }
 
@@ -327,13 +333,24 @@ func (a *App) FactoryResetInstance() error {
 			return err
 		}
 	}
+	updateState, _ := a.readUpdateState()
+	updateTaskRegistered, _ := a.updateTaskRegistered()
+	if updateState.AutoUpdateEnabled || updateTaskRegistered {
+		if err := a.unregisterUpdateTask(); err != nil {
+			return fmt.Errorf("删除自动更新任务失败：%w", err)
+		}
+	}
+	a.stopUpdateWatcher()
 	if err := a.removeInstanceExceptShared(); err != nil {
+		a.startUpdateWatcher()
 		return err
 	}
 	a.startupErr = nil
 	if err := a.ensureInstanceReadyLocked(); err != nil {
+		a.startUpdateWatcher()
 		return err
 	}
+	a.startUpdateWatcher()
 	return a.startHostBridge()
 }
 

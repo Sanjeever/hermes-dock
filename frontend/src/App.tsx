@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {CheckCircle2, CircleAlert, Clipboard, ExternalLink, RefreshCcw, RotateCcw} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Download, ExternalLink, RefreshCcw, RotateCcw} from 'lucide-react';
 import './styles/tokens.css';
 import './App.css';
 import './styles/refresh.css';
@@ -8,11 +8,9 @@ import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
     CancelFeishuLogin,
-    CheckForUpdates,
     CompleteProfileSetup,
     CreateProfile,
     DeleteProfile,
-    DismissUpdate,
     DeleteSkill,
     ExportInstanceBackup,
     FactoryResetInstance,
@@ -26,7 +24,6 @@ import {
     ListProfileSkills,
     ListSkillHubSkills,
     OpenEndpoint,
-    OpenUpdateURL,
     OpenSkillDirectory,
     ReadTextFile,
     RebuildHermes,
@@ -65,7 +62,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, UpdateInfo, WizardStep} from './types';
+import type {AppState, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
@@ -136,7 +133,12 @@ function App() {
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
     const run = useOperationRunner({refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
     const skills = useSkills({run, refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
-    const updates = useUpdates({appVersion: state?.appVersion, appendLog, setNotice});
+    const updates = useUpdates({
+        appVersion: state?.appVersion,
+        appendLog,
+        setNotice,
+        onStatusChanged: (update) => setState((current) => current ? {...current, update} : current),
+    });
 
     useEffect(() => {
         refresh();
@@ -973,8 +975,7 @@ function App() {
     const unsavedChanges = hasUnsavedChanges();
     const updateInfo = updates.info;
     const showUpdateBanner = !!updateInfo?.available && !updateInfo.dismissed;
-    const updateAssetIsDeb = !!updateInfo?.assetName?.endsWith('.deb');
-    const updateBannerDetail = updateAssetIsDeb ? 'Debian 13 可下载新的 deb 包后安装。' : '可在发布页下载适合当前系统的安装包。';
+    const updateBannerDetail = updates.progress || '点击“立即更新”后将自动下载、安装并重启启动器，Hermes Agent 容器不会停止。';
 
     return (
         <div className="shell">
@@ -1030,7 +1031,7 @@ function App() {
                             <RefreshCcw size={15} className={statusRefreshing ? 'spin' : undefined}/>{statusRefreshing ? '刷新中' : '刷新状态'}
                         </button>
                         <button className="ghost topbar-action-button" onClick={() => updates.check(true)} disabled={updates.busy}>
-                            <RefreshCcw size={15}/>{updates.busy ? '检查中' : '检查更新'}
+                            <RefreshCcw size={15} className={updates.busy ? 'spin' : undefined}/>{updates.busy ? (updates.progress || '处理中') : '检查更新'}
                         </button>
                     </div>
                 </header>
@@ -1042,15 +1043,10 @@ function App() {
                             <span>当前版本 v{updateInfo.currentVersion}，{updateBannerDetail}</span>
                         </div>
                         <div className="update-actions">
+                            <button className="primary" onClick={() => {
+                                if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
+                            }} disabled={updates.busy || !!busy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
                             {updateInfo.releaseUrl && <button onClick={() => updates.open(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
-                            {updateInfo.assetUrl && updateAssetIsDeb && <button onClick={() => updates.copyInstallCommand(updateInfo.assetUrl)}><Clipboard size={15}/>复制安装命令</button>}
-                            {updateInfo.assetUrl && !updateAssetIsDeb && <button onClick={() => updates.open(updateInfo.assetUrl)}><ExternalLink size={15}/>下载安装包</button>}
-                            {updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
-                                <button key={mirror.label} onClick={() => updates.copyInstallCommand(mirror.url)}><Clipboard size={15}/>{mirror.label}</button>
-                            ))}
-                            {!updateAssetIsDeb && (updateInfo.mirrors || []).map((mirror) => (
-                                <button key={mirror.label} onClick={() => updates.open(mirror.url)}><ExternalLink size={15}/>{mirror.label}</button>
-                            ))}
                             <button onClick={updates.dismiss}>忽略</button>
                         </div>
                     </div>
@@ -1274,6 +1270,16 @@ function App() {
                         onSaveWebSettings={(settings) => run('正在保存 Web 管理设置', () => SaveWebSettings(settings))}
                         onChangeWebPassword={(oldPassword, newPassword) => run('正在修改 Web 访问密码', () => ChangeWebPassword(oldPassword, newPassword))}
                         onResetWebPassword={() => run('正在重置 Web 访问密码', ResetWebPassword)}
+                        updateInfo={updates.info}
+                        updateStatus={state.update}
+                        updateBusy={updates.busy || !!busy}
+                        updateProgress={updates.progress}
+                        onCheckUpdate={() => updates.check(true)}
+                        onInstallUpdate={() => {
+                            if (!updates.info) return;
+                            if (window.confirm(`即将升级到 v${updates.info.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
+                        }}
+                        onSetAutoUpdate={updates.setAutoUpdate}
                     />
                 )}
             </main>

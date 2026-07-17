@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -13,6 +15,17 @@ import (
 var assets embed.FS
 
 func main() {
+	parseUpdateArguments(os.Args[1:])
+	if scheduledUpdateMode {
+		if err := runScheduledUpdate(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if launchAfterUpdateMode && !pendingUpdateRestart() {
+		return
+	}
 	relaunched, err := ensureElevated()
 	if err != nil {
 		println("Error:", err.Error())
@@ -20,6 +33,9 @@ func main() {
 	}
 	if relaunched {
 		return
+	}
+	if launchAfterUpdateMode {
+		clearPendingUpdateRestart()
 	}
 
 	// Create an instance of the app structure

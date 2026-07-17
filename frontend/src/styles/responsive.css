@@ -82,8 +82,13 @@
 
     .setting-row,
     .setting-control-grid,
-    .setting-control-grid.three {
+    .setting-control-grid.three,
+    .update-version-grid {
         grid-template-columns: 1fr;
+    }
+
+    .update-auto-row {
+        align-items: flex-start;
     }
 
     .service-actions {

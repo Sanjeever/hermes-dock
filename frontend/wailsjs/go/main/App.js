@@ -106,6 +106,10 @@ export function InstallSkillHubSkill(arg1) {
   return window['go']['main']['App']['InstallSkillHubSkill'](arg1);
 }
 
+export function InstallUpdate(arg1) {
+  return window['go']['main']['App']['InstallUpdate'](arg1);
+}
+
 export function ListProfileSkills() {
   return window['go']['main']['App']['ListProfileSkills']();
 }
@@ -204,6 +208,10 @@ export function SelectProfile(arg1) {
 
 export function SendTestMessage(arg1, arg2, arg3) {
   return window['go']['main']['App']['SendTestMessage'](arg1, arg2, arg3);
+}
+
+export function SetAutoUpdateEnabled(arg1) {
+  return window['go']['main']['App']['SetAutoUpdateEnabled'](arg1);
 }
 
 export function SetHomeChannel(arg1, arg2) {

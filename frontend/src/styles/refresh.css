@@ -196,6 +196,11 @@ h2 {
     color: #111827;
 }
 
+.update-actions button.primary {
+    background: #2563eb;
+    color: #ffffff;
+}
+
 .ghost:hover:not(:disabled),
 .icon-button:hover:not(:disabled),
 .update-actions button:hover:not(:disabled),
