@@ -322,6 +322,53 @@ wails dev
 
 本仓库当前包含以下开发期 Agent 技能，文件位于 `.agents/skills/`，来源记录在 `skills-lock.json`。这些技能用于辅助维护 Hermes Dock 本身，不同于 Hermes 运行时放在 `templates/seed-data/skills/` 里的 Agent skills。
 
+### 开发质量技能
+
+本项目通过 [`npx skills add`](https://github.com/vercel-labs/skills) 安装了 [obra/superpowers](https://github.com/obra/superpowers) 的两个开发质量技能。`systematic-debugging` 用于在修改代码前查明问题根因，`requesting-code-review` 用于在实现完成后通过独立审查发现遗漏；两者分别覆盖“如何修”和“如何验”，可以在同一任务中顺序使用。
+
+| 技能 | 用途 | 适合在 Hermes Dock 中使用的场景 |
+| --- | --- | --- |
+| `systematic-debugging` | 系统化定位根因并验证修复 | 遇到 Go 测试失败、Wails / React 构建异常、Docker Compose 行为不符合预期、平台绑定故障、性能问题或偶发错误时使用。技能要求先阅读错误、稳定复现、检查近期变更并沿调用链收集证据，再提出单一假设并做最小验证，不能先猜测修复或同时尝试多个改动。 |
+| `requesting-code-review` | 让独立 Agent 审查已完成的实现 | 完成较大功能、复杂缺陷修复或准备合并到 `main` 前使用。技能会向审查 Agent 提供实现说明、需求和明确的 Git 范围，要求只读检查需求符合度、代码质量、架构、安全、测试和上线准备，并将问题分为 Critical、Important 和 Minor。 |
+
+#### `systematic-debugging`
+
+路径：`.agents/skills/systematic-debugging/`。该技能把调试分为根因调查、模式对比、假设验证和修复实现四个阶段；必须完成前一阶段后才能进入下一阶段。对于 Hermes Dock 这类横跨 Go 后端、Wails 绑定、React 界面、Docker Compose 和容器内 runner 的系统，它尤其强调在组件边界检查输入、输出、配置传播和运行状态，从证据中确定真正发生故障的层级。
+
+适合使用的场景：
+
+- Docker 容器状态与界面展示不一致，需要追踪 Compose、Go 状态聚合和前端事件之间的数据流。
+- profile 的 `.env`、runtime manifest 或平台绑定保存成功，但重启后的 gateway 没有获得预期配置。
+- 测试偶发失败、依赖固定延时才能通过，或连续尝试多个修复后不断出现新症状。
+- 构建、发布、自动升级或官网部署经过多个进程和环境，需要先确认故障发生在哪个边界。
+
+技能目录还包含根因回溯、分层校验和基于条件等待的说明，以及用于定位污染测试的 `find-polluter.sh`。查明根因后，应先建立能复现问题的失败用例，只实施针对根因的最小修复，再验证原问题和相关测试；如果三次修复尝试仍失败，应暂停继续打补丁并重新审视架构假设。
+
+示例提示词：
+
+```text
+使用 systematic-debugging 调查“应用配置后某个 enabled profile 仍使用旧 API Key”的问题。先稳定复现，检查 profile .env、runtime manifest、runner 环境解析和 gateway 子进程之间的数据流，提出并验证单一根因假设；在找到根因前不要修改代码。
+```
+
+#### `requesting-code-review`
+
+路径：`.agents/skills/requesting-code-review/`。该技能要求把实现摘要、原始需求、`BASE_SHA` 和 `HEAD_SHA` 交给独立审查 Agent，让审查者直接读取指定范围的 diff，而不是依赖实现过程中的对话历史。随附的 `code-reviewer.md` 模板规定审查过程保持只读，并要求每个问题提供文件行号、影响和修复方向，最后明确判断是否可以合并。
+
+适合使用的场景：
+
+- 完成多 profile、备份迁移、Host Bridge、自动升级等涉及数据安全或跨组件契约的功能后。
+- 修复复杂故障后，确认改动解决的是根因，没有引入静默降级、数据覆盖、密钥泄露或兼容性问题。
+- 准备合并前，核对实现是否完整满足 README、AGENTS.md、计划或用户需求，并检查测试是否覆盖真实行为和关键边界。
+- 开始较大重构前先审查现有基线，或在实现受阻时引入不带既有思路偏见的独立视角。
+
+收到审查结果后，应立即处理 Critical 问题，并在继续或合并前处理 Important 问题；Minor 问题可以记录后续处理。如果不同意审查意见，应以代码、测试或明确的项目约束说明原因，而不是直接忽略。该技能依赖当前 Agent 环境支持派发独立审查 Agent。
+
+示例提示词：
+
+```text
+使用 requesting-code-review 审查这次多 profile runner 改动。需求以 AGENTS.md 的“多 Profile 设计约定”和“数据安全规则”为准，审查范围为 origin/main 到当前 HEAD；重点检查 profile 隔离、平台身份唯一性、密钥是否进入派生运行态、异常重启边界和测试覆盖。审查过程只读，不要修改工作树。
+```
+
 ### 营销文案技能
 
 本项目通过 [`npx skills add`](https://github.com/vercel-labs/skills) 安装了 [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) 的两个文案技能。它们适合官网、产品介绍页、功能页、定价页和发布页等需要说明价值并引导行动的内容；不应用于日常的技术文档、界面字段文案或与转化无关的代码注释。
@@ -650,6 +697,8 @@ uv run --no-project python .agents/skills/ui-ux-pro-max/scripts/search.py "react
 ```bash
 npx -y skills update copywriting --project --yes
 npx -y skills update copy-editing --project --yes
+npx -y skills update systematic-debugging --project --yes
+npx -y skills update requesting-code-review --project --yes
 npx -y skills update ui-ux-pro-max --project --yes
 npx -y skills update vercel-react-best-practices --project --yes
 ```
