@@ -22,6 +22,11 @@ export type ComposeSettings = {
     cpuLimit: string;
     shmSize: string;
     sharedDirectory: string;
+    dufsEnabled: boolean;
+    dufsPort: string;
+    dufsUsername: string;
+    dufsPassword?: string;
+    dufsUsingDefaultPassword: boolean;
 };
 export type ResourceLimitsRecommendation = {
     memoryLimit: string;
@@ -201,7 +206,18 @@ export type AppState = {
     composeAvailable: boolean;
     containerStatus: string;
     web: WebStatus;
+    dufs: DufsStatus;
     hostBridge: HostBridgeStatus;
+};
+
+export type DufsStatus = {
+    enabled: boolean;
+    port: string;
+    username: string;
+    localUrl: string;
+    lanUrls: string[];
+    primaryUrl: string;
+    usingDefaultPassword: boolean;
 };
 
 export type HostBridgeStatus = {

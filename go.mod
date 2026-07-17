@@ -3,6 +3,7 @@ module hermes-dock
 go 1.23.0
 
 require (
+	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018

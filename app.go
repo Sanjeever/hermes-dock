@@ -102,6 +102,7 @@ func (a *App) GetAppState() (AppState, error) {
 		ComposeAvailable: a.composeAvailable(context.Background()),
 		ContainerStatus:  containerStatus,
 		Web:              a.webStatus(),
+		Dufs:             a.dufsStatus(),
 		HostBridge:       a.hostBridgeStatus(),
 	}, nil
 }
@@ -114,14 +115,22 @@ func (a *App) ensureInstanceReady() error {
 
 func (a *App) ensureInstanceReadyLocked() error {
 	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.defaultEnvPath()) && fileExists(a.defaultConfigPath()) {
-		if err := a.ensureComposeResourceDefaults(); err != nil {
+		settings := a.readComposeSettings()
+		var err error
+		settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-repair")
+		if err != nil {
 			return err
 		}
-		settings := a.readComposeSettings()
 		if err := a.ensureContainerInitHelpers(); err != nil {
 			return err
 		}
 		if err := a.migrateComposeIfNeeded(settings); err != nil {
+			return err
+		}
+		if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
+			return err
+		}
+		if err := a.ensureComposeResourceDefaults(); err != nil {
 			return err
 		}
 		if err := a.writeOverrideIfMissing(); err != nil {
@@ -159,6 +168,11 @@ func (a *App) ensureInstanceReadyLocked() error {
 	} else if settings.Image == "" {
 		settings = defaultComposeSettings()
 	}
+	var err error
+	settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-initialize")
+	if err != nil {
+		return err
+	}
 	if !fileExists(a.composePath()) {
 		if err := a.writeCompose(settings, "initialize-compose"); err != nil {
 			return err
@@ -182,6 +196,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.writeState(state); err != nil {
 			return err
 		}
+		if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
+			return err
+		}
 		if err := a.ensureProfileRegistry(); err != nil {
 			return err
 		}
@@ -194,6 +211,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		return err
 	}
 	if err := a.migrateProfileStreamingDefaults(); err != nil {
+		return err
+	}
+	if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
 		return err
 	}
 	return a.ensureWebConfig()
@@ -222,6 +242,11 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		return LauncherState{}, err
 	}
 	if err := a.ensureDockDataDir(); err != nil {
+		return LauncherState{}, err
+	}
+	var err error
+	settings, err = a.ensureDufsConfig(settings, settings.DufsPassword, "before-dufs-config-initialize")
+	if err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.writeCompose(settings, "initialize-compose"); err != nil {
@@ -262,6 +287,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		ModelAuxiliaryMode: firstNonEmpty(existing.ModelAuxiliaryMode, "auto"),
 	}
 	if err := a.writeState(state); err != nil {
+		return LauncherState{}, err
+	}
+	if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.ensureProfileRegistry(); err != nil {
@@ -351,6 +379,12 @@ func (a *App) OpenEndpoint(endpoint string) error {
 	case "gateway":
 		host = settings.GatewayHost
 		port = settings.GatewayPort
+	case "dufs":
+		if !settings.DufsEnabled {
+			return fmt.Errorf("Dufs 文件管理未开启")
+		}
+		host = "127.0.0.1"
+		port = settings.DufsPort
 	default:
 		return fmt.Errorf("未知入口：%s", endpoint)
 	}

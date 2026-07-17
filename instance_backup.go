@@ -146,6 +146,10 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		return InstanceBackupImportResult{}, err
 	}
 	settings := a.readComposeSettings()
+	settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-import")
+	if err != nil {
+		return InstanceBackupImportResult{}, err
+	}
 	if err := atomicWriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
@@ -155,8 +159,10 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		return InstanceBackupImportResult{}, err
 	}
 	state.AppVersion = appVersion
+	state.ComposeSettings = settings
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
 	state.Backups = append(state.Backups, BackupRecord{
 		ID:     now.Format("20060102T150405Z"),
 		Reason: "pre-import-instance",
@@ -293,6 +299,7 @@ func (a *App) collectInstanceBackupEntries() ([]instanceBackupEntry, []string, e
 		"launcher/state.json",
 		"launcher/profiles.json",
 		"launcher/web-server.json",
+		"launcher/dufs/config.yaml",
 		"docker-compose.override.yaml",
 		"docker-compose.yaml",
 	}

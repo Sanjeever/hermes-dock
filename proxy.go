@@ -48,6 +48,9 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	if settings.Enabled && settings.HTTPProxy == "" && settings.HTTPSProxy == "" && settings.ALLProxy == "" {
 		return errors.New("启用容器代理时，请至少填写一个代理地址")
 	}
+	if settings == a.readProxySettings() {
+		return nil
+	}
 	if err := ensureDir(filepath.Dir(a.proxyPath())); err != nil {
 		return err
 	}
@@ -70,6 +73,7 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	state, _ := a.readState()
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }

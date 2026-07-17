@@ -18,6 +18,7 @@ type AppState struct {
 	ComposeAvailable bool             `json:"composeAvailable"`
 	ContainerStatus  string           `json:"containerStatus"`
 	Web              WebStatus        `json:"web"`
+	Dufs             DufsStatus       `json:"dufs"`
 	HostBridge       HostBridgeStatus `json:"hostBridge"`
 }
 
@@ -38,6 +39,16 @@ type WebStatus struct {
 	PrimaryURL           string   `json:"primaryUrl"`
 	UsingDefaultPassword bool     `json:"usingDefaultPassword"`
 	Error                string   `json:"error"`
+}
+
+type DufsStatus struct {
+	Enabled              bool     `json:"enabled"`
+	Port                 string   `json:"port"`
+	Username             string   `json:"username"`
+	LocalURL             string   `json:"localUrl"`
+	LanURLs              []string `json:"lanUrls"`
+	PrimaryURL           string   `json:"primaryUrl"`
+	UsingDefaultPassword bool     `json:"usingDefaultPassword"`
 }
 
 type WebSettingsRequest struct {
@@ -123,6 +134,7 @@ type LauncherState struct {
 	ManagedCompose            bool              `json:"managedCompose"`
 	ComposeHash               string            `json:"composeHash"`
 	LastAppliedComposeHash    string            `json:"lastAppliedComposeHash"`
+	LastAppliedDufsHash       string            `json:"lastAppliedDufsHash"`
 	TemplateVersion           string            `json:"templateVersion"`
 	SkillsSnapshotImage       string            `json:"skillsSnapshotImage"`
 	HermesImage               string            `json:"hermesImage"`
@@ -132,6 +144,7 @@ type LauncherState struct {
 	InitializedAt             string            `json:"initializedAt"`
 	UpdatedAt                 string            `json:"updatedAt"`
 	NeedsRebuild              bool              `json:"needsRebuild"`
+	PendingDufsOnly           bool              `json:"pendingDufsOnly"`
 	Migrations                []MigrationRecord `json:"migrations"`
 	Backups                   []BackupRecord    `json:"backups"`
 	UI                        UIState           `json:"ui"`
@@ -211,23 +224,28 @@ type RuntimeProfileStatus struct {
 }
 
 type ComposeSettings struct {
-	Image                   string `json:"image"`
-	ContainerName           string `json:"containerName"`
-	GatewayHost             string `json:"gatewayHost"`
-	GatewayPort             string `json:"gatewayPort"`
-	DashboardHost           string `json:"dashboardHost"`
-	DashboardPort           string `json:"dashboardPort"`
-	DashboardEnabled        bool   `json:"dashboardEnabled"`
-	DashboardUsername       string `json:"dashboardUsername"`
-	DashboardPassword       string `json:"dashboardPassword"`
-	GatewayBusyInputMode    string `json:"gatewayBusyInputMode"`
-	GatewayBusyAckEnabled   string `json:"gatewayBusyAckEnabled"`
-	BackgroundNotifications string `json:"backgroundNotifications"`
-	HostControlEnabled      string `json:"hostControlEnabled"`
-	MemoryLimit             string `json:"memoryLimit"`
-	CPULimit                string `json:"cpuLimit"`
-	ShmSize                 string `json:"shmSize"`
-	SharedDirectory         string `json:"sharedDirectory"`
+	Image                    string `json:"image"`
+	ContainerName            string `json:"containerName"`
+	GatewayHost              string `json:"gatewayHost"`
+	GatewayPort              string `json:"gatewayPort"`
+	DashboardHost            string `json:"dashboardHost"`
+	DashboardPort            string `json:"dashboardPort"`
+	DashboardEnabled         bool   `json:"dashboardEnabled"`
+	DashboardUsername        string `json:"dashboardUsername"`
+	DashboardPassword        string `json:"dashboardPassword"`
+	GatewayBusyInputMode     string `json:"gatewayBusyInputMode"`
+	GatewayBusyAckEnabled    string `json:"gatewayBusyAckEnabled"`
+	BackgroundNotifications  string `json:"backgroundNotifications"`
+	HostControlEnabled       string `json:"hostControlEnabled"`
+	MemoryLimit              string `json:"memoryLimit"`
+	CPULimit                 string `json:"cpuLimit"`
+	ShmSize                  string `json:"shmSize"`
+	SharedDirectory          string `json:"sharedDirectory"`
+	DufsEnabled              bool   `json:"dufsEnabled"`
+	DufsPort                 string `json:"dufsPort"`
+	DufsUsername             string `json:"dufsUsername"`
+	DufsPassword             string `json:"dufsPassword,omitempty"`
+	DufsUsingDefaultPassword bool   `json:"dufsUsingDefaultPassword"`
 }
 
 type ResourceLimitsRecommendation struct {

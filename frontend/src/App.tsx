@@ -862,7 +862,7 @@ function App() {
         setAdvancedPath(path);
     }
 
-    async function openEndpoint(endpoint: 'dashboard' | 'gateway') {
+    async function openEndpoint(endpoint: 'dashboard' | 'gateway' | 'dufs') {
         try {
             await OpenEndpoint(endpoint);
         } catch (error) {

@@ -261,6 +261,7 @@ func (a *App) SaveProviderConfig(providers ProviderConfig) error {
 	}
 	state, _ := a.readState()
 	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }

@@ -1,30 +1,35 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
-import {Cpu, Network, RotateCcw, Save} from 'lucide-react';
+import {Clipboard, Cpu, ExternalLink, Network, RotateCcw, Save} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import {GetRecommendedResourceLimits} from '../services/api';
-import type {ComposeSettings, HostBridgeStatus, ProxySettings} from '../types';
+import type {ComposeSettings, DufsStatus, HostBridgeStatus, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
-export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCompose, setProxy, dirty, busy, onSave, onDiscard}: {
+export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs, setCompose, setProxy, dirty, busy, onOpenEndpoint, onSave, onDiscard}: {
     section?: 'basic' | 'network';
     compose: ComposeSettings;
     proxy: ProxySettings;
     hostBridge: HostBridgeStatus;
+    dufs: DufsStatus;
     setCompose: (value: ComposeSettings) => void;
     setProxy: (value: ProxySettings) => void;
     dirty: boolean;
     busy: boolean;
+    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
     onSave: () => void;
     onDiscard: () => void;
 }) {
     const [passwordVisible, setPasswordVisible] = useState(false);
+    const [dufsPasswordVisible, setDufsPasswordVisible] = useState(false);
+    const [copiedDufsURL, setCopiedDufsURL] = useState(false);
     const [resourceRecommendation, setResourceRecommendation] = useState<{ dockerMemoryGB: number; dockerCPU: number } | null>(null);
     const [resourceRecommendationBusy, setResourceRecommendationBusy] = useState(false);
     const [resourceRecommendationError, setResourceRecommendationError] = useState('');
     const composeRef = useRef(compose);
-    const update = (key: keyof Omit<ComposeSettings, 'dashboardEnabled'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
+    const update = (key: Exclude<keyof ComposeSettings, 'dashboardEnabled' | 'dufsEnabled' | 'dufsUsingDefaultPassword'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const updateProxyText = (key: keyof Omit<ProxySettings, 'enabled'>, value: string) => setProxy({...proxy, [key]: value});
-    const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
+    const dufsAccountValid = /^[A-Za-z0-9._-]+$/.test(compose.dufsUsername);
+    const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort) && (!compose.dufsEnabled || isPortValue(compose.dufsPort));
     const proxyReady = !proxy.enabled || !!(proxy.httpProxy.trim() || proxy.httpsProxy.trim() || proxy.allProxy.trim());
     const isBasic = section === 'basic';
     const resourceStatus = resourceRecommendation
@@ -85,6 +90,13 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
         }
     }
 
+    async function copyDufsURL() {
+        if (!dufs.primaryUrl) return;
+        await navigator.clipboard.writeText(dufs.primaryUrl);
+        setCopiedDufsURL(true);
+        window.setTimeout(() => setCopiedDufsURL(false), 1200);
+    }
+
     return (
         <section className="deploy-stack settings-stack">
             <div className="panel deploy-summary">
@@ -95,7 +107,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
                 </div>
                 <div className="actions compact">
                     <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
-                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid || !proxyReady}><Save size={16}/>保存设置</button>
+                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid || !proxyReady || !dufsAccountValid}><Save size={16}/>保存设置</button>
                 </div>
             </div>
 
@@ -133,6 +145,39 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, setCo
                             <div className="setting-control-stack">
                                 <Field label="宿主机目录" value={compose.sharedDirectory} onChange={(value) => update('sharedDirectory', value)}/>
                                 <div className="setting-note">容器内固定为 /opt/data/.dock/shared。目录结构由用户自行管理，文件不包含在实例备份中。</div>
+                                <label className="toggle">
+                                    <input
+                                        type="checkbox"
+                                        checked={compose.dufsEnabled}
+                                        onChange={(event) => setCompose({...compose, dashboardEnabled: true, dufsEnabled: event.target.checked})}
+                                    />
+                                    开启局域网文件管理
+                                </label>
+                                {compose.dufsEnabled && (
+                                    <>
+                                        <div className="setting-control-grid">
+                                            <Field label="用户名" value={compose.dufsUsername} onChange={(value) => update('dufsUsername', value)}/>
+                                            <Field label="端口" value={compose.dufsPort} onChange={(value) => update('dufsPort', value)}/>
+                                        </div>
+                                        <SecretField
+                                            label="新密码"
+                                            value={compose.dufsPassword || ''}
+                                            visible={dufsPasswordVisible}
+                                            setVisible={setDufsPasswordVisible}
+                                            onChange={(value) => update('dufsPassword', value)}
+                                            hint="留空表示不修改当前密码。"
+                                        />
+                                        {!dufsAccountValid && <div className="form-warning">用户名只能包含字母、数字、点、下划线和连字符。</div>}
+                                        {compose.dufsUsingDefaultPassword && !compose.dufsPassword && <div className="form-warning">文件管理仍使用默认密码 123456，建议修改后再供局域网使用。</div>}
+                                        <div className="form-warning">Dufs 使用 HTTP，适合可信局域网；不要直接暴露到公网。</div>
+                                        {dufs.enabled && dufs.primaryUrl && (
+                                            <div className="actions compact">
+                                                <button className="ghost no-margin" type="button" onClick={() => onOpenEndpoint('dufs')} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
+                                                <button className="ghost no-margin" type="button" onClick={copyDufsURL} disabled={busy}><Clipboard size={16}/>{copiedDufsURL ? '已复制' : '复制访问地址'}</button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </SettingRow>
                     </div>

@@ -33,6 +33,7 @@ func TestStartupCreatesHomeInstance(t *testing.T) {
 		"data/config.yaml",
 		"data/.env",
 		"launcher/state.json",
+		"launcher/dufs/config.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join(root, path)); err != nil {
 			t.Fatalf("expected %s: %v", path, err)
@@ -85,6 +86,10 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
 		"      - \"host.docker.internal:host-gateway\"",
+		"  dufs:",
+		"    image: sigoden/dufs:v0.46.0",
+		"      - \"0.0.0.0:9878:5000\"",
+		"      - ./launcher/dufs/config.yaml:/etc/dufs.yaml:ro",
 	} {
 		if !strings.Contains(compose, want) {
 			t.Fatalf("compose missing %q:\n%s", want, compose)

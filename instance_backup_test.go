@@ -49,7 +49,7 @@ func TestExportInstanceBackupExcludesRuntimeState(t *testing.T) {
 			t.Fatalf("backup included forbidden path %s", forbidden)
 		}
 	}
-	for _, want := range []string{"manifest.json", "checksums.txt", "data/.env", "launcher/profiles.json", "launcher/web-server.json", "docker-compose.yaml"} {
+	for _, want := range []string{"manifest.json", "checksums.txt", "data/.env", "launcher/profiles.json", "launcher/web-server.json", "launcher/dufs/config.yaml", "docker-compose.yaml"} {
 		if !names[want] {
 			t.Fatalf("backup missing %s", want)
 		}

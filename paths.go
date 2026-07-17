@@ -106,6 +106,10 @@ func (a *App) hostBridgeTokenPath() string {
 	return filepath.Join(a.hermesDockDir(), "host-bridge.token")
 }
 
+func (a *App) dufsConfigPath() string {
+	return filepath.Join(a.hermesDockDir(), "dufs", "config.yaml")
+}
+
 func (a *App) updateStatePath() string {
 	return filepath.Join(a.hermesDockDir(), "update.json")
 }
@@ -160,6 +164,7 @@ func (a *App) writeState(state LauncherState) error {
 	if err := ensureDir(filepath.Dir(a.statePath())); err != nil {
 		return err
 	}
+	state.ComposeSettings.DufsPassword = ""
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
@@ -172,10 +177,11 @@ func (a *App) markRebuildRequired() error {
 	if err != nil {
 		return err
 	}
-	if state.NeedsRebuild {
+	if state.NeedsRebuild && !state.PendingDufsOnly {
 		return nil
 	}
 	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }

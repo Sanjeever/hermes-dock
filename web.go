@@ -965,6 +965,12 @@ func (a *App) webEndpointURL(endpoint string) (string, error) {
 	case "gateway":
 		host = settings.GatewayHost
 		port = settings.GatewayPort
+	case "dufs":
+		if !settings.DufsEnabled {
+			return "", fmt.Errorf("Dufs 文件管理未开启")
+		}
+		status := a.dufsStatus()
+		return status.PrimaryURL, nil
 	default:
 		return "", fmt.Errorf("未知入口：%s", endpoint)
 	}

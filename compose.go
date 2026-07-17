@@ -19,23 +19,27 @@ const (
 
 func defaultComposeSettings() ComposeSettings {
 	return ComposeSettings{
-		Image:                   defaultImage,
-		ContainerName:           "hermes",
-		GatewayHost:             "127.0.0.1",
-		GatewayPort:             "8642",
-		DashboardHost:           "127.0.0.1",
-		DashboardPort:           "9119",
-		DashboardEnabled:        true,
-		DashboardUsername:       "admin",
-		DashboardPassword:       "123456",
-		GatewayBusyInputMode:    "steer",
-		GatewayBusyAckEnabled:   "false",
-		BackgroundNotifications: "result",
-		HostControlEnabled:      "true",
-		MemoryLimit:             fallbackMemoryLimit,
-		CPULimit:                fallbackCPULimit,
-		ShmSize:                 "1g",
-		SharedDirectory:         filepath.Join(detectInstanceRoot(), "shared"),
+		Image:                    defaultImage,
+		ContainerName:            "hermes",
+		GatewayHost:              "127.0.0.1",
+		GatewayPort:              "8642",
+		DashboardHost:            "127.0.0.1",
+		DashboardPort:            "9119",
+		DashboardEnabled:         true,
+		DashboardUsername:        "admin",
+		DashboardPassword:        "123456",
+		GatewayBusyInputMode:     "steer",
+		GatewayBusyAckEnabled:    "false",
+		BackgroundNotifications:  "result",
+		HostControlEnabled:       "true",
+		MemoryLimit:              fallbackMemoryLimit,
+		CPULimit:                 fallbackCPULimit,
+		ShmSize:                  "1g",
+		SharedDirectory:          filepath.Join(detectInstanceRoot(), "shared"),
+		DufsEnabled:              true,
+		DufsPort:                 defaultDufsPort,
+		DufsUsername:             defaultDufsUsername,
+		DufsUsingDefaultPassword: true,
 	}
 }
 
@@ -101,6 +105,16 @@ func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	}
 	if settings.SharedDirectory == "" {
 		settings.SharedDirectory = defaults.SharedDirectory
+	}
+	settings.DufsPort = strings.TrimSpace(settings.DufsPort)
+	settings.DufsUsername = strings.TrimSpace(settings.DufsUsername)
+	if settings.DufsPort == "" {
+		settings.DufsEnabled = true
+		settings.DufsPort = defaults.DufsPort
+		settings.DufsUsername = defaults.DufsUsername
+		settings.DufsUsingDefaultPassword = true
+	} else if settings.DufsUsername == "" {
+		settings.DufsUsername = defaults.DufsUsername
 	}
 	return settings
 }
@@ -198,12 +212,21 @@ func (a *App) ensureComposeResourceDefaults() error {
 	}
 	state.ComposeSettings = settings
 	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
+	previousSettings := a.readComposeSettings()
+	previousState, _ := a.readState()
+	password := settings.DufsPassword
+	settings.DufsPassword = ""
 	settings = withComposeDefaults(settings)
+	if err := a.validateDufsSettings(settings); err != nil {
+		return err
+	}
 	sharedDirectory, err := validateSharedDirectory(settings.SharedDirectory)
 	if err != nil {
 		return err
@@ -212,6 +235,10 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 		return err
 	}
 	settings.SharedDirectory = sharedDirectory
+	settings, err = a.ensureDufsConfig(settings, password, "before-dufs-config-save")
+	if err != nil {
+		return err
+	}
 	if err := a.syncComposeEnv(settings); err != nil {
 		return err
 	}
@@ -219,11 +246,14 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 		return err
 	}
 	state, _ := a.readState()
+	hermesUnchanged := renderHermesService(previousSettings, a.readProxySettings()) == renderHermesService(settings, a.readProxySettings())
+	dufsOnly := hermesUnchanged && (!previousState.NeedsRebuild || previousState.PendingDufsOnly)
 	state.PreviousHermesImage = state.HermesImage
 	state.HermesImage = settings.Image
 	state.ComposeSettings = settings
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.NeedsRebuild = true
+	state.PendingDufsOnly = dufsOnly
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	if err := a.writeState(state); err != nil {
 		return err
@@ -231,7 +261,10 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	return a.syncHostBridge(settings.HostControlEnabled == "true")
 }
 
-const composeRuntimeMigrationID = "compose-runtime-v2"
+const (
+	composeRuntimeMigrationID = "compose-runtime-v2"
+	dufsComposeMigrationID    = "compose-dufs-v1"
+)
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
@@ -364,17 +397,75 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	})
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.NeedsRebuild = state.NeedsRebuild || !current
+	if !current {
+		state.PendingDufsOnly = false
+	}
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
+}
+
+func (a *App) migrateDufsComposeIfNeeded(settings ComposeSettings) error {
+	if !fileExists(a.statePath()) {
+		return nil
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	if migrationApplied(state.Migrations, dufsComposeMigrationID) {
+		if state.ComposeSettings.DufsEnabled == settings.DufsEnabled &&
+			state.ComposeSettings.DufsPort == settings.DufsPort &&
+			state.ComposeSettings.DufsUsername == settings.DufsUsername &&
+			state.ComposeSettings.DufsUsingDefaultPassword == settings.DufsUsingDefaultPassword {
+			return nil
+		}
+		state.ComposeSettings.DufsEnabled = settings.DufsEnabled
+		state.ComposeSettings.DufsPort = settings.DufsPort
+		state.ComposeSettings.DufsUsername = settings.DufsUsername
+		state.ComposeSettings.DufsUsingDefaultPassword = settings.DufsUsingDefaultPassword
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return a.writeState(state)
+	}
+	data, err := os.ReadFile(a.composePath())
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	current := !settings.DufsEnabled || (strings.Contains(content, defaultDufsImage) &&
+		strings.Contains(content, "./launcher/dufs/config.yaml:/etc/dufs.yaml:ro") &&
+		strings.Contains(content, ":/data\"") &&
+		strings.Contains(content, `0.0.0.0:`+settings.DufsPort+`:`))
+	if !current {
+		if err := a.writeCompose(settings, "before-dufs-compose-migration"); err != nil {
+			return err
+		}
+	}
+	wasPending := state.NeedsRebuild
+	state.ComposeSettings = settings
+	state.ComposeSettings.DufsPassword = ""
+	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+		ID:        dufsComposeMigrationID,
+		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = state.NeedsRebuild || !current
+	if !current && (!wasPending || state.PendingDufsOnly) {
+		state.PendingDufsOnly = true
+	}
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }
 
 func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
+	return "services:\n" + renderHermesService(settings, proxy) + renderDufsService(settings)
+}
+
+func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
 	settings = withComposeDefaults(settings)
 	proxy = withProxyDefaults(proxy)
 	dashboard := "1"
 	proxyEnv := renderComposeProxyEnvironment(proxy)
-	return fmt.Sprintf(`services:
-  hermes:
+	return fmt.Sprintf(`  hermes:
     image: %s
     container_name: %s
     restart: unless-stopped
@@ -428,6 +519,35 @@ func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
           memory: %s
           cpus: "%s"
 `, settings.Image, settings.ContainerName, settings.ShmSize, settings.GatewayHost, settings.GatewayPort, settings.DashboardHost, settings.DashboardPort, dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), settings.MemoryLimit, settings.CPULimit)
+}
+
+func renderDufsService(settings ComposeSettings) string {
+	settings = withComposeDefaults(settings)
+	if !settings.DufsEnabled {
+		return ""
+	}
+	return fmt.Sprintf(`  dufs:
+    image: %s
+    container_name: hermes-dufs
+    restart: unless-stopped
+    user: "%s"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["--config", "/etc/dufs.yaml"]
+    ports:
+      - "0.0.0.0:%s:%d"
+    volumes:
+      - "%s:/data"
+      - ./launcher/dufs/config.yaml:/etc/dufs.yaml:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+`, defaultDufsImage, dufsContainerUser(), settings.DufsPort, dufsContainerPort, yamlQuote(settings.SharedDirectory))
 }
 
 func renderComposeProxyEnvironment(proxy ProxySettings) string {
@@ -485,8 +605,27 @@ func (a *App) RestartHermes() error {
 }
 
 func (a *App) RebuildHermes() error {
-	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
+	settings := a.readComposeSettings()
+	if err := ensureWritableDirectory(settings.SharedDirectory); err != nil {
 		return err
+	}
+	composeHash, err := a.composeRuntimeHash()
+	if err != nil {
+		return err
+	}
+	dufsHash, err := a.dufsRuntimeHash()
+	if err != nil {
+		return err
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	if state.PendingDufsOnly {
+		if err := a.applyDufsRuntime(settings, state.LastAppliedDufsHash != dufsHash); err != nil {
+			return err
+		}
+		return a.markRebuildApplied(composeHash)
 	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
 		return err
@@ -501,16 +640,11 @@ func (a *App) RebuildHermes() error {
 	if err != nil {
 		return err
 	}
-	composeHash, err := a.composeRuntimeHash()
-	if err != nil {
-		return err
-	}
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
 	recreate := shouldRecreateComposeRuntime(state.LastAppliedComposeHash, composeHash, a.containerStatus(context.Background()))
 	if err := a.applyComposeRuntime(recreate); err != nil {
+		return err
+	}
+	if err := a.applyDufsRuntime(settings, state.LastAppliedDufsHash != dufsHash); err != nil {
 		return err
 	}
 	if err := a.waitForRuntimeStatus(manifest, runtimeStatusWait); err != nil {
@@ -520,20 +654,29 @@ func (a *App) RebuildHermes() error {
 }
 
 func (a *App) markRebuildApplied(composeHash string) error {
+	dufsHash, err := a.dufsRuntimeHash()
+	if err != nil {
+		return err
+	}
 	state, err := a.readState()
 	if err != nil {
 		return err
 	}
 	state.LastAppliedComposeHash = composeHash
+	state.LastAppliedDufsHash = dufsHash
 	state.LastSuccessfulHermesImage = state.HermesImage
 	state.NeedsRebuild = false
+	state.PendingDufsOnly = false
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return a.writeState(state)
 }
 
 func (a *App) composeRuntimeHash() (string, error) {
 	hash := sha256.New()
-	for _, path := range []string{a.composePath(), a.overridePath()} {
+	hermesService := []byte(renderHermesService(a.readComposeSettings(), a.readProxySettings()))
+	_, _ = fmt.Fprintf(hash, "%d:", len(hermesService))
+	_, _ = hash.Write(hermesService)
+	for _, path := range []string{a.overridePath()} {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return "", fmt.Errorf("读取 Compose 配置失败：%w", err)
@@ -555,6 +698,18 @@ func (a *App) applyComposeRuntime(recreate bool) error {
 	}
 	a.emit("docker:progress", StreamEvent{Line: "容器配置未变化，正在快速重启 Hermes 服务"})
 	return a.runComposeStreaming(context.Background(), "docker:progress", "restart", "hermes")
+}
+
+func (a *App) applyDufsRuntime(settings ComposeSettings, recreate bool) error {
+	if !settings.DufsEnabled {
+		a.emit("docker:progress", StreamEvent{Line: "正在关闭 Dufs 文件管理并移除旧容器"})
+		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--remove-orphans", "hermes")
+	}
+	if recreate {
+		a.emit("docker:progress", StreamEvent{Line: "检测到文件管理配置变化，正在重建 Dufs 容器"})
+		return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "--force-recreate", "dufs")
+	}
+	return a.runComposeStreaming(context.Background(), "docker:progress", "up", "-d", "dufs")
 }
 
 func (a *App) waitForRuntimeStatus(manifest RuntimeManifest, timeout time.Duration) error {

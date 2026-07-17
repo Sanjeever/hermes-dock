@@ -18,6 +18,30 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class DufsStatus {
+	    enabled: boolean;
+	    port: string;
+	    username: string;
+	    localUrl: string;
+	    lanUrls: string[];
+	    primaryUrl: string;
+	    usingDefaultPassword: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new DufsStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.localUrl = source["localUrl"];
+	        this.lanUrls = source["lanUrls"];
+	        this.primaryUrl = source["primaryUrl"];
+	        this.usingDefaultPassword = source["usingDefaultPassword"];
+	    }
+	}
 	export class WebStatus {
 	    enabled: boolean;
 	    running: boolean;
@@ -416,6 +440,11 @@ export namespace main {
 	    cpuLimit: string;
 	    shmSize: string;
 	    sharedDirectory: string;
+	    dufsEnabled: boolean;
+	    dufsPort: string;
+	    dufsUsername: string;
+	    dufsPassword?: string;
+	    dufsUsingDefaultPassword: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ComposeSettings(source);
@@ -440,6 +469,11 @@ export namespace main {
 	        this.cpuLimit = source["cpuLimit"];
 	        this.shmSize = source["shmSize"];
 	        this.sharedDirectory = source["sharedDirectory"];
+	        this.dufsEnabled = source["dufsEnabled"];
+	        this.dufsPort = source["dufsPort"];
+	        this.dufsUsername = source["dufsUsername"];
+	        this.dufsPassword = source["dufsPassword"];
+	        this.dufsUsingDefaultPassword = source["dufsUsingDefaultPassword"];
 	    }
 	}
 	export class LauncherState {
@@ -449,6 +483,7 @@ export namespace main {
 	    managedCompose: boolean;
 	    composeHash: string;
 	    lastAppliedComposeHash: string;
+	    lastAppliedDufsHash: string;
 	    templateVersion: string;
 	    skillsSnapshotImage: string;
 	    hermesImage: string;
@@ -458,6 +493,7 @@ export namespace main {
 	    initializedAt: string;
 	    updatedAt: string;
 	    needsRebuild: boolean;
+	    pendingDufsOnly: boolean;
 	    migrations: MigrationRecord[];
 	    backups: BackupRecord[];
 	    ui: UIState;
@@ -475,6 +511,7 @@ export namespace main {
 	        this.managedCompose = source["managedCompose"];
 	        this.composeHash = source["composeHash"];
 	        this.lastAppliedComposeHash = source["lastAppliedComposeHash"];
+	        this.lastAppliedDufsHash = source["lastAppliedDufsHash"];
 	        this.templateVersion = source["templateVersion"];
 	        this.skillsSnapshotImage = source["skillsSnapshotImage"];
 	        this.hermesImage = source["hermesImage"];
@@ -484,6 +521,7 @@ export namespace main {
 	        this.initializedAt = source["initializedAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.needsRebuild = source["needsRebuild"];
+	        this.pendingDufsOnly = source["pendingDufsOnly"];
 	        this.migrations = this.convertValues(source["migrations"], MigrationRecord);
 	        this.backups = this.convertValues(source["backups"], BackupRecord);
 	        this.ui = this.convertValues(source["ui"], UIState);
@@ -526,6 +564,7 @@ export namespace main {
 	    composeAvailable: boolean;
 	    containerStatus: string;
 	    web: WebStatus;
+	    dufs: DufsStatus;
 	    hostBridge: HostBridgeStatus;
 	
 	    static createFrom(source: any = {}) {
@@ -551,6 +590,7 @@ export namespace main {
 	        this.composeAvailable = source["composeAvailable"];
 	        this.containerStatus = source["containerStatus"];
 	        this.web = this.convertValues(source["web"], WebStatus);
+	        this.dufs = this.convertValues(source["dufs"], DufsStatus);
 	        this.hostBridge = this.convertValues(source["hostBridge"], HostBridgeStatus);
 	    }
 	
@@ -1376,4 +1416,3 @@ export namespace main {
 	}
 
 }
-

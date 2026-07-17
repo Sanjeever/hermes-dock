@@ -50,7 +50,7 @@ export function OperationsPage(props: {
     onLogs: () => void;
     onClearLogs: () => void;
     onCopyLogs: () => void;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
+    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
     onOpenAssistantPlatforms: () => void;
     onSaveDeploy: () => void;
     onDiscardDeploy: () => void;
@@ -149,12 +149,12 @@ export function OperationsPage(props: {
             )}
             {activeTab === 'basic' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'network' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'advanced' && (
@@ -202,7 +202,7 @@ function RuntimePage(props: {
     onStop: () => void;
     onRestart: () => void;
     onRebuild: () => void;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
+    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
     onOpenDiagnostics: () => void;
 }) {
     const actionBusy = props.busy !== '';
