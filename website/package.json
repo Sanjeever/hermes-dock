@@ -10,8 +10,9 @@
   "scripts": {
     "dev": "concurrently -k -n api,web \"pnpm run dev:server\" \"vite\"",
     "dev:server": "node --watch server/index.js",
-    "build": "tsc -p tsconfig.json && pnpm run build:client && pnpm run build:ssr && pnpm run prerender",
+    "build": "tsc -p tsconfig.json && pnpm run build:client && pnpm run build:ssr && pnpm run prerender && pnpm run build:server",
     "build:client": "vite build",
+    "build:server": "esbuild server/index.js --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist-server/index.js",
     "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-ssr",
     "prerender": "node scripts/prerender.mjs",
     "start": "node server/index.js",
@@ -29,6 +30,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^10.0.3",
+    "esbuild": "^0.28.1",
     "gsap": "^3.12.7",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",

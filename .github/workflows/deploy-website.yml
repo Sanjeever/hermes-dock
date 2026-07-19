@@ -59,14 +59,12 @@ jobs:
             -czf "qizhih-website-dist-${GITHUB_SHA}.tar.gz" \
             .
 
-          tar -C website \
-            -czf "qizhih-website-server-${GITHUB_SHA}.tar.gz" \
-            server \
-            package.json \
-            pnpm-lock.yaml
+          cp \
+            website/dist-server/index.js \
+            "qizhih-website-server-${GITHUB_SHA}.js"
 
           tar -tzf "qizhih-website-dist-${GITHUB_SHA}.tar.gz" >/dev/null
-          tar -tzf "qizhih-website-server-${GITHUB_SHA}.tar.gz" >/dev/null
+          test -s "qizhih-website-server-${GITHUB_SHA}.js"
 
       - name: Configure SSH
         env:
@@ -90,7 +88,7 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -P "$DEPLOY_PORT" \
             "qizhih-website-dist-${GITHUB_SHA}.tar.gz" \
-            "qizhih-website-server-${GITHUB_SHA}.tar.gz" \
+            "qizhih-website-server-${GITHUB_SHA}.js" \
             "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
 
       - name: Deploy on server
@@ -108,21 +106,23 @@ jobs:
           set -euo pipefail
 
           frontend_archive="/tmp/qizhih-website-dist-${DEPLOY_SHA}.tar.gz"
-          server_archive="/tmp/qizhih-website-server-${DEPLOY_SHA}.tar.gz"
+          server_bundle="/tmp/qizhih-website-server-${DEPLOY_SHA}.js"
           frontend_dir="/home/nginx/html/qizhih-website"
           server_dir="/opt/qizhih-website-server"
 
           cleanup() {
-              rm -f "$frontend_archive" "$server_archive"
+              rm -f "$frontend_archive" "$server_bundle"
           }
           trap cleanup EXIT
 
           test -f "$frontend_archive"
-          test -f "$server_archive"
+          test -s "$server_bundle"
           test -f "$server_dir/docker-compose.yaml"
+          test -f "$server_dir/package.json"
+          test -f "$server_dir/pnpm-lock.yaml"
+          test -d "$server_dir/server"
 
           tar -tzf "$frontend_archive" >/dev/null
-          tar -tzf "$server_archive" >/dev/null
 
           rm -rf "$frontend_dir"
           mkdir -p "$frontend_dir"
@@ -132,16 +132,9 @@ jobs:
           cd "$server_dir"
           docker compose down
 
-          rm -rf \
-            "$server_dir/node-modules" \
-            "$server_dir/server" \
-            "$server_dir/package.json" \
-            "$server_dir/pnpm-lock.yaml"
-
-          tar -xzf "$server_archive" -C "$server_dir"
-          test -f "$server_dir/package.json"
-          test -f "$server_dir/pnpm-lock.yaml"
-          test -f "$server_dir/server/index.js"
+          install -m 0644 "$server_bundle" "$server_dir/server/index.js.next"
+          mv "$server_dir/server/index.js.next" "$server_dir/server/index.js"
+          test -s "$server_dir/server/index.js"
 
           docker compose up -d
 
