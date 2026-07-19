@@ -3,7 +3,7 @@
 `website` 包含两部分：
 
 - React + Vite 前端，构建后的 `dist/` 直接上传到现有 Nginx 静态目录。
-- 原生 JavaScript Node.js API，源码在构建时合并为单个 `server/index.js` 发布，使用官方 `node:24-alpine` 镜像运行并通过 SMTP 发送预约通知。
+- 原生 JavaScript Node.js API，源码和生产依赖在构建时合并为单个 `index.js` 发布，使用官方 `node:24-alpine` 镜像运行并通过 SMTP 发送预约通知。
 
 前端包含两个静态页面：
 
@@ -22,7 +22,6 @@
 environment:
   NODE_ENV: production
   PORT: "3000"
-  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
   SMTP_HOST: "smtp.example.com"
   SMTP_PORT: "465"
   SMTP_SECURE: "true"
@@ -36,7 +35,6 @@ environment:
 - `SMTP_SECURE=false` 表示连接后必须成功升级 STARTTLS，通常对应 587 端口。
 - `SMTP_PASS` 应填写 SMTP 密码或邮箱服务商提供的客户端授权码。163 邮箱需要填写客户端授权码，而不是邮箱登录密码。
 - `SMTP_FROM` 通常应与 `SMTP_USER` 一致。
-- `NPM_CONFIG_REGISTRY` 用于让容器通过 npmmirror 安装生产依赖。
 
 仓库中的 Compose 只包含示例值。真实 SMTP 密码只写入服务器上的 `/opt/qizhih-website-server/docker-compose.yaml`，不要把修改后的生产配置提交到 Git。
 
@@ -86,7 +84,7 @@ pnpm start
 pnpm build
 ```
 
-构建会生成浏览器端和预渲染 bundle，把 React 页面分别写入 `website/dist/index.html` 和 `website/dist/manual/index.html`，并将 Node API 源码合并为 `website/dist-server/index.js`。`website/dist/` 是可直接部署到 Nginx 的纯静态产物，`dist-server/index.js` 是部署到生产服务器 `server/index.js` 的单文件 API 产物。模块化源码和测试保留在仓库中，不上传到生产服务器。
+构建会生成浏览器端和预渲染 bundle，把 React 页面分别写入 `website/dist/index.html` 和 `website/dist/manual/index.html`，并将 Node API 源码及其生产依赖合并为 CommonJS 格式的 `website/dist-server/index.js`。`website/dist/` 是可直接部署到 Nginx 的纯静态产物，`dist-server/index.js` 是部署到生产服务器 `/opt/qizhih-website-server/index.js` 的自包含 API 文件；生产目录没有 `package.json`，Node 会按 CommonJS 加载它。模块化源码、测试、`package.json` 和 `pnpm-lock.yaml` 只保留在仓库及 CI 中。
 
 ## 测试
 
@@ -105,19 +103,16 @@ pnpm test
 
 /opt/qizhih-website-server/
 ├── docker-compose.yaml
-├── node-modules/
-├── package.json
-├── pnpm-lock.yaml
-└── server/
-    └── index.js        自动部署替换的单文件 bundle
+└── index.js        自动部署替换的自包含 bundle
 ```
 
-生产服务器的 `server/` 目录只保存构建后的 `index.js`。Node 服务不构建业务镜像，`docker-compose.yaml` 使用 `node:24-alpine`，并将 `package.json`、`pnpm-lock.yaml` 和 `server/` 只读挂载到容器。容器启动时执行：
+生产服务器只保留 Compose 配置和构建后的 `index.js`。Node 服务不构建业务镜像，`docker-compose.yaml` 使用 `node:24-alpine`，只读挂载 `index.js` 并执行：
 
 ```text
-pnpm install --prod --frozen-lockfile
-node server/index.js
+node /app/index.js
 ```
+
+容器启动时不执行 pnpm，也不需要联网安装依赖。
 
 ## 服务器首次准备
 
@@ -125,7 +120,7 @@ node server/index.js
 
 ```bash
 mkdir -p /home/nginx/html/qizhih-website
-mkdir -p /opt/qizhih-website-server/server
+mkdir -p /opt/qizhih-website-server
 docker network create qizhih-website
 ```
 
@@ -135,11 +130,9 @@ docker network create qizhih-website
 pnpm --dir website build
 
 scp website/dist-server/index.js \
-  root@42.194.190.65:/opt/qizhih-website-server/server/index.js
+  root@42.194.190.65:/opt/qizhih-website-server/index.js
 
-scp website/package.json \
-  website/pnpm-lock.yaml \
-  website/docker-compose.yaml \
+scp website/docker-compose.yaml \
   root@42.194.190.65:/opt/qizhih-website-server/
 ```
 
@@ -157,6 +150,57 @@ docker compose up -d
 docker compose ps
 docker compose logs --tail=100 server
 ```
+
+## 现有服务器一次性迁移
+
+自动部署只会替换根目录的 `index.js`，不会修改包含真实 SMTP 配置的 `docker-compose.yaml`。因此，现有服务器仍使用 `server/index.js` 和 pnpm 启动时，必须先手工迁移，再推送这次 workflow 变更。
+
+先在本地构建并上传新的自包含文件：
+
+```bash
+pnpm --dir website build
+
+scp website/dist-server/index.js \
+  root@42.194.190.65:/opt/qizhih-website-server/index.js.next
+```
+
+在服务器备份生产 Compose，然后编辑原文件。保留真实 SMTP 环境变量，只把启动命令和挂载改为：
+
+```yaml
+command: ["node", "/app/index.js"]
+volumes:
+  - ./index.js:/app/index.js:ro
+```
+
+同时删除 `NPM_CONFIG_REGISTRY`、旧的 `package.json`、`pnpm-lock.yaml`、`server/` 和 `node-modules` 挂载，以及顶层 `node-modules` volume 声明。执行迁移：
+
+```bash
+install -m 600 \
+  /opt/qizhih-website-server/docker-compose.yaml \
+  /root/qizhih-website-server-compose-backup.yaml
+
+vi /opt/qizhih-website-server/docker-compose.yaml
+
+cd /opt/qizhih-website-server
+docker compose config >/dev/null
+docker compose down
+mv index.js.next index.js
+docker compose up -d
+docker compose ps
+docker compose exec -T server \
+  node -e "fetch('http://127.0.0.1:3000/healthz').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+```
+
+确认健康检查和预约邮件都正常后，再删除旧文件：
+
+```bash
+rm -rf /opt/qizhih-website-server/server \
+  /opt/qizhih-website-server/node-modules
+rm -f /opt/qizhih-website-server/package.json \
+  /opt/qizhih-website-server/pnpm-lock.yaml
+```
+
+最终运行 `ls -la /opt/qizhih-website-server`，业务目录中应只剩 `docker-compose.yaml` 和 `index.js`。workflow 会在替换前端或停止 API 前检查这个目录和 Compose；未完成迁移时会直接终止部署。
 
 ## 接入现有 Nginx Compose
 
@@ -291,8 +335,8 @@ docker exec nginx nginx -s reload
 3. 将 `dist/` 打包，并把 Node API 构建为单个 `index.js`，上传到服务器 `/tmp`。
 4. 删除并重新创建 `/home/nginx/html/qizhih-website`，然后解压新的前端文件。
 5. 在 `/opt/qizhih-website-server` 执行 `docker compose down`。
-6. 原子替换 `/opt/qizhih-website-server/server/index.js`。
-7. 执行 `docker compose up -d`，检查本机 API 和公网首页、`/healthz`。
+6. 原子替换 `/opt/qizhih-website-server/index.js`。
+7. 执行 `docker compose up -d`，在容器内检查 API，并验证公网首页和 `/healthz`。
 
 自动部署需要在私有源码仓库配置以下 Actions Secrets：
 
@@ -304,7 +348,7 @@ WEBSITE_DEPLOY_SSH_KEY
 WEBSITE_DEPLOY_KNOWN_HOSTS
 ```
 
-部署使用覆盖式更新，没有自动回滚，前端和 API 都会短暂停机。workflow 只替换服务器上的 `server/index.js`，不会覆盖 `docker-compose.yaml`、`package.json`、`pnpm-lock.yaml` 或 `node-modules/`。部署失败时应查看 Actions 日志，并按下方手工流程恢复。生产依赖发生变化时，需要另行手工同步 `package.json` 和 `pnpm-lock.yaml`。
+部署使用覆盖式更新，没有自动回滚，前端和 API 都会短暂停机。workflow 只替换服务器上的 `index.js`，不会覆盖包含真实 SMTP 配置的 `docker-compose.yaml`。生产依赖已经包含在 bundle 中，不需要在服务器另行安装或同步。部署失败时应查看 Actions 日志，并按下方手工流程恢复。
 
 ## 手工部署更新
 
@@ -322,19 +366,19 @@ rsync -az --delete website/dist/ \
 
 ```bash
 scp website/dist-server/index.js \
-  root@42.194.190.65:/opt/qizhih-website-server/server/index.js.next
+  root@42.194.190.65:/opt/qizhih-website-server/index.js.next
 
 ssh root@42.194.190.65 <<'REMOTE'
 set -euo pipefail
 cd /opt/qizhih-website-server
 docker compose down
-mv server/index.js.next server/index.js
+mv index.js.next index.js
 docker compose up -d
 docker compose logs --tail=100 server
 REMOTE
 ```
 
-更新时不要覆盖服务器上的 `docker-compose.yaml`，否则会覆盖其中的真实 SMTP 配置。只有生产依赖变化时才手工同步 `package.json` 和 `pnpm-lock.yaml`；只有 Compose 结构发生变化时才手工合并对应修改。
+更新时不要覆盖服务器上的 `docker-compose.yaml`，否则会覆盖其中的真实 SMTP 配置。生产依赖变化时只需重新构建并发布 `index.js`；只有 Compose 结构发生变化时才手工合并对应修改。
 
 检查容器内 API：
 

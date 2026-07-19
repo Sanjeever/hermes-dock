@@ -4,18 +4,10 @@ services:
     container_name: qizhih-website-server
     restart: always
     working_dir: /app
-    command:
-      - sh
-      - -c
-      - >-
-        corepack enable &&
-        corepack prepare pnpm@10.28.2 --activate &&
-        pnpm install --prod --frozen-lockfile &&
-        exec node server/index.js
+    command: ["node", "/app/index.js"]
     environment:
       NODE_ENV: production
       PORT: "3000"
-      NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
       SMTP_HOST: "smtp.example.com"
       SMTP_PORT: "465"
       SMTP_SECURE: "true"
@@ -24,10 +16,7 @@ services:
       SMTP_FROM: "sender@example.com"
       MAIL_TO: "recipient@example.com"
     volumes:
-      - ./package.json:/app/package.json:ro
-      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
-      - ./server:/app/server:ro
-      - node-modules:/app/node_modules
+      - ./index.js:/app/index.js:ro
     expose:
       - "3000"
     healthcheck:
@@ -38,9 +27,6 @@ services:
       start_period: 30s
     networks:
       - qizhih-website
-
-volumes:
-  node-modules:
 
 networks:
   qizhih-website:

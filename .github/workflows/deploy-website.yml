@@ -53,6 +53,44 @@ jobs:
       - name: Build website
         run: pnpm --dir website build
 
+      - name: Smoke test server bundle
+        env:
+          NODE_ENV: production
+          PORT: "3100"
+          SMTP_HOST: smtp.example.com
+          SMTP_PORT: "465"
+          SMTP_SECURE: "true"
+          SMTP_USER: test@example.com
+          SMTP_PASS: test-password
+          SMTP_FROM: test@example.com
+          MAIL_TO: recipient@example.com
+        run: |
+          cp website/dist-server/index.js server-bundle.cjs
+          node --check server-bundle.cjs
+          node server-bundle.cjs >server-bundle.log 2>&1 &
+          server_pid=$!
+
+          cleanup() {
+              kill "$server_pid" >/dev/null 2>&1 || true
+              wait "$server_pid" >/dev/null 2>&1 || true
+              rm -f server-bundle.cjs server-bundle.log
+          }
+          trap cleanup EXIT
+
+          healthy=false
+          for attempt in $(seq 1 10); do
+              if curl -fs http://127.0.0.1:3100/healthz >/dev/null 2>&1; then
+                  healthy=true
+                  break
+              fi
+              sleep 1
+          done
+
+          if [ "$healthy" != "true" ]; then
+              cat server-bundle.log
+              exit 1
+          fi
+
       - name: Create deployment bundles
         run: |
           tar -C website/dist \
@@ -118,9 +156,20 @@ jobs:
           test -f "$frontend_archive"
           test -s "$server_bundle"
           test -f "$server_dir/docker-compose.yaml"
-          test -f "$server_dir/package.json"
-          test -f "$server_dir/pnpm-lock.yaml"
-          test -d "$server_dir/server"
+          test -s "$server_dir/index.js"
+          test ! -e "$server_dir/package.json"
+          test ! -e "$server_dir/pnpm-lock.yaml"
+          test ! -e "$server_dir/server"
+          test ! -e "$server_dir/node-modules"
+
+          cd "$server_dir"
+          compose_config="$(docker compose config)"
+          if ! grep -Fq -- "/app/index.js" <<<"$compose_config" ||
+             grep -Eq -- "server/index\.js|pnpm install|node_modules" <<<"$compose_config"; then
+              echo "官网 API 服务器尚未迁移到根目录 index.js，已停止部署。" >&2
+              exit 1
+          fi
+          unset compose_config
 
           tar -tzf "$frontend_archive" >/dev/null
 
@@ -129,18 +178,19 @@ jobs:
           tar -xzf "$frontend_archive" -C "$frontend_dir"
           test -f "$frontend_dir/index.html"
 
-          cd "$server_dir"
           docker compose down
 
-          install -m 0644 "$server_bundle" "$server_dir/server/index.js.next"
-          mv "$server_dir/server/index.js.next" "$server_dir/server/index.js"
-          test -s "$server_dir/server/index.js"
+          install -m 0644 "$server_bundle" "$server_dir/index.js.next"
+          mv "$server_dir/index.js.next" "$server_dir/index.js"
+          test -s "$server_dir/index.js"
 
           docker compose up -d
 
           healthy=false
           for attempt in $(seq 1 36); do
-              if curl -fs http://127.0.0.1:3000/healthz >/dev/null 2>&1; then
+              if docker compose exec -T server \
+                  node -e "fetch('http://127.0.0.1:3000/healthz').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))" \
+                  >/dev/null 2>&1; then
                   healthy=true
                   break
               fi
