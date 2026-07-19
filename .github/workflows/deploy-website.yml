@@ -165,7 +165,7 @@ jobs:
           cd "$server_dir"
           compose_config="$(docker compose config)"
           if ! grep -Fq -- "/app/index.js" <<<"$compose_config" ||
-             grep -Eq -- "server/index\.js|pnpm install|node_modules" <<<"$compose_config"; then
+             grep -Eq -- '(^|[[:space:]])server/index\.js([[:space:]]|$)|pnpm install|node_modules' <<<"$compose_config"; then
               echo "官网 API 服务器尚未迁移到根目录 index.js，已停止部署。" >&2
               exit 1
           fi
