@@ -10,6 +10,7 @@ const navigation = [
     ['能力', '#capabilities'],
     ['场景', '#scenarios'],
     ['本地部署', '#deployment'],
+    ['操作手册', '/manual/'],
 ];
 
 const capabilities = [
@@ -378,6 +379,7 @@ function App() {
                 <div className="footer-meta">
                     <p className="footer-tagline">把 AI 放进企业日常工作。</p>
                     <div className="footer-registration">
+                        <a href="/manual/">操作手册</a>
                         <span>广西尚企云链科技有限公司</span>
                         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">桂ICP备2024050395号-3</a>
                     </div>

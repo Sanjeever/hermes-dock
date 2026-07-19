@@ -5,6 +5,13 @@
 - React + Vite 前端，构建后的 `dist/` 直接上传到现有 Nginx 静态目录。
 - 原生 JavaScript Node.js API，使用官方 `node:24-alpine` 镜像挂载 `server/` 源码运行，通过 SMTP 发送预约通知。
 
+前端包含两个静态页面：
+
+- `/`：官网首页。
+- `/manual/`：操作手册，正文维护在 `content/manual.md`。
+
+`content/manual.md` 顶部的 `title`、`description` 和 `updated` 同时驱动页面可见信息与预渲染后的 SEO 元数据。`title` 以“企智盒”开头，`updated` 使用 `YYYY-MM-DD` 格式；二级标题会自动生成页内目录，标题文字应保持唯一。
+
 预约接口为 `POST /api/demo-requests`。项目使用 Node.js 24 或更高版本，依赖使用 pnpm 管理。
 
 ## SMTP 配置
@@ -79,7 +86,7 @@ pnpm start
 pnpm build
 ```
 
-构建会先生成浏览器端和服务端 bundle，再把 React 页面预渲染到 `website/dist/index.html`。服务端 bundle 只在构建期间使用，预渲染完成后自动删除。最终 `website/dist/` 仍是可直接部署到 Nginx 的纯静态产物，Node API 不负责提供静态文件。
+构建会先生成浏览器端和服务端 bundle，再把 React 页面分别预渲染到 `website/dist/index.html` 和 `website/dist/manual/index.html`。服务端 bundle 只在构建期间使用，预渲染完成后自动删除。最终 `website/dist/` 仍是可直接部署到 Nginx 的纯静态产物，Node API 不负责提供静态文件。
 
 ## 测试
 
@@ -233,13 +240,27 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    location = /manual {
+        return 301 /manual/;
+    }
+
+    location = /manual/ {
+        try_files /manual/index.html =404;
+        add_header Cache-Control "no-cache";
+    }
+
+    location = /manual/index.html {
+        try_files $uri =404;
+        add_header Cache-Control "no-cache";
+    }
+
     location / {
         try_files $uri =404;
     }
 }
 ```
 
-官网当前只有一个使用锚点导航的静态页面，不使用 SPA 路由回退。不存在的路径应返回真实 `404`，避免搜索引擎把它识别成 soft 404。`robots.txt` 和 `sitemap.xml` 由前端 `public/` 目录随构建产物发布。
+官网包含首页和 `/manual/` 操作手册两个预渲染静态页面，不使用 SPA 路由回退。手册目录页由 `/manual/index.html` 提供，首页和手册 HTML 均不缓存；带哈希的 `/assets/` 继续使用长期缓存。不存在的路径应返回真实 `404`，避免搜索引擎把它识别成 soft 404。`robots.txt` 和 `sitemap.xml` 由前端 `public/` 目录随构建产物发布。
 
 80 端口继续跳转 HTTPS：
 
@@ -326,6 +347,7 @@ docker exec qizhih-website-server \
 
 ```bash
 curl -I https://ai.sqyl.online/
+curl -I https://ai.sqyl.online/manual/
 curl https://ai.sqyl.online/healthz
 ```
 
