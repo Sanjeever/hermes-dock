@@ -12,7 +12,7 @@
     "dev:server": "node --watch server/index.js",
     "build": "tsc -p tsconfig.json && pnpm run build:client && pnpm run build:ssr && pnpm run prerender && pnpm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server/index.js --bundle --packages=bundle --platform=node --target=node24 --format=cjs --charset=utf8 --outfile=dist-server/index.js",
+    "build:server": "esbuild server/index.js --bundle --packages=bundle --platform=node --target=node24 --format=cjs --charset=utf8 --minify-syntax --minify-whitespace --outfile=dist-server/index.js",
     "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-ssr",
     "prerender": "node scripts/prerender.mjs",
     "start": "node server/index.js",
