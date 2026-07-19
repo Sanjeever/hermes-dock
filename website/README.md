@@ -86,7 +86,7 @@ pnpm start
 pnpm build
 ```
 
-构建会生成浏览器端和预渲染 bundle，把 React 页面分别写入 `website/dist/index.html` 和 `website/dist/manual/index.html`，并将 Node API 源码合并为 `website/dist-server/index.js`。`website/dist/` 是可直接部署到 Nginx 的纯静态产物，`dist-server/index.js` 是部署到现有 `server/index.js` 的单文件 API 产物。
+构建会生成浏览器端和预渲染 bundle，把 React 页面分别写入 `website/dist/index.html` 和 `website/dist/manual/index.html`，并将 Node API 源码合并为 `website/dist-server/index.js`。`website/dist/` 是可直接部署到 Nginx 的纯静态产物，`dist-server/index.js` 是部署到生产服务器 `server/index.js` 的单文件 API 产物。模块化源码和测试保留在仓库中，不上传到生产服务器。
 
 ## 测试
 
@@ -109,11 +109,10 @@ pnpm test
 ├── package.json
 ├── pnpm-lock.yaml
 └── server/
-    ├── index.js        自动部署替换的单文件 bundle
-    └── 其他源码文件    保留，不参与生产入口加载
+    └── index.js        自动部署替换的单文件 bundle
 ```
 
-服务器目录结构保持不变。Node 服务不构建业务镜像，`docker-compose.yaml` 继续使用 `node:24-alpine`，并将 `package.json`、`pnpm-lock.yaml` 和 `server/` 只读挂载到容器。容器启动时执行：
+生产服务器的 `server/` 目录只保存构建后的 `index.js`。Node 服务不构建业务镜像，`docker-compose.yaml` 使用 `node:24-alpine`，并将 `package.json`、`pnpm-lock.yaml` 和 `server/` 只读挂载到容器。容器启动时执行：
 
 ```text
 pnpm install --prod --frozen-lockfile
@@ -130,13 +129,10 @@ mkdir -p /opt/qizhih-website-server/server
 docker network create qizhih-website
 ```
 
-首次上传 Node 服务文件并生成单文件入口：
+首次构建并上传 Node API：
 
 ```bash
 pnpm --dir website build
-
-rsync -az --delete website/server/ \
-  root@42.194.190.65:/opt/qizhih-website-server/server/
 
 scp website/dist-server/index.js \
   root@42.194.190.65:/opt/qizhih-website-server/server/index.js
@@ -295,7 +291,7 @@ docker exec nginx nginx -s reload
 3. 将 `dist/` 打包，并把 Node API 构建为单个 `index.js`，上传到服务器 `/tmp`。
 4. 删除并重新创建 `/home/nginx/html/qizhih-website`，然后解压新的前端文件。
 5. 在 `/opt/qizhih-website-server` 执行 `docker compose down`。
-6. 原子替换 `/opt/qizhih-website-server/server/index.js`，保留服务器现有目录结构和其他文件。
+6. 原子替换 `/opt/qizhih-website-server/server/index.js`。
 7. 执行 `docker compose up -d`，检查本机 API 和公网首页、`/healthz`。
 
 自动部署需要在私有源码仓库配置以下 Actions Secrets：
@@ -308,7 +304,7 @@ WEBSITE_DEPLOY_SSH_KEY
 WEBSITE_DEPLOY_KNOWN_HOSTS
 ```
 
-部署使用覆盖式更新，没有自动回滚，前端和 API 都会短暂停机。workflow 只替换服务器上的 `server/index.js`，不会覆盖 `docker-compose.yaml`、`package.json`、`pnpm-lock.yaml`、`node-modules/` 或其他 `server/` 文件。部署失败时应查看 Actions 日志，并按下方手工流程恢复。生产依赖发生变化时，需要另行手工同步 `package.json` 和 `pnpm-lock.yaml`。
+部署使用覆盖式更新，没有自动回滚，前端和 API 都会短暂停机。workflow 只替换服务器上的 `server/index.js`，不会覆盖 `docker-compose.yaml`、`package.json`、`pnpm-lock.yaml` 或 `node-modules/`。部署失败时应查看 Actions 日志，并按下方手工流程恢复。生产依赖发生变化时，需要另行手工同步 `package.json` 和 `pnpm-lock.yaml`。
 
 ## 手工部署更新
 
