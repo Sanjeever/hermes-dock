@@ -21,7 +21,7 @@ func processRunning(pid int) bool {
 
 func detachedCommand(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
 	return cmd
 }
 
