@@ -10,3 +10,4 @@ website/dist-server
 /data
 /docker-compose.yaml
 /docker-compose.override.yaml
+tmp/
