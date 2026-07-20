@@ -26,6 +26,7 @@ import {
     ListProfileSkills,
     ListSkillHubSkills,
     OpenEndpoint,
+    OpenWebManagement,
     OpenSkillDirectory,
     ReadTextFile,
     RebuildHermes,
@@ -1146,6 +1147,16 @@ function App() {
         }
     }
 
+    async function openWebManagement() {
+        try {
+            await OpenWebManagement();
+        } catch (error) {
+            const message = String(error);
+            appendLog(message);
+            setNotice({type: 'error', message});
+        }
+    }
+
     async function tailLogs() {
         if (logsFollowing) {
             await StopTailLogs();
@@ -1379,6 +1390,12 @@ function App() {
                             setPage('operations');
                         }}
                         onOpenSettings={() => navigatePage('settings')}
+                        onOpenAccessSettings={() => {
+                            setOperationsTab('access');
+                            setPage('settings');
+                        }}
+                        onOpenWebManagement={openWebManagement}
+                        onOpenEndpoint={openEndpoint}
                     />
                 )}
 

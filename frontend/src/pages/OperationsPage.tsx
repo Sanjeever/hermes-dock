@@ -1,12 +1,11 @@
 import type {RefObject} from 'react';
 import {useEffect, useState} from 'react';
 import {CheckCircle2, CircleAlert, Clipboard, Download, ExternalLink, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
-import {QRCodeSVG} from 'qrcode.react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
 import type {AppState, ComposeSettings, InstanceBackupManifest, OperationsTab, ProxySettings, UpdateInfo, UpdateStatus, WebSettingsRequest, WebStatus} from '../types';
-import {containerStatusText, endpointURL, isPortValue, profileStatusText, statusClassName} from '../utils';
+import {containerStatusText, isPortValue, profileStatusText, statusClassName} from '../utils';
 
 export function OperationsPage(props: {
     scope?: 'runtime' | 'settings';
@@ -80,10 +79,9 @@ export function OperationsPage(props: {
 }) {
     const tabs: Array<{ id: OperationsTab; label: string }> = props.scope === 'settings' ? [
         {id: 'basic', label: '基础设置'},
-        {id: 'network', label: '网络设置'},
+        {id: 'access', label: '访问与网络'},
         {id: 'update', label: '软件更新'},
         {id: 'advanced', label: '高级设置'},
-        {id: 'remote', label: 'Web 管理'},
     ] : [
         {id: 'runtime', label: '服务状态'},
         {id: 'diagnostics', label: '日志诊断'},
@@ -112,17 +110,6 @@ export function OperationsPage(props: {
                     onOpenEndpoint={props.onOpenEndpoint}
                     onOpenDiagnostics={() => props.setTab('diagnostics')}
                 />
-            )}
-            {activeTab === 'remote' && (
-                <section className="operations-context">
-                    <WebManagementCard
-                        status={props.webStatus}
-                        busy={!!props.busy}
-                        onSave={props.onSaveWebSettings}
-                        onChangePassword={props.onChangeWebPassword}
-                        onResetPassword={props.onResetWebPassword}
-                    />
-                </section>
             )}
             {activeTab === 'diagnostics' && (
                 <section className="diagnostics-stack">
@@ -177,15 +164,22 @@ export function OperationsPage(props: {
                     <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
-            {activeTab === 'network' && (
-                <section className="advanced-ops-stack">
-                    <DeployPage section="network" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+            {activeTab === 'access' && (
+                <section className="access-network-stack">
+                    <WebManagementCard
+                        status={props.webStatus}
+                        busy={!!props.busy}
+                        onSave={props.onSaveWebSettings}
+                        onChangePassword={props.onChangeWebPassword}
+                        onResetPassword={props.onResetWebPassword}
+                    />
+                    <DeployPage section="access" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'advanced' && (
                 <section className="advanced-ops-stack">
                     <div className="operations-context">
-                        <div className="setting-note">仅在你知道要修改什么时使用。当前助手：{props.activeProfileName}</div>
+                        <DeployPage section="advanced" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                         <AdvancedPage
                             options={props.advancedOptions}
                             path={props.advancedPath}
@@ -226,28 +220,22 @@ function UpdateSettingsCard(props: {
     onSetAutoUpdate: (enabled: boolean) => Promise<void>;
 }) {
     const available = !!props.info?.available;
+    const detail = available
+        ? `新版本 v${props.info?.latestVersion} 可用。`
+        : props.info?.latestVersion
+            ? `已是最新版本 v${props.currentVersion}。`
+            : `当前版本 v${props.currentVersion}。`;
     return (
         <div className="panel update-settings-card">
-            <div className="web-management-header">
-                <div>
-                    <p className="eyebrow">软件更新</p>
-                    <h3>{available ? `发现新版本 v${props.info?.latestVersion}` : '企智盒版本管理'}</h3>
-                    <p>更新只会重启启动器，正在运行的 Hermes Agent Docker 容器不会停止。</p>
-                </div>
-                <div className={`status-pill ${available ? 'warn' : 'ok'}`}>{available ? '可更新' : `v${props.currentVersion}`}</div>
-            </div>
-            <div className="update-version-grid">
-                <div><span>当前版本</span><strong>v{props.currentVersion}</strong></div>
-                <div><span>最新版本</span><strong>{props.info?.latestVersion ? `v${props.info.latestVersion}` : '尚未检查'}</strong></div>
-            </div>
+            <SettingsCardHeader title="软件更新" detail={detail} status={available ? '可更新' : undefined} statusTone="warn"/>
             <div className="update-settings-actions">
                 <button className="ghost" onClick={props.onCheck} disabled={props.busy}><RefreshCcw size={16} className={props.busy && !props.progress ? 'spin' : undefined}/>{props.busy && !props.progress ? '检查中' : '检查更新'}</button>
-                {available && <button className="primary no-margin" onClick={props.onInstall} disabled={props.busy || !props.info?.assetUrl}><Download size={16}/>{props.busy ? (props.progress || '正在更新') : '立即更新'}</button>}
+                {available && <div className="update-install-action"><button className="primary no-margin" onClick={props.onInstall} disabled={props.busy || !props.info?.assetUrl}><Download size={16}/>{props.busy ? (props.progress || '正在更新') : '立即更新'}</button><small>更新不会停止 Hermes 容器。</small></div>}
             </div>
             <label className="update-auto-row">
                 <span>
-                    <strong>自动下载安装更新</strong>
-                    <small>开启后注册系统定时任务，每天凌晨 2 点检查并安装稳定版本。默认关闭。</small>
+                    <strong>自动更新</strong>
+                    <small>每天凌晨自动检查并安装更新。</small>
                 </span>
                 <input type="checkbox" checked={props.status.autoUpdateEnabled} onChange={(event) => props.onSetAutoUpdate(event.target.checked)} disabled={props.busy}/>
             </label>
@@ -275,8 +263,6 @@ function RuntimePage(props: {
     onOpenDiagnostics: () => void;
 }) {
     const actionBusy = props.busy !== '';
-    const dashboardURL = endpointURL(props.compose.dashboardHost, props.compose.dashboardPort);
-    const gatewayURL = endpointURL(props.compose.gatewayHost, props.compose.gatewayPort);
     const endpointsReady = props.state.containerStatus === 'running';
     const dashboardReady = endpointsReady && isPortValue(props.compose.dashboardPort);
     const gatewayReady = endpointsReady && isPortValue(props.compose.gatewayPort);
@@ -352,11 +338,10 @@ function RuntimePage(props: {
                 </div>
 
                 <div className="runtime-workbench-footer">
-                    <RuntimeEndpoints
-                        dashboardURL={dashboardURL}
-                        gatewayURL={gatewayURL}
+                    <RuntimeAdvancedTools
                         dashboardReady={dashboardReady}
                         gatewayReady={gatewayReady}
+                        gatewayPort={props.compose.gatewayPort}
                         onOpenEndpoint={props.onOpenEndpoint}
                     />
                     <div className="runtime-check-strip">
@@ -391,28 +376,29 @@ function RuntimeCheck(props: { label: string; ok: boolean }) {
     );
 }
 
-function RuntimeEndpoints(props: {
-    dashboardURL: string;
-    gatewayURL: string;
+function RuntimeAdvancedTools(props: {
     dashboardReady: boolean;
     gatewayReady: boolean;
+    gatewayPort: string;
     onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
 }) {
     return (
-        <div className="runtime-endpoints">
-            <EndpointRow label="控制台" value={props.dashboardURL} ready={props.dashboardReady} disabledTitle="容器运行且端口有效后可打开" onOpen={() => props.onOpenEndpoint('dashboard')}/>
-            <EndpointRow label="网关" value={props.gatewayURL} ready={props.gatewayReady} disabledTitle="容器运行且端口有效后可打开" onOpen={() => props.onOpenEndpoint('gateway')}/>
-        </div>
-    );
-}
-
-function EndpointRow(props: { label: string; value: string; ready: boolean; disabledTitle: string; onOpen: () => void }) {
-    return (
-        <button className="runtime-endpoint-row" onClick={props.onOpen} disabled={!props.ready} title={props.ready ? `打开${props.label}` : props.disabledTitle}>
-            <span>{props.label}</span>
-            <code>{props.value}</code>
-            <ExternalLink size={16}/>
-        </button>
+        <details className="runtime-advanced-tools">
+            <summary>高级工具</summary>
+            <div className="runtime-advanced-tool-row">
+                <span>
+                    <strong>Hermes 高级控制台</strong>
+                    <small>仅用于排查高级运行问题。</small>
+                </span>
+                <button className="ghost" onClick={() => props.onOpenEndpoint('dashboard')} disabled={!props.dashboardReady}><ExternalLink size={16}/>打开控制台</button>
+            </div>
+            <div className="runtime-advanced-tool-row">
+                <span>
+                    <strong>消息服务</strong>
+                    <small>{props.gatewayReady ? `运行正常 · 端口 ${props.gatewayPort}` : '服务未运行或端口无效'}</small>
+                </span>
+            </div>
+        </details>
     );
 }
 
@@ -470,9 +456,8 @@ function WebManagementCard(props: {
     const [port, setPort] = useState(props.status.port || '9876');
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
-    const [copied, setCopied] = useState('');
     const host = scope === 'local' ? '127.0.0.1' : '0.0.0.0';
-    const primaryURL = props.status.primaryUrl || props.status.localUrl;
+    const webAccessNote = !props.status.enabled ? '已关闭，保存后启动。' : !props.status.running ? '未运行，请检查桌面端状态。' : props.status.host === '0.0.0.0' ? '局域网可访问，地址可在首页“访问入口”复制。' : '仅可在这台电脑的浏览器访问。';
     const portValid = isPortValue(port);
 
     useEffect(() => {
@@ -480,12 +465,6 @@ function WebManagementCard(props: {
         setScope(props.status.host === '127.0.0.1' ? 'local' : 'lan');
         setPort(props.status.port || '9876');
     }, [props.status.enabled, props.status.host, props.status.port]);
-
-    async function copy(value: string) {
-        await navigator.clipboard.writeText(value);
-        setCopied(value);
-        window.setTimeout(() => setCopied(''), 1200);
-    }
 
     async function saveSettings() {
         await props.onSave({enabled, host, port});
@@ -499,68 +478,57 @@ function WebManagementCard(props: {
         }
     }
 
+    async function resetPassword() {
+        if (!window.confirm('确定重置为默认访问密码 123456？')) return;
+        await props.onResetPassword();
+    }
+
     return (
         <div className="panel web-management-card">
-            <div className="web-management-header">
-                <div>
-                    <p className="eyebrow">Web 管理</p>
-                    <h3>{props.status.running ? '局域网管理入口运行中' : 'Web 管理未运行'}</h3>
-                    <p>局域网设备可通过下方地址访问 Web 管理。默认访问密码是 123456，建议首次登录后修改。</p>
-                </div>
-                <div className={`status-pill ${props.status.running ? 'ok' : 'warn'}`}>{props.status.running ? '运行中' : '未运行'}</div>
-            </div>
+            <SettingsCardHeader title="Web 管理" detail={webAccessNote} status={props.status.running ? '运行中' : '未运行'} statusTone={props.status.running ? 'ok' : 'warn'}/>
             {props.status.error && <div className="operation-error">Web 管理启动失败：{props.status.error}</div>}
-            <div className="web-management-grid">
-                <div className="web-addresses">
-                    <AddressRow label="本机地址" value={props.status.localUrl} copied={copied} onCopy={copy}/>
-                    {(props.status.lanUrls || []).map((url) => <AddressRow key={url} label="局域网地址" value={url} copied={copied} onCopy={copy}/>)}
+            <div className="web-management-config">
+                <div className="web-settings-row">
+                    <label className="toggle web-management-toggle">
+                        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)}/>
+                        <span>开启 Web 管理</span>
+                    </label>
+                    <label className="field web-setting-field">
+                        <span>访问范围</span>
+                        <select value={scope} onChange={(event) => setScope(event.target.value)}>
+                            <option value="lan">局域网</option>
+                            <option value="local">仅本机</option>
+                        </select>
+                    </label>
+                    <label className="field web-setting-field">
+                        <span>端口</span>
+                        <input value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric"/>
+                    </label>
+                    <button className="primary no-margin" onClick={saveSettings} disabled={props.busy || !portValid}>保存</button>
                 </div>
-                {primaryURL && (
-                    <div className="web-qr">
-                        <QRCodeSVG value={primaryURL} size={128}/>
-                        <span>扫码打开 Web 管理</span>
-                    </div>
-                )}
+                {!portValid && <div className="form-warning">端口必须是 1 到 65535 之间的数字。</div>}
             </div>
-            <div className="web-settings-row">
-                <label className="switch-line">
-                    <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)}/>
-                    <span>开启 Web 管理</span>
-                </label>
-                <label>
-                    <span>访问范围</span>
-                    <select value={scope} onChange={(event) => setScope(event.target.value)}>
-                        <option value="lan">局域网</option>
-                        <option value="local">仅本机</option>
-                    </select>
-                </label>
-                <label>
-                    <span>端口</span>
-                    <input value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric"/>
-                </label>
-                <button className="ghost" onClick={saveSettings} disabled={props.busy || !portValid}>保存 Web 设置</button>
-            </div>
-            {!portValid && <div className="form-warning">端口必须是 1 到 65535 之间的数字。</div>}
-            <div className="web-password-row">
-                <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} autoComplete="current-password"/>
-                <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password"/>
-                <button className="ghost" onClick={changePassword} disabled={props.busy || !oldPassword || !newPassword}>修改密码</button>
-                <button className="ghost danger-text" onClick={props.onResetPassword} disabled={props.busy}>重置为 123456</button>
-            </div>
+            <details className="web-password-details">
+                <summary>访问密码 <span>建议首次登录后修改</span></summary>
+                <div className="web-password-row">
+                    <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} autoComplete="current-password"/>
+                    <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password"/>
+                    <button className="ghost" onClick={changePassword} disabled={props.busy || !oldPassword || !newPassword}>修改密码</button>
+                    <button className="ghost danger-text" onClick={resetPassword} disabled={props.busy}>重置为默认密码</button>
+                </div>
+            </details>
         </div>
     );
 }
 
-function AddressRow(props: { label: string; value: string; copied: string; onCopy: (value: string) => void }) {
-    if (!props.value) return null;
+function SettingsCardHeader(props: { title: string; detail: string; status?: string; statusTone?: 'ok' | 'warn' }) {
     return (
-        <div className="web-address-row">
-            <span>{props.label}</span>
-            <code>{props.value}</code>
-            <button className="icon-button" onClick={() => props.onCopy(props.value)} title="复制地址" aria-label="复制地址">
-                <Clipboard size={15}/>
-            </button>
-            {props.copied === props.value && <em>已复制</em>}
+        <div className="settings-card-header">
+            <div>
+                <h2>{props.title}</h2>
+                <p>{props.detail}</p>
+            </div>
+            {props.status && <div className={`status-pill ${props.statusTone || 'ok'}`}>{props.status}</div>}
         </div>
     );
 }

@@ -14,6 +14,8 @@ export function ChangeWebPassword(arg1:string,arg2:string):Promise<void>;
 
 export function CheckForUpdates(arg1:boolean):Promise<main.UpdateInfo>;
 
+export function ChooseSharedDirectory(arg1:string):Promise<string>;
+
 export function CompleteProfileSetup(arg1:string):Promise<void>;
 
 export function CreateProfile(arg1:main.CreateProfileRequest):Promise<void>;

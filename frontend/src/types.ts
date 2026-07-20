@@ -1,6 +1,6 @@
 export type Page = 'overview' | 'assistants' | 'operations' | 'settings';
 export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
-export type OperationsTab = 'runtime' | 'remote' | 'diagnostics' | 'basic' | 'network' | 'update' | 'advanced';
+export type OperationsTab = 'runtime' | 'diagnostics' | 'basic' | 'access' | 'update' | 'advanced';
 export type PlatformKey = 'weixin' | 'wecom' | 'feishu' | 'dingtalk';
 
 export type EnvVar = { key: string; value: string; secret: boolean };

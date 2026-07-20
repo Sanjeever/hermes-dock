@@ -1,4 +1,5 @@
-import {AlertTriangle, CheckCircle2, FileText, Play, Plus, RotateCcw, Settings, Square} from 'lucide-react';
+import {useState} from 'react';
+import {AlertTriangle, CheckCircle2, Clipboard, FileText, FolderOpen, Globe2, Play, Plus, RotateCcw, Settings, Square} from 'lucide-react';
 import type {AppState} from '../types';
 import {containerStatusText, profileStatusText, statusClassName} from '../utils';
 
@@ -14,6 +15,9 @@ export function OverviewPage(props: {
     onOpenAssistants: () => void;
     onOpenLogs: () => void;
     onOpenSettings: () => void;
+    onOpenAccessSettings: () => void;
+    onOpenWebManagement: () => void;
+    onOpenEndpoint: (endpoint: 'dufs') => void;
 }) {
     const profiles = props.state.profiles?.profiles || [];
     const profileStatuses = props.state.profileStatus?.profiles || {};
@@ -116,6 +120,14 @@ export function OverviewPage(props: {
                 </section>
             </div>
 
+            <AccessEntrances
+                state={props.state}
+                busy={actionBusy}
+                onOpenSettings={props.onOpenAccessSettings}
+                onOpenWebManagement={props.onOpenWebManagement}
+                onOpenFiles={() => props.onOpenEndpoint('dufs')}
+            />
+
             <section className="panel overview-section">
                 <div className="section-head">
                     <div>
@@ -134,6 +146,68 @@ export function OverviewPage(props: {
                     </div>
                 )}
             </section>
+        </section>
+    );
+}
+
+function AccessEntrances(props: {
+    state: AppState;
+    busy: boolean;
+    onOpenSettings: () => void;
+    onOpenWebManagement: () => void;
+    onOpenFiles: () => void;
+}) {
+    const [copied, setCopied] = useState('');
+    const webReady = props.state.web.enabled && props.state.web.running;
+    const filesReady = props.state.dufs.enabled && props.state.containerStatus === 'running';
+    const webLANURL = webReady && props.state.web.host === '0.0.0.0' ? (props.state.web.lanUrls?.[0] || '') : '';
+    const dufsLANURL = filesReady ? (props.state.dufs.lanUrls?.[0] || '') : '';
+    const webAccessNote = !props.state.web.enabled ? '未开启' : !props.state.web.running ? '未运行' : '仅本机可访问';
+    const filesAccessNote = !props.state.dufs.enabled ? '未开启' : props.state.containerStatus !== 'running' ? '服务未运行' : '仅本机可访问';
+
+    async function copyAddress(id: string, value: string) {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(id);
+        } catch {
+            setCopied(`${id}-failed`);
+        }
+        window.setTimeout(() => setCopied(''), 1200);
+    }
+
+    return (
+        <section className="panel access-entrances">
+            <div className="section-head">
+                <div>
+                    <p className="eyebrow">访问入口</p>
+                    <h2>管理与共享</h2>
+                </div>
+                <button className="ghost" onClick={props.onOpenSettings}><Settings size={16}/>访问与网络</button>
+            </div>
+            <div className="access-entrance-grid">
+                <div className="access-entrance-card">
+                    <div className="access-entrance-icon"><Globe2 size={20}/></div>
+                    <div className="access-entrance-copy">
+                        <strong>Web 管理</strong>
+                        <span>在其他设备管理企智盒和所有助手。</span>
+                    </div>
+                    <div className="access-entrance-actions">
+                        <button className="primary no-margin" onClick={props.onOpenWebManagement} disabled={props.busy || !webReady}>打开管理</button>
+                        {webLANURL ? <button className="ghost" onClick={() => copyAddress('web', webLANURL)} disabled={props.busy}><Clipboard size={16}/>{copied === 'web' ? '已复制' : copied === 'web-failed' ? '复制失败' : '复制局域网地址'}</button> : <span className="access-entrance-note">{webAccessNote}</span>}
+                    </div>
+                </div>
+                <div className="access-entrance-card">
+                    <div className="access-entrance-icon files"><FolderOpen size={20}/></div>
+                    <div className="access-entrance-copy">
+                        <strong>共享文件</strong>
+                        <span>在局域网设备上传、下载和整理文件。</span>
+                    </div>
+                    <div className="access-entrance-actions">
+                        <button className="primary no-margin" onClick={props.onOpenFiles} disabled={props.busy || !filesReady}>打开文件管理</button>
+                        {dufsLANURL ? <button className="ghost" onClick={() => copyAddress('dufs', dufsLANURL)} disabled={props.busy}><Clipboard size={16}/>{copied === 'dufs' ? '已复制' : copied === 'dufs-failed' ? '复制失败' : '复制局域网地址'}</button> : <span className="access-entrance-note">{filesAccessNote}</span>}
+                    </div>
+                </div>
+            </div>
         </section>
     );
 }

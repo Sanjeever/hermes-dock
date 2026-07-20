@@ -95,6 +95,10 @@ export const SelectProfile = (id: string) => wailsOrRPC<void>('SelectProfile', [
 export const BatchCopyProfileConfig = (req: BatchProfileConfigRequest) => wailsOrRPC<BatchProfileConfigResult>('BatchCopyProfileConfig', [req]);
 export const SyncBundledContent = (req: BundledContentSyncRequest) => wailsOrRPC<BundledContentSyncResult>('SyncBundledContent', [req]);
 export const GetRecommendedResourceLimits = () => wailsOrRPC<ResourceLimitsRecommendation>('GetRecommendedResourceLimits');
+export const ChooseSharedDirectory = (currentPath: string) => {
+    if (isWebRuntime()) return Promise.reject(new Error('请在桌面端选择目录'));
+    return wailsApp.ChooseSharedDirectory(currentPath);
+};
 export const SaveComposeSettings = (settings: ComposeSettings) => wailsOrRPC<void>('SaveComposeSettings', [settings]);
 export const SaveProxySettings = (settings: ProxySettings) => wailsOrRPC<void>('SaveProxySettings', [settings]);
 export const SaveModelConfig = (profileID: string, model: ModelConfig) => wailsOrRPC<void>('SaveModelConfigForProfile', [profileID, model]);

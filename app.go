@@ -59,6 +59,17 @@ func NewApp() *App {
 	}
 }
 
+func (a *App) ChooseSharedDirectory(currentPath string) (string, error) {
+	if a.ctx == nil {
+		return "", errors.New("应用尚未初始化")
+	}
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:                "选择共享文件目录",
+		DefaultDirectory:     strings.TrimSpace(currentPath),
+		CanCreateDirectories: true,
+	})
+}
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.instanceRoot = detectInstanceRoot()

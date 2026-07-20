@@ -57,26 +57,35 @@
         grid-template-columns: 1fr;
     }
 
-    .web-management-header,
-    .web-management-grid {
-        grid-template-columns: 1fr;
+    .settings-card-header {
+        align-items: stretch;
+        flex-direction: column;
     }
 
-    .web-management-header {
+    .settings-save-actions {
         align-items: stretch;
         flex-direction: column;
     }
 
     .web-settings-row,
     .web-password-row,
-    .web-address-row,
     .platform-unbind-confirm,
-    .runtime-endpoint-row,
     .runtime-table-row,
     .runtime-workbench-footer,
     .overview-grid,
+    .access-entrance-grid,
     .service-hero,
     .next-error {
+        grid-template-columns: 1fr;
+    }
+
+    .web-setting-field,
+    .web-setting-field input,
+    .web-setting-field select {
+        width: 100%;
+    }
+
+    .directory-field-control {
         grid-template-columns: 1fr;
     }
 
@@ -85,9 +94,9 @@
     }
 
     .setting-row,
+    .access-files-card .setting-row,
     .setting-control-grid,
-    .setting-control-grid.three,
-    .update-version-grid {
+    .setting-control-grid.three {
         grid-template-columns: 1fr;
     }
 
@@ -118,10 +127,6 @@
 
     .runtime-table-head {
         display: none;
-    }
-
-    .web-qr {
-        justify-items: start;
     }
 
     .ops-tabs {
@@ -161,7 +166,6 @@
     }
 
     .log-head,
-    .deploy-summary,
     .channel-head,
     .update-banner,
     .rebuild-banner,

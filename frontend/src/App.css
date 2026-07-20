@@ -114,7 +114,6 @@ nav button,
 .skills-view-toggle button,
 .skill-detail-tabs button,
 .skill-row,
-.runtime-endpoint-row,
 .table-row button,
 .profile-row,
 .profile-main {
@@ -439,31 +438,28 @@ h2 {
     gap: 18px;
 }
 
-.update-version-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.update-version-grid > div {
-    display: grid;
-    gap: 5px;
-    padding: 14px;
-    border-radius: 8px;
-    background: #f3f0e8;
-}
-
-.update-version-grid span,
 .update-auto-row small {
     color: #667085;
     font-size: 12px;
-    font-weight: 750;
+    font-weight: 500;
 }
 
 .update-settings-actions {
     display: flex;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.update-install-action {
+    display: grid;
+    gap: 5px;
+}
+
+.update-install-action small {
+    color: #667085;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .update-auto-row {
@@ -1199,6 +1195,7 @@ button:disabled {
 .runtime-stack,
 .diagnostics-stack,
 .advanced-ops-stack,
+.access-network-stack,
 .platform-stack {
     display: grid;
     gap: 16px;
@@ -1359,44 +1356,42 @@ button:disabled {
     background: #f7f2e8;
 }
 
-.runtime-endpoints {
+.runtime-advanced-tools {
     min-width: 0;
-    display: grid;
-    gap: 8px;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #f0eadc;
 }
 
-.runtime-endpoint-row {
-    min-width: 0;
-    min-height: 34px;
-    display: grid;
-    grid-template-columns: 54px minmax(0, 1fr) auto;
-    gap: 10px;
-    align-items: center;
-    border: 0;
-    border-radius: 6px;
-    padding: 7px 9px;
-    background: transparent;
-    color: #20251f;
-    text-align: left;
+.runtime-advanced-tools summary {
     cursor: pointer;
+    color: #344054;
+    font-size: 13px;
+    font-weight: 850;
 }
 
-.runtime-endpoint-row:hover:not(:disabled) {
-    background: #ece5d6;
+.runtime-advanced-tool-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
 }
 
-.runtime-endpoint-row span {
-    color: #596056;
-    font-size: 12px;
-    font-weight: 800;
+.runtime-advanced-tool-row span {
+    display: grid;
+    gap: 3px;
 }
 
-.runtime-endpoint-row code {
-    min-width: 0;
-    overflow-wrap: anywhere;
+.runtime-advanced-tool-row strong {
     color: #20251f;
     font-size: 13px;
-    font-weight: 800;
+}
+
+.runtime-advanced-tool-row small {
+    color: #667085;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .runtime-check-strip {
@@ -1510,7 +1505,6 @@ button:disabled {
     gap: 16px;
 }
 
-.deploy-summary,
 .channel-head {
     display: flex;
     align-items: flex-start;
@@ -1542,6 +1536,35 @@ button:disabled {
     max-width: 980px;
 }
 
+.access-network-stack {
+    max-width: 980px;
+}
+
+.access-settings-stack {
+    max-width: none;
+}
+
+.access-files-card .setting-row {
+    grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+    padding: 20px;
+}
+
+.settings-save-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-radius: 10px;
+    padding: 12px 14px 12px 18px;
+    background: #f3f0e8;
+    color: #596056;
+}
+
+.settings-save-actions > span {
+    font-size: 13px;
+    font-weight: 500;
+}
+
 .settings-list {
     display: grid;
     gap: 0;
@@ -1571,14 +1594,14 @@ button:disabled {
 .setting-row-copy strong {
     color: #111827;
     font-size: 14px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.35;
 }
 
 .setting-row-copy span {
     color: #667085;
     font-size: 13px;
-    font-weight: 750;
+    font-weight: 500;
     line-height: 1.45;
 }
 
@@ -3003,104 +3026,71 @@ textarea:hover:not(:disabled) {
     gap: 16px;
 }
 
-.web-management-header {
+.settings-card-header {
     display: flex;
     gap: 16px;
     align-items: flex-start;
     justify-content: space-between;
 }
 
-.web-management-header h3 {
-    margin: 2px 0 6px;
-    font-size: 20px;
+.settings-card-header h2 {
+    margin: 0 0 5px;
+    font-size: 18px;
     letter-spacing: 0;
 }
 
-.web-management-header p {
+.settings-card-header p {
     margin: 0;
     color: #5d6559;
+    font-size: 13px;
+    font-weight: 500;
 }
 
-.web-management-grid {
+.web-management-config {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 18px;
-    align-items: start;
+    gap: 10px;
 }
 
-.web-addresses {
-    display: grid;
-    gap: 8px;
+.settings-stack .field span,
+.settings-stack .toggle {
+    font-weight: 600;
 }
 
-.web-address-row {
-    display: grid;
-    grid-template-columns: 80px minmax(0, 1fr) 34px auto;
-    gap: 8px;
-    align-items: center;
-    min-height: 36px;
-}
-
-.web-address-row span {
-    color: #60685d;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.web-address-row code {
-    overflow: hidden;
-    border-radius: 6px;
-    background: #f4efe3;
-    padding: 8px 10px;
-    color: #2f352d;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.web-address-row em {
-    color: #47651f;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 800;
-}
-
-.web-address-row .icon-button {
-    width: 34px;
-    min-height: 34px;
-    justify-content: center;
-    padding: 0;
-}
-
-.web-qr {
-    display: grid;
-    gap: 8px;
-    justify-items: center;
-    color: #60685d;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.web-qr svg {
-    border-radius: 8px;
-    background: #fff;
-    padding: 8px;
+.settings-stack .field-hint {
+    font-weight: 500;
 }
 
 .web-settings-row,
 .web-password-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, auto));
+    grid-template-columns: max-content 160px 160px auto;
     gap: 10px;
     align-items: end;
     justify-content: start;
 }
 
-.web-settings-row label {
-    display: grid;
-    gap: 6px;
-    color: #60685d;
+.web-password-details {
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #f7f2e8;
+}
+
+.web-password-details summary {
+    cursor: pointer;
+    color: #344054;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.web-password-details summary span {
+    margin-left: 6px;
+    color: #667085;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
+}
+
+.web-password-details .web-password-row {
+    margin-top: 12px;
 }
 
 .web-settings-row input,
@@ -3109,14 +3099,37 @@ textarea:hover:not(:disabled) {
     min-height: 38px;
 }
 
-.switch-line {
-    grid-template-columns: auto auto;
-    align-items: center;
+.web-setting-field {
+    width: 160px;
+    margin: 0;
 }
 
-.switch-line input {
-    width: 18px;
-    min-height: 18px;
+.web-setting-field input,
+.web-setting-field select {
+    box-sizing: border-box;
+    width: 160px;
+    height: 38px;
+}
+
+.web-management-toggle {
+    justify-self: start;
+    width: max-content;
+    min-height: 38px;
+}
+
+.directory-field {
+    margin: 0;
+}
+
+.directory-field-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.directory-field-control .ghost {
+    min-height: 38px;
+    white-space: nowrap;
 }
 
 .danger-text {

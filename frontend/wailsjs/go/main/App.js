@@ -26,6 +26,10 @@ export function CheckForUpdates(arg1) {
   return window['go']['main']['App']['CheckForUpdates'](arg1);
 }
 
+export function ChooseSharedDirectory(arg1) {
+  return window['go']['main']['App']['ChooseSharedDirectory'](arg1);
+}
+
 export function CompleteProfileSetup(arg1) {
   return window['go']['main']['App']['CompleteProfileSetup'](arg1);
 }

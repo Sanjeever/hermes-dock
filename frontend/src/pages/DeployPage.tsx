@@ -1,12 +1,12 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
-import {Clipboard, Cpu, ExternalLink, Network, RotateCcw, Save} from 'lucide-react';
+import {Clipboard, Cpu, ExternalLink, FolderOpen, Network, RotateCcw, Save} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
-import {GetRecommendedResourceLimits} from '../services/api';
+import {ChooseSharedDirectory, GetRecommendedResourceLimits, isWebRuntime} from '../services/api';
 import type {ComposeSettings, DufsStatus, HostBridgeStatus, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
 export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs, setCompose, setProxy, dirty, busy, onOpenEndpoint, onSave, onDiscard}: {
-    section?: 'basic' | 'network';
+    section?: 'basic' | 'access' | 'advanced';
     compose: ComposeSettings;
     proxy: ProxySettings;
     hostBridge: HostBridgeStatus;
@@ -25,13 +25,26 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
     const [resourceRecommendation, setResourceRecommendation] = useState<{ dockerMemoryGB: number; dockerCPU: number } | null>(null);
     const [resourceRecommendationBusy, setResourceRecommendationBusy] = useState(false);
     const [resourceRecommendationError, setResourceRecommendationError] = useState('');
+    const [directoryPickerError, setDirectoryPickerError] = useState('');
     const composeRef = useRef(compose);
     const update = (key: Exclude<keyof ComposeSettings, 'dashboardEnabled' | 'dufsEnabled' | 'dufsUsingDefaultPassword'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
     const updateProxyText = (key: keyof Omit<ProxySettings, 'enabled'>, value: string) => setProxy({...proxy, [key]: value});
     const dufsAccountValid = /^[A-Za-z0-9._-]+$/.test(compose.dufsUsername);
-    const portsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort) && (!compose.dufsEnabled || isPortValue(compose.dufsPort));
+    const dufsPortValid = !compose.dufsEnabled || isPortValue(compose.dufsPort);
+    const servicePortsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     const proxyReady = !proxy.enabled || !!(proxy.httpProxy.trim() || proxy.httpsProxy.trim() || proxy.allProxy.trim());
+    const dockerSettingsHint = !dufsAccountValid
+        ? '文件管理用户名格式无效，请先修正。'
+        : !dufsPortValid
+            ? '文件管理端口无效，请先修正。'
+            : !servicePortsValid
+                ? '服务端口无效，请先修正。'
+                : !proxyReady
+                    ? '启用代理时，请至少填写一个代理地址。'
+                    : dirty ? 'Docker 设置有未保存修改。' : '没有未保存修改。';
+    const dockerSettingsValid = dufsAccountValid && dufsPortValid && servicePortsValid && proxyReady;
     const isBasic = section === 'basic';
+    const isAdvanced = section === 'advanced';
     const resourceStatus = resourceRecommendation
         ? `Docker 可用资源：${resourceRecommendation.dockerMemoryGB}G 内存 / ${resourceRecommendation.dockerCPU} CPU`
         : resourceRecommendationError || (resourceRecommendationBusy ? '正在读取 Docker 可用资源...' : '推荐值按 Docker 可用资源计算。');
@@ -41,7 +54,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
     }, [compose]);
 
     useEffect(() => {
-        if (isBasic) return;
+        if (!isAdvanced) return;
         let cancelled = false;
         setResourceRecommendationBusy(true);
         setResourceRecommendationError('');
@@ -64,7 +77,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
         return () => {
             cancelled = true;
         };
-    }, [isBasic]);
+    }, [isAdvanced]);
 
     async function applyRecommendedResourceLimits() {
         setResourceRecommendationBusy(true);
@@ -97,51 +110,73 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
         window.setTimeout(() => setCopiedDufsURL(false), 1200);
     }
 
-    return (
-        <section className="deploy-stack settings-stack">
-            <div className="panel deploy-summary">
-                <div>
-                    <p className="eyebrow">{isBasic ? '基础设置' : '网络设置'}</p>
-                    <h2>{isBasic ? '日常会用到的设置' : '端口、资源和代理'}</h2>
-                    <p className="setup-subtitle">{isBasic ? '设置管理页登录、共享文件和消息处理方式。' : '一般不需要修改。端口冲突或网络不通时再调整。'}</p>
-                </div>
-                <div className="actions compact">
-                    <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
-                    <button className="primary no-margin" onClick={onSave} disabled={busy || !portsValid || !proxyReady || !dufsAccountValid}><Save size={16}/>保存设置</button>
-                </div>
-            </div>
+    async function chooseSharedDirectory() {
+        setDirectoryPickerError('');
+        try {
+            const selected = await ChooseSharedDirectory(compose.sharedDirectory);
+            if (selected) update('sharedDirectory', selected);
+        } catch (error) {
+            setDirectoryPickerError(errorMessage(error) || '无法打开目录选择器');
+        }
+    }
 
-            {isBasic ? (
-                <>
-                    <div className="panel settings-list">
-                        <SettingRow title="管理页登录" description="用于打开 Hermes 管理页。">
-                            <div className="setting-control-stack">
-                                <Field label="用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
-                                <SecretField label="密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
-                                {compose.dashboardPassword === '123456' && <div className="form-warning">仍在使用默认密码，建议修改。</div>}
-                            </div>
-                        </SettingRow>
-                        <SettingRow title="宿主机控制" description="允许 Hermes 以当前用户身份静默操作这台电脑。">
-                            <div className="setting-control-stack">
-                                <label className="toggle">
-                                    <input
-                                        type="checkbox"
-                                        checked={compose.hostControlEnabled !== 'false'}
-                                        onChange={(event) => setCompose({...compose, dashboardEnabled: true, hostControlEnabled: event.target.checked ? 'true' : 'false'})}
-                                    />
-                                    允许宿主机操作
-                                </label>
-                                {compose.hostControlEnabled !== 'false' && (
-                                    <div className="form-warning">Hermes 可以静默运行宿主机命令、访问文件、剪贴板和屏幕并启动应用，不会逐次请求确认。</div>
-                                )}
-                                {hostBridge.error && <div className="form-warning">启动失败：{hostBridge.error}</div>}
-                                {!hostBridge.error && hostBridge.enabled && <div className="setting-note">{hostBridge.running ? '宿主机控制服务正在运行。' : '保存后启动宿主机控制服务。'}</div>}
-                            </div>
-                        </SettingRow>
+    return (
+        <section className={`deploy-stack settings-stack ${isBasic ? '' : 'access-settings-stack'}`}>
+            {isBasic && <>
+                <div className="panel settings-list">
+                    <SettingRow title="宿主机控制" description="允许助手操作当前电脑。">
+                        <div className="setting-control-stack">
+                            <label className="toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={compose.hostControlEnabled !== 'false'}
+                                    onChange={(event) => setCompose({...compose, dashboardEnabled: true, hostControlEnabled: event.target.checked ? 'true' : 'false'})}
+                                />
+                                允许宿主机操作
+                            </label>
+                            {compose.hostControlEnabled !== 'false' && <div className="form-warning">可操作文件、剪贴板、屏幕和应用，不逐次确认。</div>}
+                            {hostBridge.error && <div className="form-warning">启动失败：{hostBridge.error}</div>}
+                            {!hostBridge.error && hostBridge.enabled && <div className="setting-note">{hostBridge.running ? '服务运行中。' : '保存后启动服务。'}</div>}
+                        </div>
+                    </SettingRow>
+                </div>
+                <div className="panel settings-list">
+                    <SettingRow title="消息处理" description="助手忙碌时的处理方式。">
+                        <div className="setting-control-grid three">
+                            <GatewaySelect label="忙碌时" value={compose.gatewayBusyInputMode || 'steer'} onChange={(value) => update('gatewayBusyInputMode', value)} options={[
+                                {value: 'queue', label: '排队处理'},
+                                {value: 'steer', label: '引导当前任务'},
+                                {value: 'interrupt', label: '中断当前任务'},
+                            ]}/>
+                            <GatewaySelect label="自动回复" value={compose.gatewayBusyAckEnabled || 'false'} onChange={(value) => update('gatewayBusyAckEnabled', value)} options={[
+                                {value: 'true', label: '启用'},
+                                {value: 'false', label: '关闭'},
+                            ]}/>
+                            <GatewaySelect label="后台通知" value={compose.backgroundNotifications || 'result'} onChange={(value) => update('backgroundNotifications', value)} options={[
+                                {value: 'all', label: '全部'},
+                                {value: 'result', label: '仅结果'},
+                                {value: 'error', label: '仅失败'},
+                                {value: 'off', label: '关闭'},
+                            ]}/>
+                        </div>
+                    </SettingRow>
+                </div>
+                <DeploySaveActions hint={dockerSettingsHint} busy={busy} dirty={dirty} valid={dockerSettingsValid} onSave={onSave} onDiscard={onDiscard}/>
+            </>}
+
+            {section === 'access' && <>
+                <div className="panel settings-list access-files-card">
                         <SettingRow title="共享文件" description="所有助手共同读写，用于批量输入和交付文件。">
                             <div className="setting-control-stack">
-                                <Field label="宿主机目录" value={compose.sharedDirectory} onChange={(value) => update('sharedDirectory', value)}/>
-                                <div className="setting-note">容器内固定为 /opt/data/.dock/shared。目录结构由用户自行管理，文件不包含在实例备份中。</div>
+                                <label className="field directory-field">
+                                    <span>宿主机目录</span>
+                                    <div className="directory-field-control">
+                                        <input value={compose.sharedDirectory} onChange={(event) => update('sharedDirectory', event.target.value)}/>
+                                        {!isWebRuntime() && <button className="ghost" type="button" onClick={chooseSharedDirectory} disabled={busy}><FolderOpen size={16}/>选择目录</button>}
+                                    </div>
+                                    <div className="field-hint">容器内固定为 /opt/data/.dock/shared，不包含在实例备份中。</div>
+                                </label>
+                                {directoryPickerError && <div className="operation-error">{directoryPickerError}</div>}
                                 <label className="toggle">
                                     <input
                                         type="checkbox"
@@ -166,7 +201,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                         />
                                         {!dufsAccountValid && <div className="form-warning">用户名只能包含字母、数字、点、下划线和连字符。</div>}
                                         {compose.dufsUsingDefaultPassword && !compose.dufsPassword && <div className="form-warning">文件管理仍使用默认密码 123456，建议修改后再供局域网使用。</div>}
-                                        <div className="form-warning">Dufs 使用 HTTP，适合可信局域网；不要直接暴露到公网。</div>
+                                        <div className="form-warning">仅限可信局域网使用。</div>
                                         {dufs.enabled && dufs.primaryUrl && (
                                             <div className="actions compact">
                                                 <button className="ghost no-margin" type="button" onClick={() => onOpenEndpoint('dufs')} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
@@ -177,110 +212,71 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                 )}
                             </div>
                         </SettingRow>
-                    </div>
-                    <div className="panel settings-list">
-                        <SettingRow title="消息处理" description="助手忙碌时，新消息如何处理。">
-                            <GatewaySelect
-                                label="忙碌时"
-                                value={compose.gatewayBusyInputMode || 'steer'}
-                                onChange={(value) => update('gatewayBusyInputMode', value)}
-                                options={[
-                                    {value: 'queue', label: '排队处理'},
-                                    {value: 'steer', label: '引导当前任务'},
-                                    {value: 'interrupt', label: '中断当前任务'},
-                                ]}
-                            />
-                        </SettingRow>
-                        <SettingRow title="忙碌回复" description="是否自动回复“正在处理”。">
-                            <GatewaySelect
-                                label="自动回复"
-                                value={compose.gatewayBusyAckEnabled || 'false'}
-                                onChange={(value) => update('gatewayBusyAckEnabled', value)}
-                                options={[
-                                    {value: 'true', label: '启用'},
-                                    {value: 'false', label: '关闭'},
-                                ]}
-                            />
-                        </SettingRow>
-                        <SettingRow title="后台通知" description="控制后台消息通知频率。">
-                            <GatewaySelect
-                                label="通知"
-                                value={compose.backgroundNotifications || 'result'}
-                                onChange={(value) => update('backgroundNotifications', value)}
-                                options={[
-                                    {value: 'all', label: '运行更新和最终结果'},
-                                    {value: 'result', label: '仅最终结果'},
-                                    {value: 'error', label: '仅失败结果'},
-                                    {value: 'off', label: '关闭'},
-                                ]}
-                            />
-                        </SettingRow>
-                    </div>
-                </>
-            ) : (
-                <>
-                    <div className="panel settings-list">
-                        <SettingRow title="管理页地址" description="用于在浏览器打开管理页面。">
+                        {!dufsPortValid && <div className="form-warning settings-warning">文件管理端口必须是 1-65535 的数字。</div>}
+                </div>
+                <DeploySaveActions hint={dockerSettingsHint} busy={busy} dirty={dirty} valid={dockerSettingsValid} onSave={onSave} onDiscard={onDiscard}/>
+            </>}
+
+            {isAdvanced && <>
+                <div className="panel settings-list">
+                    <SettingRow title="运行参数" description="仅在排障或端口冲突时修改。">
+                        <div className="setting-control-stack">
                             <div className="setting-control-grid">
-                                <Field label="监听地址" value={compose.dashboardHost} onChange={(value) => update('dashboardHost', value)}/>
-                                <Field label="端口" value={compose.dashboardPort} onChange={(value) => update('dashboardPort', value)}/>
+                                <Field label="控制台用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
+                                <SecretField label="控制台密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
                             </div>
-                        </SettingRow>
-                        <SettingRow title="消息入口地址" description="平台消息进入 Hermes 的本机入口。">
+                            {compose.dashboardPassword === '123456' && <div className="form-warning">控制台仍在使用默认密码。</div>}
                             <div className="setting-control-grid">
-                                <Field label="监听地址" value={compose.gatewayHost} onChange={(value) => update('gatewayHost', value)}/>
-                                <Field label="端口" value={compose.gatewayPort} onChange={(value) => update('gatewayPort', value)}/>
+                                <Field label="控制台端口" value={compose.dashboardPort} onChange={(value) => update('dashboardPort', value)}/>
+                                <Field label="消息服务端口" value={compose.gatewayPort} onChange={(value) => update('gatewayPort', value)}/>
                             </div>
-                        </SettingRow>
-                        {!portsValid && <div className="form-warning settings-warning">端口必须是 1-65535 的数字。</div>}
-                    </div>
-                    <div className="panel settings-list">
-                        <SettingRow title="资源配额" description="默认按 Docker 可用资源计算。">
-                            <div className="setting-control-stack">
-                                <div className="resource-recommendation">
-                                    <span>{resourceStatus}</span>
-                                    <span>内存保留 2G 给系统，CPU 使用全部可用核心。</span>
-                                </div>
-                                <button className="ghost no-margin" type="button" onClick={applyRecommendedResourceLimits} disabled={busy || resourceRecommendationBusy}>
-                                    <Cpu size={16}/>使用推荐值
-                                </button>
-                                <div className="setting-control-grid three">
-                                    <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
-                                    <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
-                                    <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
-                                </div>
+                            {!servicePortsValid && <div className="form-warning">端口必须是 1-65535 的数字。</div>}
+                        </div>
+                    </SettingRow>
+                </div>
+                <div className="panel settings-list">
+                    <SettingRow title="资源配额" description="默认按 Docker 可用资源计算。">
+                        <div className="setting-control-stack">
+                            <div className="resource-recommendation"><span>{resourceStatus}</span></div>
+                            <button className="ghost no-margin" type="button" onClick={applyRecommendedResourceLimits} disabled={busy || resourceRecommendationBusy}><Cpu size={16}/>使用推荐值</button>
+                            <div className="setting-control-grid three">
+                                <Field label="内存限制" value={compose.memoryLimit} onChange={(value) => update('memoryLimit', value)}/>
+                                <Field label="CPU 限制" value={compose.cpuLimit} onChange={(value) => update('cpuLimit', value)}/>
+                                <Field label="共享内存" value={compose.shmSize} onChange={(value) => update('shmSize', value)}/>
                             </div>
-                        </SettingRow>
-                    </div>
-                    <div className="panel settings-list">
-                        <SettingRow title="宿主机代理" description="网络访问不通时再开启。">
-                            <div className="setting-control-stack">
-                                <label className="toggle">
-                                    <input type="checkbox" checked={proxy.enabled} onChange={(event) => setProxy({...proxy, enabled: event.target.checked})}/>
-                                    启用代理
-                                </label>
-                                <button className="ghost no-margin" type="button" onClick={() => setProxy({
-                                    ...proxy,
-                                    enabled: true,
-                                    httpProxy: 'http://host.docker.internal:7890',
-                                    httpsProxy: 'http://host.docker.internal:7890',
-                                    noProxy: proxy.noProxy || 'localhost,127.0.0.1,::1,host.docker.internal',
-                                })}>
-                                    <Network size={16}/>使用常见本机代理
-                                </button>
-                                <div className="setting-control-grid">
-                                    <Field label="HTTP_PROXY" value={proxy.httpProxy} onChange={(value) => updateProxyText('httpProxy', value)}/>
-                                    <Field label="HTTPS_PROXY" value={proxy.httpsProxy} onChange={(value) => updateProxyText('httpsProxy', value)}/>
-                                    <Field label="ALL_PROXY" value={proxy.allProxy} onChange={(value) => updateProxyText('allProxy', value)}/>
-                                    <Field label="NO_PROXY" value={proxy.noProxy} onChange={(value) => updateProxyText('noProxy', value)}/>
-                                </div>
-                                {!proxyReady && <div className="form-warning">启用代理时，请至少填写一个代理地址。</div>}
+                        </div>
+                    </SettingRow>
+                </div>
+                <div className="panel settings-list">
+                    <SettingRow title="宿主机代理" description="网络访问不通时再开启。">
+                        <div className="setting-control-stack">
+                            <label className="toggle"><input type="checkbox" checked={proxy.enabled} onChange={(event) => setProxy({...proxy, enabled: event.target.checked})}/>启用代理</label>
+                            <button className="ghost no-margin" type="button" onClick={() => setProxy({...proxy, enabled: true, httpProxy: 'http://host.docker.internal:7890', httpsProxy: 'http://host.docker.internal:7890', noProxy: proxy.noProxy || 'localhost,127.0.0.1,::1,host.docker.internal'})}><Network size={16}/>使用常见本机代理</button>
+                            <div className="setting-control-grid">
+                                <Field label="HTTP_PROXY" value={proxy.httpProxy} onChange={(value) => updateProxyText('httpProxy', value)}/>
+                                <Field label="HTTPS_PROXY" value={proxy.httpsProxy} onChange={(value) => updateProxyText('httpsProxy', value)}/>
+                                <Field label="ALL_PROXY" value={proxy.allProxy} onChange={(value) => updateProxyText('allProxy', value)}/>
+                                <Field label="NO_PROXY" value={proxy.noProxy} onChange={(value) => updateProxyText('noProxy', value)}/>
                             </div>
-                        </SettingRow>
-                    </div>
-                </>
-            )}
+                            {!proxyReady && <div className="form-warning">启用代理时，请至少填写一个代理地址。</div>}
+                        </div>
+                    </SettingRow>
+                </div>
+                <DeploySaveActions hint={dockerSettingsHint} busy={busy} dirty={dirty} valid={dockerSettingsValid} onSave={onSave} onDiscard={onDiscard}/>
+            </>}
         </section>
+    );
+}
+
+function DeploySaveActions(props: { hint: string; busy: boolean; dirty: boolean; valid: boolean; onSave: () => void; onDiscard: () => void }) {
+    return (
+        <div className="settings-save-actions">
+            <span>{props.hint}</span>
+            <div className="actions compact">
+                <button className="ghost" onClick={props.onDiscard} disabled={props.busy || !props.dirty}><RotateCcw size={16}/>放弃 Docker 设置</button>
+                <button className="primary no-margin" onClick={props.onSave} disabled={props.busy || !props.dirty || !props.valid}><Save size={16}/>保存 Docker 设置</button>
+            </div>
+        </div>
     );
 }
 
