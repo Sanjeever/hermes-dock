@@ -74,6 +74,7 @@ func TestWebRPCProfileOperationsRequireExplicitProfile(t *testing.T) {
 		"SaveDingTalkConfigForProfile",
 		"StartDingTalkLoginForProfile",
 		"ListProfileSkillsForProfile",
+		"BatchDeleteSkillsForProfile",
 		"ReadWebTextFile",
 		"BatchCopyProfileConfig",
 		"SyncBundledContent",

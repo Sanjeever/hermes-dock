@@ -55,6 +55,16 @@ providers:
     default_model: 'glm-5.2'
     builtin: true
     disabled: false
+  volcengine-ark-coding-plan:
+    label: 火山方舟 Coding Plan
+    provider: custom
+    base_url: https://ark.cn-beijing.volces.com/api/coding/v3
+    api_mode: chat_completions
+    api_key: ''
+    model_list_url: 'https://ark.cn-beijing.volces.com/api/coding/v3/models'
+    default_model: 'doubao-seed-2.0-code'
+    builtin: true
+    disabled: false
   opencode-go:
     label: OpenCode Go
     provider: custom

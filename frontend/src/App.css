@@ -1028,6 +1028,30 @@ button:disabled {
     color: #9a4e0b;
 }
 
+.batch-api-key-confirm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.batch-api-key-confirm > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.batch-api-key-confirm strong,
+.batch-api-key-confirm span {
+    color: #7d1b13;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.batch-api-key-confirm span {
+    font-weight: 700;
+}
+
 .batch-result {
     display: grid;
     gap: 8px;
@@ -2242,6 +2266,37 @@ textarea:hover:not(:disabled) {
     gap: 10px;
 }
 
+.skill-batch-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: #f0eadc;
+}
+
+.skill-batch-toolbar > span,
+.skill-batch-confirm > span {
+    color: #596056;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.skill-batch-confirm {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.skill-batch-confirm > span {
+    margin-right: auto;
+    color: #7d1b13;
+}
+
 .skills-search {
     min-height: 40px;
     display: flex;
@@ -2346,6 +2401,24 @@ textarea:hover:not(:disabled) {
 .skill-row.selected {
     background: #fffaf0;
     box-shadow: inset 3px 0 0 #151916;
+}
+
+.skill-row.batch {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.skill-row.batch-selected {
+    background: #e3eadc;
+    box-shadow: inset 3px 0 0 #52703f;
+}
+
+.skill-select-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #52703f;
 }
 
 .skill-row-main,

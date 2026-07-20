@@ -32,6 +32,7 @@ export function ProfileBatchTools(props: {
     const [copySkills, setCopySkills] = useState(false);
     const [copyProviders, setCopyProviders] = useState(true);
     const [includeAPIKeys, setIncludeAPIKeys] = useState(false);
+    const [apiKeyConfirmOpen, setAPIKeyConfirmOpen] = useState(false);
     const [syncSoul, setSyncSoul] = useState(true);
     const [syncSkills, setSyncSkills] = useState(true);
     const [sourceSkills, setSourceSkills] = useState<SkillSummary[]>([]);
@@ -44,6 +45,10 @@ export function ProfileBatchTools(props: {
     useEffect(() => {
         busyRef.current = props.busy;
     }, [props.busy]);
+
+    useEffect(() => {
+        setAPIKeyConfirmOpen(false);
+    }, [sourceID, targetIDs, copyMainModel, copyAuxiliary, copySoul, copySkills, copyProviders, includeAPIKeys, skillPaths]);
 
     useEffect(() => {
         const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -117,7 +122,13 @@ export function ProfileBatchTools(props: {
     const syncReady = targetIDs.length > 0 && (syncSoul || syncSkills);
 
     const submitCopy = async () => {
-        if (includeAPIKeys && !window.confirm('API Key 属于敏感信息。确认复制到所选助手？')) return;
+        if (includeAPIKeys && !apiKeyConfirmOpen) {
+            setAPIKeyConfirmOpen(true);
+            setResultText('');
+            setCopyResult(null);
+            setSyncResult(null);
+            return;
+        }
         const result = await props.onCopy({
             sourceProfileId: sourceID,
             targetProfileIds: targetIDs,
@@ -131,6 +142,7 @@ export function ProfileBatchTools(props: {
         if (!result) return;
         setCopyResult(result);
         setSyncResult(null);
+        setAPIKeyConfirmOpen(false);
         setResultText(`已完成 ${result.succeeded} 个助手${result.failed ? `，${result.failed} 个失败` : ''}`);
     };
 
@@ -217,6 +229,16 @@ export function ProfileBatchTools(props: {
                         </fieldset>
                     )}
 
+                    {props.mode === 'copy' && includeAPIKeys && apiKeyConfirmOpen && (
+                        <div className="danger-confirm batch-api-key-confirm" role="alert">
+                            <div>
+                                <strong>确认复制 API Key</strong>
+                                <span>将把来源助手的 API Key 复制到所选的 {targetIDs.length} 个助手。请再次点击下方确认按钮。</span>
+                            </div>
+                            <button className="ghost" type="button" onClick={() => setAPIKeyConfirmOpen(false)} disabled={props.busy}>取消</button>
+                        </div>
+                    )}
+
                     {resultText && (
                         <div className="batch-result" role="status">
                             <strong>{resultText}</strong>
@@ -244,7 +266,9 @@ export function ProfileBatchTools(props: {
                     <button className="ghost" type="button" onClick={props.onClose} disabled={props.busy}>关闭</button>
                     <button className="primary no-margin" type="button" onClick={props.mode === 'copy' ? submitCopy : submitSync} disabled={props.busy || (props.mode === 'copy' ? !copyReady : !syncReady)}>
                         {props.mode === 'copy' ? <Copy size={16}/> : <RefreshCcw size={16}/>}
-                        {props.mode === 'copy' ? `应用到 ${targetIDs.length} 个助手` : `同步到 ${targetIDs.length} 个助手`}
+                        {props.mode === 'copy'
+                            ? `${includeAPIKeys && apiKeyConfirmOpen ? '确认并应用到' : '应用到'} ${targetIDs.length} 个助手`
+                            : `同步到 ${targetIDs.length} 个助手`}
                     </button>
                 </div>
             </aside>

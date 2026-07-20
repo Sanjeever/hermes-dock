@@ -1,5 +1,5 @@
 import {useRef, useState} from 'react';
-import {DeleteSkill, GetSkillDetail, GetSkillHubDetail, InstallSkillHubSkill, ListProfileSkills, ListSkillHubSkills, OpenSkillDirectory, RestoreDefaultSkills, SyncBundledSkills} from '../services/api';
+import {BatchDeleteSkills, DeleteSkill, GetSkillDetail, GetSkillHubDetail, InstallSkillHubSkill, ListProfileSkills, ListSkillHubSkills, OpenSkillDirectory, RestoreDefaultSkills, SyncBundledSkills} from '../services/api';
 import type {Notice, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState} from '../types';
 import {restoreDefaultSkillsMessage, syncBundledSkillsMessage} from '../appPolicies';
 
@@ -68,6 +68,19 @@ export function useSkills(options: {
         setSkillDetail(null);
         await loadSkills();
         options.setNotice({type: 'ok', message: '已删除技能并创建备份，重建后生效'});
+        return true;
+    }
+
+    async function batchDeleteSkills(paths: string[]) {
+		const profileID = options.getProfileID();
+		const ok = await options.run(`正在删除 ${paths.length} 个技能`, () => BatchDeleteSkills(profileID, paths), {rebuildRequired: true});
+        if (!ok) {
+            await loadSkills();
+            return false;
+        }
+        setSkillDetail(null);
+        await loadSkills();
+        options.setNotice({type: 'ok', message: `已删除 ${paths.length} 个技能并创建备份，重建后生效`});
         return true;
     }
 
@@ -169,7 +182,7 @@ export function useSkills(options: {
 
     return {
         skillsState, skillDetail, skillsStatus, skillHubState, skillHubDetail, skillHubStatus,
-        loadSkills, loadSkillDetail, deleteSkill,
+        loadSkills, loadSkillDetail, deleteSkill, batchDeleteSkills,
         syncBundledSkills: () => updateBundledSkills(false),
         restoreDefaultSkills: () => updateBundledSkills(true),
         openSkillDirectory, loadSkillHubSkills, loadSkillHubDetail, installSkillHubSkill, resetForProfile,

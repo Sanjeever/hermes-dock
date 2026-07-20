@@ -129,6 +129,12 @@ type DeleteSkillRequest struct {
 	Confirm   bool   `json:"confirm"`
 }
 
+type BatchDeleteSkillsRequest struct {
+	ProfileID string   `json:"profileId"`
+	Paths     []string `json:"paths"`
+	Confirm   bool     `json:"confirm"`
+}
+
 type RestoreDefaultRequest struct {
 	ProfileID string `json:"profileId"`
 	Confirm   bool   `json:"confirm"`

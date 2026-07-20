@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function BatchCopyProfileConfig(arg1:main.BatchProfileConfigRequest):Promise<main.BatchProfileConfigResult>;
 
+export function BatchDeleteSkills(arg1:Array<string>):Promise<void>;
+
+export function BatchDeleteSkillsForProfile(arg1:string,arg2:Array<string>):Promise<void>;
+
 export function CancelDingTalkLogin():Promise<void>;
 
 export function CancelFeishuLogin():Promise<void>;

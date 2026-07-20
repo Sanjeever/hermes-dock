@@ -65,6 +65,29 @@ describe('ProfileBatchTools', () => {
         });
     });
 
+    it('requires visible in-app confirmation before copying API keys', async () => {
+        const onCopy = vi.fn().mockResolvedValue({succeeded: 2, failed: 0, results: []});
+        render(<ProfileBatchTools
+            mode="copy"
+            profiles={profiles}
+            activeProfile="default"
+            busy={false}
+            onClose={vi.fn()}
+            onCopy={onCopy}
+            onSync={vi.fn()}
+        />);
+
+        fireEvent.click(screen.getByLabelText('包含 API Key'));
+        fireEvent.click(screen.getByRole('button', {name: '应用到 2 个助手'}));
+
+        expect(onCopy).not.toHaveBeenCalled();
+        expect(screen.getByRole('alert')).toHaveTextContent('将把来源助手的 API Key 复制到所选的 2 个助手');
+
+        fireEvent.click(screen.getByRole('button', {name: '确认并应用到 2 个助手'}));
+        await waitFor(() => expect(onCopy).toHaveBeenCalledTimes(1));
+        expect(onCopy.mock.calls[0][0].includeApiKeys).toBe(true);
+    });
+
     it('loads and passes only explicitly selected skills', async () => {
         listProfileSkills.mockResolvedValue({
             skills: [

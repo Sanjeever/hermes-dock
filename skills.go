@@ -126,6 +126,58 @@ func (a *App) DeleteSkillForProfile(profileID string, path string) error {
 	return a.markRebuildRequired()
 }
 
+func (a *App) BatchDeleteSkills(paths []string) error {
+	return a.BatchDeleteSkillsForProfile(a.currentProfileID(), paths)
+}
+
+func (a *App) BatchDeleteSkillsForProfile(profileID string, paths []string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	if len(paths) == 0 {
+		return fmt.Errorf("请至少选择一个技能")
+	}
+	type deleteTarget struct {
+		name string
+		dir  string
+	}
+	targets := make([]deleteTarget, 0, len(paths))
+	seen := map[string]bool{}
+	for _, path := range paths {
+		summary, dir, err := a.skillSummaryForPathForProfile(profileID, path)
+		if err != nil {
+			return err
+		}
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		targets = append(targets, deleteTarget{name: summary.Name, dir: dir})
+	}
+	for _, target := range targets {
+		if err := a.backupDirectory(target.dir, "before-skill-delete-"+sanitizeName(target.name)); err != nil {
+			return err
+		}
+	}
+	sort.Slice(targets, func(i, j int) bool {
+		return len(targets[i].dir) > len(targets[j].dir)
+	})
+	if err := a.markRebuildRequired(); err != nil {
+		return err
+	}
+	var deleteErr error
+	for _, target := range targets {
+		if err := os.RemoveAll(target.dir); err != nil {
+			if deleteErr == nil {
+				deleteErr = fmt.Errorf("删除技能 %s 失败：%w", target.name, err)
+			}
+			continue
+		}
+	}
+	return deleteErr
+}
+
 func (a *App) SyncBundledSkills() (SyncBundledSkillsResult, error) {
 	return a.SyncBundledSkillsForProfile(a.currentProfileID())
 }
@@ -365,6 +417,9 @@ func (a *App) resolveSkillDirForProfile(profileID string, path string) (string, 
 	root := filepath.Clean(base)
 	if dir != root && !strings.HasPrefix(dir, root+string(os.PathSeparator)) {
 		return "", "", fmt.Errorf("技能路径不能超出当前 profile")
+	}
+	if err := ensureNoSymlinkComponents(profileRoot, dir); err != nil {
+		return "", "", fmt.Errorf("技能路径不安全：%w", err)
 	}
 	info, err := os.Stat(dir)
 	if err != nil {

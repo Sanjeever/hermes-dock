@@ -113,6 +113,7 @@ export const SendTestMessage = (profileID: string, platform: string, id: string,
 export const ListProfileSkills = (profileID: string) => wailsOrRPC<unknown>('ListProfileSkillsForProfile', [profileID]);
 export const GetSkillDetail = (profileID: string, path: string) => wailsOrRPC<unknown>('GetSkillDetailForProfile', [profileID, path]);
 export const DeleteSkill = (profileID: string, path: string) => isWebRuntime() ? rpc<void>('DeleteSkillForProfile', [{profileId: profileID, path, confirm: true}]) : wailsOrRPC<void>('DeleteSkillForProfile', [profileID, path]);
+export const BatchDeleteSkills = (profileID: string, paths: string[]) => isWebRuntime() ? rpc<void>('BatchDeleteSkillsForProfile', [{profileId: profileID, paths, confirm: true}]) : wailsOrRPC<void>('BatchDeleteSkillsForProfile', [profileID, paths]);
 export const SyncBundledSkills = (profileID: string) => wailsOrRPC<SyncBundledSkillsResult>('SyncBundledSkillsForProfile', [profileID]);
 export const RestoreDefaultSkills = (profileID: string) => isWebRuntime() ? rpc<SyncBundledSkillsResult>('RestoreDefaultSkillsForProfile', [{profileId: profileID, confirm: true}]) : wailsOrRPC<SyncBundledSkillsResult>('RestoreDefaultSkillsForProfile', [profileID]);
 export const RestoreDefaultSoul = (profileID: string) => isWebRuntime() ? rpc<void>('RestoreDefaultSoulForProfile', [{profileId: profileID, confirm: true}]) : wailsOrRPC<void>('RestoreDefaultSoulForProfile', [profileID]);

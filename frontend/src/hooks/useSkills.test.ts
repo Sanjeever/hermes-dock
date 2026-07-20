@@ -5,6 +5,7 @@ import type {SkillsState} from '../types';
 import {useSkills} from './useSkills';
 
 vi.mock('../services/api', () => ({
+    BatchDeleteSkills: vi.fn(),
     DeleteSkill: vi.fn(),
     GetSkillDetail: vi.fn(),
     GetSkillHubDetail: vi.fn(),

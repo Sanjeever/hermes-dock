@@ -56,6 +56,10 @@
         grid-template-columns: 1fr;
     }
 
+    .batch-api-key-confirm {
+        grid-template-columns: 1fr;
+    }
+
     .settings-card-header {
         align-items: stretch;
         flex-direction: column;
@@ -197,6 +201,19 @@
     .skills-toolbar {
         align-items: stretch;
         grid-template-columns: 1fr;
+    }
+
+    .skill-batch-toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .skill-batch-toolbar > span {
+        grid-column: 1 / -1;
+    }
+
+    .skill-batch-confirm {
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .hub-toolbar {

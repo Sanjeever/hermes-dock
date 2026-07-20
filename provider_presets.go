@@ -61,6 +61,15 @@ var modelProviderPresets = []ModelProviderPreset{
 		ModelListURL: "https://open.bigmodel.cn/api/coding/paas/v4/models",
 	},
 	{
+		Key:          "volcengine-ark-coding-plan",
+		Label:        "火山方舟 Coding Plan",
+		Provider:     "custom",
+		BaseURL:      "https://ark.cn-beijing.volces.com/api/coding/v3",
+		APIMode:      "chat_completions",
+		DefaultModel: "doubao-seed-2.0-code",
+		ModelListURL: "https://ark.cn-beijing.volces.com/api/coding/v3/models",
+	},
+	{
 		Key:          "opencode-go",
 		Label:        "OpenCode Go",
 		Provider:     "custom",

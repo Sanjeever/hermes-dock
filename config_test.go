@@ -200,6 +200,30 @@ func TestNormalizeProviderConfigAddsZhipuPresets(t *testing.T) {
 	}
 }
 
+func TestNormalizeProviderConfigAddsVolcengineArkCodingPlan(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{Providers: map[string]ProviderConfigEntry{}})
+	provider := providers.Providers["volcengine-ark-coding-plan"]
+
+	if provider.Label != "火山方舟 Coding Plan" {
+		t.Fatalf("label = %q", provider.Label)
+	}
+	if provider.BaseURL != "https://ark.cn-beijing.volces.com/api/coding/v3" {
+		t.Fatalf("base URL = %q", provider.BaseURL)
+	}
+	if provider.DefaultModel != "doubao-seed-2.0-code" {
+		t.Fatalf("default model = %q", provider.DefaultModel)
+	}
+	if provider.APIMode != "chat_completions" {
+		t.Fatalf("api mode = %q", provider.APIMode)
+	}
+	if provider.ModelListURL != "https://ark.cn-beijing.volces.com/api/coding/v3/models" {
+		t.Fatalf("model list URL = %q", provider.ModelListURL)
+	}
+	if key := modelProviderAPIKeyEnv(provider.Provider, provider.BaseURL); key != "ARK_API_KEY" {
+		t.Fatalf("env key = %q, want ARK_API_KEY", key)
+	}
+}
+
 func TestAgnesProviderAPIKeyEnv(t *testing.T) {
 	key := modelProviderAPIKeyEnv("custom", "https://apihub.agnes-ai.com/v1")
 	if key != "AGNES_API_KEY" {

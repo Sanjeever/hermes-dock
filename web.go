@@ -837,6 +837,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"ListProfileSkillsForProfile":    oneArgValue[string, SkillsState](a.ListProfileSkillsForProfile),
 		"GetSkillDetailForProfile":       twoArgsValue[string, string, SkillDetail](a.GetSkillDetailForProfile),
 		"DeleteSkillForProfile":          oneArg[DeleteSkillRequest](a.webDeleteSkill),
+		"BatchDeleteSkillsForProfile":    oneArg[BatchDeleteSkillsRequest](a.webBatchDeleteSkills),
 		"SyncBundledSkillsForProfile":    oneArgValue[string, SyncBundledSkillsResult](a.SyncBundledSkillsForProfile),
 		"RestoreDefaultSkillsForProfile": oneArgValue[RestoreDefaultRequest, SyncBundledSkillsResult](a.webRestoreDefaultSkills),
 		"RestoreDefaultSoulForProfile":   oneArg[RestoreDefaultRequest](a.webRestoreDefaultSoul),
@@ -912,6 +913,13 @@ func (a *App) webDeleteSkill(req DeleteSkillRequest) error {
 		return fmt.Errorf("请确认删除技能")
 	}
 	return a.DeleteSkillForProfile(req.ProfileID, req.Path)
+}
+
+func (a *App) webBatchDeleteSkills(req BatchDeleteSkillsRequest) error {
+	if !req.Confirm {
+		return fmt.Errorf("请确认批量删除技能")
+	}
+	return a.BatchDeleteSkillsForProfile(req.ProfileID, req.Paths)
 }
 
 func (a *App) webRestoreDefaultSkills(req RestoreDefaultRequest) (SyncBundledSkillsResult, error) {

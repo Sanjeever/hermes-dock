@@ -6,6 +6,14 @@ export function BatchCopyProfileConfig(arg1) {
   return window['go']['main']['App']['BatchCopyProfileConfig'](arg1);
 }
 
+export function BatchDeleteSkills(arg1) {
+  return window['go']['main']['App']['BatchDeleteSkills'](arg1);
+}
+
+export function BatchDeleteSkillsForProfile(arg1, arg2) {
+  return window['go']['main']['App']['BatchDeleteSkillsForProfile'](arg1, arg2);
+}
+
 export function CancelDingTalkLogin() {
   return window['go']['main']['App']['CancelDingTalkLogin']();
 }

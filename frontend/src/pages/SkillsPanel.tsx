@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {ChevronLeft, Download, FolderOpen, RefreshCcw, RotateCcw, Search, Trash2} from 'lucide-react';
+import {CheckSquare2, ChevronLeft, Download, FolderOpen, ListChecks, RefreshCcw, RotateCcw, Search, Square, Trash2} from 'lucide-react';
 import type {SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState} from '../types';
 import {formatBytes} from './assistantUtils';
 
@@ -18,6 +18,7 @@ export function SkillsPanel(props: {
     onRestoreDefaultSkills: () => Promise<boolean>;
     onDetail: (path: string) => void;
     onDelete: (path: string) => Promise<boolean>;
+    onDeleteMany: (paths: string[]) => Promise<boolean>;
     onOpenDirectory: (path: string) => void;
     onSearchHub: (query: SkillHubQuery) => void;
     onHubDetail: (slug: string) => void;
@@ -28,6 +29,9 @@ export function SkillsPanel(props: {
     const [filter, setFilter] = useState<'all' | 'builtin' | 'custom' | 'conflict'>('all');
     const [detailTab, setDetailTab] = useState<'overview' | 'skill' | 'files'>('overview');
     const [deletePath, setDeletePath] = useState('');
+    const [batchMode, setBatchMode] = useState(false);
+    const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+    const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
     const [restoreDefaultOpen, setRestoreDefaultOpen] = useState(false);
     const [hubKeyword, setHubKeyword] = useState('');
     const [hubCategory, setHubCategory] = useState('');
@@ -41,6 +45,9 @@ export function SkillsPanel(props: {
         return [skill.name, skill.description, skill.category, skill.path].some((value) => (value || '').toLowerCase().includes(normalizedQuery));
     });
     const filteredPaths = filtered.map((skill) => skill.path).join('\n');
+    const allPaths = skills.map((skill) => skill.path).join('\n');
+    const selectedCount = selectedPaths.size;
+    const allFilteredSelected = filtered.length > 0 && filtered.every((skill) => selectedPaths.has(skill.path));
     const activeDetail = props.detail && filtered.some((skill) => skill.path === props.detail?.path) ? props.detail : null;
     const hubSkills = props.hubState?.skills || [];
     const hubSlugs = hubSkills.map((skill) => skill.slug).join('\n');
@@ -63,6 +70,20 @@ export function SkillsPanel(props: {
     }, [filteredPaths, props.detail?.path]);
 
     useEffect(() => {
+        setBatchMode(false);
+        setSelectedPaths(new Set());
+        setBatchDeleteOpen(false);
+    }, [props.skillsState?.activeProfile]);
+
+    useEffect(() => {
+        const installed = new Set(skills.map((skill) => skill.path));
+        setSelectedPaths((current) => {
+            const next = new Set([...current].filter((path) => installed.has(path)));
+            return next.size === current.size ? current : next;
+        });
+    }, [allPaths]);
+
+    useEffect(() => {
         if (view !== 'hub' || props.hubState) return;
         props.onSearchHub(makeHubQuery());
     }, [view]);
@@ -78,6 +99,20 @@ export function SkillsPanel(props: {
     };
     const hubPage = props.hubState?.page || 1;
     const hubTotalPages = Math.max(1, Math.ceil((props.hubState?.total || 0) / (props.hubState?.pageSize || 24)));
+    const leaveBatchMode = () => {
+        setBatchMode(false);
+        setSelectedPaths(new Set());
+        setBatchDeleteOpen(false);
+    };
+    const toggleSelectedPath = (path: string) => {
+        setSelectedPaths((current) => {
+            const next = new Set(current);
+            if (next.has(path)) next.delete(path);
+            else next.add(path);
+            return next;
+        });
+        setBatchDeleteOpen(false);
+    };
 
     return (
         <div className="skills-panel">
@@ -90,11 +125,19 @@ export function SkillsPanel(props: {
                     </div>
                     <div className="skills-view-toggle">
                         <button className={view === 'local' ? 'selected' : ''} onClick={() => setView('local')} disabled={props.busy}>本地</button>
-                        <button className={view === 'hub' ? 'selected' : ''} onClick={() => setView('hub')} disabled={props.busy}>技能中心</button>
+                        <button className={view === 'hub' ? 'selected' : ''} onClick={() => {
+                            setView('hub');
+                            leaveBatchMode();
+                        }} disabled={props.busy}>技能中心</button>
                     </div>
                     <div className="skills-head-actions">
-                        {view === 'local' && <button className="ghost" onClick={props.onSyncBundledSkills} disabled={props.busy}><Download size={16}/>同步内置技能</button>}
-                        {view === 'local' && <button className="ghost danger-inline" onClick={() => setRestoreDefaultOpen(true)} disabled={props.busy}><RotateCcw size={16}/>恢复默认技能</button>}
+                        {view === 'local' && <button className="ghost" onClick={props.onSyncBundledSkills} disabled={props.busy || batchMode}><Download size={16}/>同步内置技能</button>}
+                        {view === 'local' && <button className="ghost danger-inline" onClick={() => setRestoreDefaultOpen(true)} disabled={props.busy || batchMode}><RotateCcw size={16}/>恢复默认技能</button>}
+                        {view === 'local' && !batchMode && <button className="ghost danger-inline" onClick={() => {
+                            setRestoreDefaultOpen(false);
+                            setBatchMode(true);
+                        }} disabled={props.busy || skills.length === 0}><ListChecks size={16}/>批量删除</button>}
+                        {view === 'local' && batchMode && <button className="ghost" onClick={leaveBatchMode} disabled={props.busy}>取消批量</button>}
                         <button className="ghost" onClick={() => view === 'local' ? props.onRefresh() : searchHub(hubKeyword, hubCategory, hubPage)} disabled={props.busy}><RefreshCcw size={16}/>刷新</button>
                         <button className="ghost" onClick={props.onBack} disabled={props.busy}><ChevronLeft size={16}/>返回摘要</button>
                     </div>
@@ -110,22 +153,48 @@ export function SkillsPanel(props: {
                         </div>
                     )}
                     {view === 'local' ? (
-                        <div className="skills-toolbar">
-                            <label className="skills-search">
-                                <Search size={16}/>
-                                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索技能名、描述或分类"/>
-                            </label>
-                            <div className="segmented compact">
-                                {[
-                                    ['all', '全部'],
-                                    ['builtin', '内置'],
-                                    ['custom', '自定义'],
-                                    ['conflict', '冲突'],
-                                ].map(([value, label]) => (
-                                    <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value as typeof filter)}>{label}</button>
-                                ))}
+                        <>
+                            <div className="skills-toolbar">
+                                <label className="skills-search">
+                                    <Search size={16}/>
+                                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索技能名、描述或分类"/>
+                                </label>
+                                <div className="segmented compact">
+                                    {[
+                                        ['all', '全部'],
+                                        ['builtin', '内置'],
+                                        ['custom', '自定义'],
+                                        ['conflict', '冲突'],
+                                    ].map(([value, label]) => (
+                                        <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value as typeof filter)}>{label}</button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                            {batchMode && (
+                                <div className="skill-batch-toolbar">
+                                    <span>已选 {selectedCount} 个技能</span>
+                                    <button className="ghost" onClick={() => setSelectedPaths((current) => {
+                                        const next = new Set(current);
+                                        filtered.forEach((skill) => next.add(skill.path));
+                                        return next;
+                                    })} disabled={props.busy || allFilteredSelected}>选择当前结果</button>
+                                    <button className="ghost" onClick={() => {
+                                        setSelectedPaths(new Set());
+                                        setBatchDeleteOpen(false);
+                                    }} disabled={props.busy || selectedCount === 0}>清空</button>
+                                    <button className="danger-button compact" onClick={() => setBatchDeleteOpen(true)} disabled={props.busy || selectedCount === 0}><Trash2 size={16}/>删除所选</button>
+                                </div>
+                            )}
+                            {batchMode && batchDeleteOpen && (
+                                <div className="danger-confirm skill-batch-confirm">
+                                    <span>确认删除选中的 {selectedCount} 个技能？删除前会逐个备份，重建后生效。</span>
+                                    <button className="danger-button compact" onClick={async () => {
+                                        if (await props.onDeleteMany([...selectedPaths])) leaveBatchMode();
+                                    }} disabled={props.busy || selectedCount === 0}><Trash2 size={16}/>确认批量删除</button>
+                                    <button className="ghost" onClick={() => setBatchDeleteOpen(false)} disabled={props.busy}>取消</button>
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="skills-toolbar hub-toolbar">
                             <label className="skills-search">
@@ -165,11 +234,16 @@ export function SkillsPanel(props: {
                             ) : (
                                 <div className="skill-list">
                                     {filtered.map((skill) => (
-                                        <button key={skill.path} className={`skill-row ${skill.conflict ? 'conflict' : ''} ${activeDetail?.path === skill.path ? 'selected' : ''}`} onClick={() => {
+                                        <button key={skill.path} aria-pressed={batchMode ? selectedPaths.has(skill.path) : undefined} className={`skill-row ${skill.conflict ? 'conflict' : ''} ${activeDetail?.path === skill.path && !batchMode ? 'selected' : ''} ${batchMode ? 'batch' : ''} ${selectedPaths.has(skill.path) ? 'batch-selected' : ''}`} onClick={() => {
+                                            if (batchMode) {
+                                                toggleSelectedPath(skill.path);
+                                                return;
+                                            }
                                             setDeletePath('');
                                             setDetailTab('overview');
                                             props.onDetail(skill.path);
                                         }}>
+                                            {batchMode && <span className="skill-select-icon" aria-hidden="true">{selectedPaths.has(skill.path) ? <CheckSquare2 size={18}/> : <Square size={18}/>}</span>}
                                             <span className="skill-row-main">
                                                 <span className="skill-row-title">
                                                     <strong>{skill.name}</strong>

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -57,6 +58,62 @@ func TestDeleteSkillBacksUpAndRejectsUnsafePath(t *testing.T) {
 	}
 	if len(state.Backups) == 0 {
 		t.Fatalf("delete did not record a backup")
+	}
+}
+
+func TestBatchDeleteSkillsBacksUpAllBeforeDeleting(t *testing.T) {
+	app := newTestApp(t)
+	writeTestSkill(t, app, "skills/custom/first", "first")
+	writeTestSkill(t, app, "skills/custom/second", "second")
+	paths := []string{"skills/custom/first", "skills/custom/second"}
+
+	if err := app.BatchDeleteSkills([]string{paths[0], "../data/skills/custom/second"}); err == nil {
+		t.Fatal("unsafe batch path should be rejected")
+	}
+	for _, path := range paths {
+		if !fileExists(filepath.Join(app.currentProfileDataDir(), filepath.FromSlash(path))) {
+			t.Fatalf("skill %s was deleted before every path was validated", path)
+		}
+	}
+	if err := app.BatchDeleteSkills(paths); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		if fileExists(filepath.Join(app.currentProfileDataDir(), filepath.FromSlash(path))) {
+			t.Fatalf("skill %s still exists", path)
+		}
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Backups) < len(paths) {
+		t.Fatalf("backup count = %d, want at least %d", len(state.Backups), len(paths))
+	}
+}
+
+func TestBatchDeleteSkillsRejectsSymlinkComponents(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("创建符号链接需要额外权限")
+	}
+	app := newTestApp(t)
+	externalSkill := filepath.Join(t.TempDir(), "external")
+	if err := os.MkdirAll(externalSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(externalSkill, "SKILL.md"), []byte("---\nname: external\ndescription: External\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(app.currentProfileDataDir(), "skills", "linked")
+	if err := os.Symlink(filepath.Dir(externalSkill), link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.BatchDeleteSkills([]string{"skills/linked/external"}); err == nil {
+		t.Fatal("symlink path should be rejected")
+	}
+	if !fileExists(filepath.Join(externalSkill, "SKILL.md")) {
+		t.Fatal("external skill was deleted through a symlink")
 	}
 }
 

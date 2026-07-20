@@ -1501,6 +1501,7 @@ function App() {
                         onRestoreDefaultSkills={skills.restoreDefaultSkills}
                         onSkillDetail={skills.loadSkillDetail}
                         onDeleteSkill={skills.deleteSkill}
+                        onBatchDeleteSkills={skills.batchDeleteSkills}
                         onOpenSkillDirectory={skills.openSkillDirectory}
                         onSearchSkillHub={skills.loadSkillHubSkills}
                         onSkillHubDetail={skills.loadSkillHubDetail}

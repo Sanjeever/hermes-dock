@@ -900,7 +900,7 @@ func modelProviderEnvUpdates(model ModelConfig) []EnvVar {
 }
 
 func orderedEnvUpdates(byKey map[string]EnvVar) []EnvVar {
-	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY", "AGNES_API_KEY"}
+	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "ARK_API_KEY", "DEEPSEEK_API_KEY", "AGNES_API_KEY"}
 	updates := make([]EnvVar, 0, len(byKey))
 	for _, key := range order {
 		if item, ok := byKey[key]; ok {
@@ -930,6 +930,8 @@ func modelProviderAPIKeyEnv(provider string, baseURL string) string {
 		return "DASHSCOPE_API_KEY"
 	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
 		return "ZHIPU_API_KEY"
+	case provider == "custom" && strings.Contains(baseURL, "ark.cn-beijing.volces.com"):
+		return "ARK_API_KEY"
 	default:
 		return ""
 	}
@@ -951,6 +953,8 @@ func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {
 		return modelProviderPresetByKey("dashscope-payg")
 	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
 		return modelProviderPresetByKey("zhipu-payg")
+	case provider == "custom" && strings.Contains(baseURL, "ark.cn-beijing.volces.com"):
+		return modelProviderPresetByKey("volcengine-ark-coding-plan")
 	default:
 		return nil
 	}

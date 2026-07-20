@@ -96,6 +96,7 @@ export function AssistantsPage(props: {
     onRestoreDefaultSkills: () => Promise<boolean>;
     onSkillDetail: (path: string) => void;
     onDeleteSkill: (path: string) => Promise<boolean>;
+    onBatchDeleteSkills: (paths: string[]) => Promise<boolean>;
     onOpenSkillDirectory: (path: string) => void;
     onSearchSkillHub: (query: SkillHubQuery) => void;
     onSkillHubDetail: (slug: string) => void;
@@ -333,6 +334,7 @@ export function AssistantsPage(props: {
                         onRestoreDefaultSkills={props.onRestoreDefaultSkills}
                         onDetail={props.onSkillDetail}
                         onDelete={props.onDeleteSkill}
+                        onDeleteMany={props.onBatchDeleteSkills}
                         onOpenDirectory={props.onOpenSkillDirectory}
                         onSearchHub={props.onSearchSkillHub}
                         onHubDetail={props.onSkillHubDetail}
