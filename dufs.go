@@ -47,10 +47,7 @@ func (a *App) validateDufsSettings(settings ComposeSettings) error {
 	if !settings.DufsEnabled {
 		return nil
 	}
-	conflicts := map[string]string{
-		strings.TrimSpace(settings.GatewayPort):   "Hermes 消息入口",
-		strings.TrimSpace(settings.DashboardPort): "Hermes 管理页",
-	}
+	conflicts := map[string]string{}
 	if settings.HostControlEnabled != "false" {
 		conflicts[defaultHostBridgePort] = "Host Bridge"
 	}

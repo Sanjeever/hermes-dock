@@ -292,7 +292,11 @@ func buildEnv(profile RuntimeManifestProfile) ([]string, error) {
 	for key, value := range vars {
 		env = setEnv(env, key, value)
 	}
-	return env, nil
+	return applyRuntimeEnvPolicy(env), nil
+}
+
+func applyRuntimeEnvPolicy(env []string) []string {
+	return setEnv(env, "HERMES_DASHBOARD", "0")
 }
 
 func readEnvFile(path string) (map[string]string, error) {

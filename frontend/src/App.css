@@ -102,7 +102,6 @@ nav button,
 .icon-button,
 .ghost,
 .primary,
-.endpoint-card,
 .provider-card,
 .provider-list-item,
 .platform-card,
@@ -520,45 +519,11 @@ h2 {
     background: #fcfbf4;
 }
 
-.endpoint-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 14px;
-}
-
-.endpoint-card {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px 10px;
-    align-items: center;
-    padding: 12px;
-    border-radius: 8px;
-    background: #f0eadc;
-    color: #20251f;
-    text-align: left;
-}
-
-.endpoint-card span,
 .provider-card span,
 .mode-summary span {
     color: #596056;
     font-size: 12px;
     font-weight: 800;
-}
-
-.endpoint-card strong {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-}
-
-.endpoint-card svg {
-    grid-row: 1 / span 2;
-    grid-column: 2;
 }
 
 .actions {
@@ -614,7 +579,6 @@ h2 {
     background: #111813;
 }
 
-.endpoint-card:hover:not(:disabled),
 .advanced-file-card:hover:not(:disabled),
 .setup-status-list button:hover:not(:disabled),
 .provider-card:hover:not(:disabled),
@@ -1347,51 +1311,11 @@ button:disabled {
 }
 
 .runtime-workbench-footer {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: center;
+    display: flex;
+    justify-content: flex-end;
     border-radius: 8px;
     padding: 12px;
     background: #f7f2e8;
-}
-
-.runtime-advanced-tools {
-    min-width: 0;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #f0eadc;
-}
-
-.runtime-advanced-tools summary {
-    cursor: pointer;
-    color: #344054;
-    font-size: 13px;
-    font-weight: 850;
-}
-
-.runtime-advanced-tool-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 12px;
-}
-
-.runtime-advanced-tool-row span {
-    display: grid;
-    gap: 3px;
-}
-
-.runtime-advanced-tool-row strong {
-    color: #20251f;
-    font-size: 13px;
-}
-
-.runtime-advanced-tool-row small {
-    color: #667085;
-    font-size: 12px;
-    font-weight: 700;
 }
 
 .runtime-check-strip {

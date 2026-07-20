@@ -17,7 +17,7 @@ export function OverviewPage(props: {
     onOpenSettings: () => void;
     onOpenAccessSettings: () => void;
     onOpenWebManagement: () => void;
-    onOpenEndpoint: (endpoint: 'dufs') => void;
+    onOpenFileManagement: () => void;
 }) {
     const profiles = props.state.profiles?.profiles || [];
     const profileStatuses = props.state.profileStatus?.profiles || {};
@@ -125,7 +125,7 @@ export function OverviewPage(props: {
                 busy={actionBusy}
                 onOpenSettings={props.onOpenAccessSettings}
                 onOpenWebManagement={props.onOpenWebManagement}
-                onOpenFiles={() => props.onOpenEndpoint('dufs')}
+                onOpenFiles={props.onOpenFileManagement}
             />
 
             <section className="panel overview-section">

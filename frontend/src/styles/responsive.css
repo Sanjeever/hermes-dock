@@ -38,7 +38,6 @@
     .skill-meta-list div,
     .skill-files div,
     .skill-danger-zone,
-    .endpoint-grid,
     .provider-grid,
     .platform-cards {
         grid-template-columns: 1fr;

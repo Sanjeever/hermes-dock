@@ -191,6 +191,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.migrateFixedHermesImageIfNeeded(settings); err != nil {
 			return err
 		}
+		if err := a.migratePrivateHermesServicesIfNeeded(settings); err != nil {
+			return err
+		}
 		if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
 			return err
 		}
@@ -244,6 +247,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 	if err := a.migrateFixedHermesImageIfNeeded(settings); err != nil {
 		return err
 	}
+	if err := a.migratePrivateHermesServicesIfNeeded(settings); err != nil {
+		return err
+	}
 	if err := a.writeOverrideIfMissing(); err != nil {
 		return err
 	}
@@ -258,6 +264,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		state.UpdatedAt = now
 		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{ID: "seed-data-v1", AppliedAt: now})
 		if err := a.writeState(state); err != nil {
+			return err
+		}
+		if err := a.migratePrivateHermesServicesIfNeeded(settings); err != nil {
 			return err
 		}
 		if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
@@ -345,6 +354,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		ModelAuxiliaryMode: firstNonEmpty(existing.ModelAuxiliaryMode, "auto"),
 	}
 	if err := a.writeState(state); err != nil {
+		return LauncherState{}, err
+	}
+	if err := a.migratePrivateHermesServicesIfNeeded(settings); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
@@ -447,29 +459,12 @@ func (a *App) validateResetRoot() error {
 	return nil
 }
 
-func (a *App) OpenEndpoint(endpoint string) error {
+func (a *App) OpenFileManagement() error {
 	settings := a.readComposeSettings()
-	var host, port string
-	switch endpoint {
-	case "dashboard":
-		host = settings.DashboardHost
-		port = settings.DashboardPort
-	case "gateway":
-		host = settings.GatewayHost
-		port = settings.GatewayPort
-	case "dufs":
-		if !settings.DufsEnabled {
-			return fmt.Errorf("Dufs 文件管理未开启")
-		}
-		host = "127.0.0.1"
-		port = settings.DufsPort
-	default:
-		return fmt.Errorf("未知入口：%s", endpoint)
+	if !settings.DufsEnabled {
+		return fmt.Errorf("Dufs 文件管理未开启")
 	}
-	if host == "" || host == "0.0.0.0" || host == "::" {
-		host = "127.0.0.1"
-	}
-	runtime.BrowserOpenURL(a.ctx, "http://"+host+":"+port)
+	runtime.BrowserOpenURL(a.ctx, a.dufsStatus().LocalURL)
 	return nil
 }
 

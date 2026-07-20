@@ -42,6 +42,13 @@ func TestSetEnvReplacesExactKey(t *testing.T) {
 	}
 }
 
+func TestRuntimeEnvPolicyDisablesDashboard(t *testing.T) {
+	got := applyRuntimeEnvPolicy([]string{"HERMES_DASHBOARD=1", "TOKEN=keep"})
+	if strings.Join(got, ",") != "HERMES_DASHBOARD=0,TOKEN=keep" {
+		t.Fatalf("unexpected environment: %#v", got)
+	}
+}
+
 func TestPrefixLinesAddsProfileAndRedactsSecrets(t *testing.T) {
 	var out bytes.Buffer
 	if err := prefixLinesTo(&out, "sales", strings.NewReader("ready\napi_key=secret-value\n\n")); err != nil {

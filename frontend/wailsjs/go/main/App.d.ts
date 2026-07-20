@@ -88,7 +88,7 @@ export function ListSkillHubSkillsForProfile(arg1:string,arg2:main.SkillHubQuery
 
 export function MoveProfile(arg1:string,arg2:string):Promise<void>;
 
-export function OpenEndpoint(arg1:string):Promise<void>;
+export function OpenFileManagement():Promise<void>;
 
 export function OpenSkillDirectory(arg1:string):Promise<void>;
 

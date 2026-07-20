@@ -5,7 +5,7 @@ import {ChooseSharedDirectory, GetRecommendedResourceLimits, isWebRuntime} from 
 import type {ComposeSettings, DufsStatus, HostBridgeStatus, ProxySettings} from '../types';
 import {isPortValue} from '../utils';
 
-export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs, setCompose, setProxy, dirty, busy, onOpenEndpoint, onSave, onDiscard}: {
+export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs, setCompose, setProxy, dirty, busy, onOpenFileManagement, onSave, onDiscard}: {
     section?: 'basic' | 'access' | 'advanced';
     compose: ComposeSettings;
     proxy: ProxySettings;
@@ -15,11 +15,10 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
     setProxy: (value: ProxySettings) => void;
     dirty: boolean;
     busy: boolean;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
+    onOpenFileManagement: () => void;
     onSave: () => void;
     onDiscard: () => void;
 }) {
-    const [passwordVisible, setPasswordVisible] = useState(false);
     const [dufsPasswordVisible, setDufsPasswordVisible] = useState(false);
     const [copiedDufsURL, setCopiedDufsURL] = useState(false);
     const [resourceRecommendation, setResourceRecommendation] = useState<{ dockerMemoryGB: number; dockerCPU: number } | null>(null);
@@ -27,22 +26,19 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
     const [resourceRecommendationError, setResourceRecommendationError] = useState('');
     const [directoryPickerError, setDirectoryPickerError] = useState('');
     const composeRef = useRef(compose);
-    const update = (key: Exclude<keyof ComposeSettings, 'dashboardEnabled' | 'dufsEnabled' | 'dufsUsingDefaultPassword'>, value: string) => setCompose({...compose, dashboardEnabled: true, [key]: value});
+    const update = (key: Exclude<keyof ComposeSettings, 'dufsEnabled' | 'dufsUsingDefaultPassword'>, value: string) => setCompose({...compose, [key]: value});
     const updateProxyText = (key: keyof Omit<ProxySettings, 'enabled'>, value: string) => setProxy({...proxy, [key]: value});
     const dufsAccountValid = /^[A-Za-z0-9._-]+$/.test(compose.dufsUsername);
     const dufsPortValid = !compose.dufsEnabled || isPortValue(compose.dufsPort);
-    const servicePortsValid = isPortValue(compose.gatewayPort) && isPortValue(compose.dashboardPort);
     const proxyReady = !proxy.enabled || !!(proxy.httpProxy.trim() || proxy.httpsProxy.trim() || proxy.allProxy.trim());
     const dockerSettingsHint = !dufsAccountValid
         ? '文件管理用户名格式无效，请先修正。'
         : !dufsPortValid
             ? '文件管理端口无效，请先修正。'
-            : !servicePortsValid
-                ? '服务端口无效，请先修正。'
-                : !proxyReady
-                    ? '启用代理时，请至少填写一个代理地址。'
-                    : dirty ? 'Docker 设置有未保存修改。' : '没有未保存修改。';
-    const dockerSettingsValid = dufsAccountValid && dufsPortValid && servicePortsValid && proxyReady;
+            : !proxyReady
+                ? '启用代理时，请至少填写一个代理地址。'
+                : dirty ? 'Docker 设置有未保存修改。' : '没有未保存修改。';
+    const dockerSettingsValid = dufsAccountValid && dufsPortValid && proxyReady;
     const isBasic = section === 'basic';
     const isAdvanced = section === 'advanced';
     const resourceStatus = resourceRecommendation
@@ -91,7 +87,6 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
             const current = composeRef.current;
             setCompose({
                 ...current,
-                dashboardEnabled: true,
                 memoryLimit: recommendation.memoryLimit,
                 cpuLimit: recommendation.cpuLimit,
             });
@@ -130,7 +125,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                 <input
                                     type="checkbox"
                                     checked={compose.hostControlEnabled !== 'false'}
-                                    onChange={(event) => setCompose({...compose, dashboardEnabled: true, hostControlEnabled: event.target.checked ? 'true' : 'false'})}
+                                    onChange={(event) => setCompose({...compose, hostControlEnabled: event.target.checked ? 'true' : 'false'})}
                                 />
                                 允许宿主机操作
                             </label>
@@ -181,7 +176,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                     <input
                                         type="checkbox"
                                         checked={compose.dufsEnabled}
-                                        onChange={(event) => setCompose({...compose, dashboardEnabled: true, dufsEnabled: event.target.checked})}
+                                        onChange={(event) => setCompose({...compose, dufsEnabled: event.target.checked})}
                                     />
                                     开启局域网文件管理
                                 </label>
@@ -204,7 +199,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                         <div className="form-warning">仅限可信局域网使用。</div>
                                         {dufs.enabled && dufs.primaryUrl && (
                                             <div className="actions compact">
-                                                <button className="ghost no-margin" type="button" onClick={() => onOpenEndpoint('dufs')} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
+                                                <button className="ghost no-margin" type="button" onClick={onOpenFileManagement} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
                                                 <button className="ghost no-margin" type="button" onClick={copyDufsURL} disabled={busy}><Clipboard size={16}/>{copiedDufsURL ? '已复制' : '复制访问地址'}</button>
                                             </div>
                                         )}
@@ -218,22 +213,6 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
             </>}
 
             {isAdvanced && <>
-                <div className="panel settings-list">
-                    <SettingRow title="运行参数" description="仅在排障或端口冲突时修改。">
-                        <div className="setting-control-stack">
-                            <div className="setting-control-grid">
-                                <Field label="控制台用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>
-                                <SecretField label="控制台密码" value={compose.dashboardPassword} visible={passwordVisible} setVisible={setPasswordVisible} onChange={(value) => update('dashboardPassword', value)}/>
-                            </div>
-                            {compose.dashboardPassword === '123456' && <div className="form-warning">控制台仍在使用默认密码。</div>}
-                            <div className="setting-control-grid">
-                                <Field label="控制台端口" value={compose.dashboardPort} onChange={(value) => update('dashboardPort', value)}/>
-                                <Field label="消息服务端口" value={compose.gatewayPort} onChange={(value) => update('gatewayPort', value)}/>
-                            </div>
-                            {!servicePortsValid && <div className="form-warning">端口必须是 1-65535 的数字。</div>}
-                        </div>
-                    </SettingRow>
-                </div>
                 <div className="panel settings-list">
                     <SettingRow title="资源配额" description="默认按 Docker 可用资源计算。">
                         <div className="setting-control-stack">

@@ -25,7 +25,7 @@ import {
     InstallSkillHubSkill,
     ListProfileSkills,
     ListSkillHubSkills,
-    OpenEndpoint,
+    OpenFileManagement,
     OpenWebManagement,
     OpenSkillDirectory,
     ReadTextFile,
@@ -987,7 +987,7 @@ function App() {
         if (!compose || !proxy) return false;
 		const revision = deployEditRevisionRef.current;
         return await run('正在保存部署配置', async () => {
-            await SaveComposeSettings({...compose, dashboardEnabled: true});
+            await SaveComposeSettings(compose);
             await SaveProxySettings(proxy);
 		}, {rebuildRequired: true, beforeRefresh: () => {
 			if (revision === deployEditRevisionRef.current) markDeployDirty(false);
@@ -1137,9 +1137,9 @@ function App() {
 		setAdvancedPath(path);
     }
 
-    async function openEndpoint(endpoint: 'dashboard' | 'gateway' | 'dufs') {
+    async function openFileManagement() {
         try {
-            await OpenEndpoint(endpoint);
+            await OpenFileManagement();
         } catch (error) {
             const message = String(error);
             appendLog(message);
@@ -1395,7 +1395,7 @@ function App() {
                             setPage('settings');
                         }}
                         onOpenWebManagement={openWebManagement}
-                        onOpenEndpoint={openEndpoint}
+                        onOpenFileManagement={openFileManagement}
                     />
                 )}
 
@@ -1565,7 +1565,7 @@ function App() {
                         onLogs={tailLogs}
                         onClearLogs={() => setLogs([])}
                         onCopyLogs={copyLogs}
-                        onOpenEndpoint={openEndpoint}
+                        onOpenFileManagement={openFileManagement}
                         onOpenAssistantPlatforms={() => {
                             setPage('assistants');
                             setWizardStep('platforms');

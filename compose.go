@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,13 +29,6 @@ func defaultComposeSettings() ComposeSettings {
 	return ComposeSettings{
 		Image:                    defaultImage,
 		ContainerName:            "hermes",
-		GatewayHost:              "127.0.0.1",
-		GatewayPort:              "8642",
-		DashboardHost:            "127.0.0.1",
-		DashboardPort:            "9119",
-		DashboardEnabled:         true,
-		DashboardUsername:        "admin",
-		DashboardPassword:        "123456",
 		GatewayBusyInputMode:     "steer",
 		GatewayBusyAckEnabled:    "false",
 		BackgroundNotifications:  "result",
@@ -57,25 +49,6 @@ func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	settings.Image = defaultImage
 	if settings.ContainerName == "" {
 		settings.ContainerName = defaults.ContainerName
-	}
-	if settings.GatewayHost == "" {
-		settings.GatewayHost = defaults.GatewayHost
-	}
-	if settings.GatewayPort == "" {
-		settings.GatewayPort = defaults.GatewayPort
-	}
-	if settings.DashboardHost == "" {
-		settings.DashboardHost = defaults.DashboardHost
-	}
-	if settings.DashboardPort == "" {
-		settings.DashboardPort = defaults.DashboardPort
-	}
-	settings.DashboardEnabled = true
-	if settings.DashboardUsername == "" {
-		settings.DashboardUsername = defaults.DashboardUsername
-	}
-	if settings.DashboardPassword == "" {
-		settings.DashboardPassword = defaults.DashboardPassword
 	}
 	if settings.GatewayBusyInputMode == "" {
 		settings.GatewayBusyInputMode = defaults.GatewayBusyInputMode
@@ -186,12 +159,6 @@ func (a *App) readComposeSettings() ComposeSettings {
 		settings.Image = state.HermesImage
 	}
 	env, _ := readEnvFile(a.defaultEnvPath())
-	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_USERNAME"); value != "" {
-		settings.DashboardUsername = value
-	}
-	if value := envValue(env, "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD"); value != "" {
-		settings.DashboardPassword = value
-	}
 	if value := envValue(env, "HERMES_GATEWAY_BUSY_INPUT_MODE"); value != "" {
 		settings.GatewayBusyInputMode = value
 	}
@@ -281,18 +248,6 @@ func validateComposeSettings(settings ComposeSettings) error {
 	if !containerNamePattern.MatchString(settings.ContainerName) {
 		return fmt.Errorf("容器名称格式无效")
 	}
-	for label, host := range map[string]string{"管理页监听地址": settings.DashboardHost, "消息入口监听地址": settings.GatewayHost} {
-		ip := net.ParseIP(strings.TrimSpace(host))
-		if ip == nil || ip.To4() == nil {
-			return fmt.Errorf("%s无效：%s", label, host)
-		}
-	}
-	for label, port := range map[string]string{"管理页端口": settings.DashboardPort, "消息入口端口": settings.GatewayPort} {
-		value, err := strconv.Atoi(strings.TrimSpace(port))
-		if err != nil || value < 1 || value > 65535 {
-			return fmt.Errorf("%s必须是 1 到 65535 之间的数字", label)
-		}
-	}
 	if !memoryLimitPattern.MatchString(strings.TrimSpace(settings.MemoryLimit)) {
 		return fmt.Errorf("内存限制格式无效")
 	}
@@ -310,14 +265,13 @@ const (
 	composeRuntimeMigrationID = "compose-runtime-v2"
 	dufsComposeMigrationID    = "compose-dufs-v1"
 	fixedImageMigrationID     = "compose-fixed-image-v1"
+	privateHermesMigrationID  = "compose-private-hermes-services-v1"
 )
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
 	updates := []EnvVar{
-		{Key: "HERMES_DASHBOARD", Value: "1"},
-		{Key: "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", Value: settings.DashboardUsername},
-		{Key: "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", Value: settings.DashboardPassword},
+		{Key: "HERMES_DASHBOARD", Value: "0"},
 		{Key: "HERMES_GATEWAY_BUSY_INPUT_MODE", Value: settings.GatewayBusyInputMode},
 		{Key: "HERMES_GATEWAY_BUSY_ACK_ENABLED", Value: settings.GatewayBusyAckEnabled},
 		{Key: "HERMES_BACKGROUND_NOTIFICATIONS", Value: settings.BackgroundNotifications},
@@ -495,6 +449,107 @@ func (a *App) migrateFixedHermesImageIfNeeded(settings ComposeSettings) error {
 	return a.writeState(state)
 }
 
+func (a *App) migratePrivateHermesServicesIfNeeded(settings ComposeSettings) error {
+	if !fileExists(a.statePath()) {
+		return nil
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	migrationRecorded := migrationApplied(state.Migrations, privateHermesMigrationID)
+	data, err := os.ReadFile(a.composePath())
+	if err != nil {
+		return err
+	}
+	current := privateHermesServicesCurrent(data, settings.DufsEnabled)
+	if migrationRecorded && current {
+		return nil
+	}
+	if !current {
+		if err := a.writeCompose(settings, "before-private-hermes-services-migration"); err != nil {
+			return err
+		}
+	}
+	state.ComposeSettings = settings
+	state.ComposeSettings.DufsPassword = ""
+	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+		ID:        privateHermesMigrationID,
+		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = state.NeedsRebuild || !current
+	if !current {
+		state.PendingDufsOnly = false
+	}
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
+}
+
+func privateHermesServicesCurrent(data []byte, dufsEnabled bool) bool {
+	var compose map[string]interface{}
+	if err := parseYAML(data, &compose); err != nil {
+		return false
+	}
+	services := asMap(compose["services"])
+	hermes := asMap(services["hermes"])
+	if len(hermes) == 0 {
+		return false
+	}
+	if _, exists := hermes["ports"]; exists {
+		return false
+	}
+	if _, exists := hermes["expose"]; exists {
+		return false
+	}
+	if asString(asMap(hermes["environment"])["HERMES_DASHBOARD"]) != "0" {
+		return false
+	}
+	if !sameStrings(composeServiceNetworks(hermes["networks"]), []string{"hermes_runtime"}) {
+		return false
+	}
+	networks := asMap(compose["networks"])
+	if _, exists := networks["hermes_runtime"]; !exists {
+		return false
+	}
+	if _, exists := networks["file_management"]; !exists {
+		return false
+	}
+	if !dufsEnabled {
+		return true
+	}
+	dufs := asMap(services["dufs"])
+	return len(dufs) > 0 && sameStrings(composeServiceNetworks(dufs["networks"]), []string{"file_management"})
+}
+
+func composeServiceNetworks(value interface{}) []string {
+	items, ok := value.([]interface{})
+	if !ok {
+		return nil
+	}
+	networks := make([]string, 0, len(items))
+	for _, item := range items {
+		name := asString(item)
+		if name == "" {
+			return nil
+		}
+		networks = append(networks, name)
+	}
+	return networks
+}
+
+func sameStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for index := range got {
+		if got[index] != want[index] {
+			return false
+		}
+	}
+	return true
+}
+
 func (a *App) migrateDufsComposeIfNeeded(settings ComposeSettings) error {
 	if !fileExists(a.statePath()) {
 		return nil
@@ -548,13 +603,15 @@ func (a *App) migrateDufsComposeIfNeeded(settings ComposeSettings) error {
 }
 
 func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
-	return "services:\n" + renderHermesService(settings, proxy) + renderDufsService(settings)
+	return "services:\n" + renderHermesService(settings, proxy) + renderDufsService(settings) + `networks:
+  hermes_runtime:
+  file_management:
+`
 }
 
 func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
 	settings = withComposeDefaults(settings)
 	proxy = withProxyDefaults(proxy)
-	dashboard := "1"
 	proxyEnv := renderComposeProxyEnvironment(proxy)
 	return fmt.Sprintf(`  hermes:
     image: "%s"
@@ -574,17 +631,12 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
     extra_hosts:
       - "host.docker.internal:host-gateway"
     shm_size: "%s"
-    ports:
-      - "%s:%s:8642"
-      - "%s:%s:9119"
     environment:
       HERMES_WRITE_SAFE_ROOT: "/opt/data"
       HERMES_HOME: "/opt/data"
       TMPDIR: "/opt/data/tmp"
       TZ: "Asia/Shanghai"
-      HERMES_DASHBOARD: "%s"
-      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "%s"
-      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "%s"
+      HERMES_DASHBOARD: "0"
       HERMES_GATEWAY_BUSY_INPUT_MODE: "%s"
       HERMES_GATEWAY_BUSY_ACK_ENABLED: "%s"
       HERMES_BACKGROUND_NOTIFICATIONS: "%s"
@@ -605,12 +657,14 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
       - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro
       - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro
+    networks:
+      - hermes_runtime
     deploy:
       resources:
         limits:
           memory: "%s"
           cpus: "%s"
-`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayHost), yamlQuote(settings.GatewayPort), yamlQuote(settings.DashboardHost), yamlQuote(settings.DashboardPort), dashboard, yamlQuote(settings.DashboardUsername), yamlQuote(settings.DashboardPassword), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
 }
 
 func renderDufsService(settings ComposeSettings) string {
@@ -639,6 +693,8 @@ func renderDufsService(settings ComposeSettings) string {
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - file_management
 `, defaultDufsImage, dufsContainerUser(), settings.DufsPort, dufsContainerPort, yamlQuote(settings.SharedDirectory))
 }
 

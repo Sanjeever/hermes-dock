@@ -174,8 +174,8 @@ export function MoveProfile(arg1, arg2) {
   return window['go']['main']['App']['MoveProfile'](arg1, arg2);
 }
 
-export function OpenEndpoint(arg1) {
-  return window['go']['main']['App']['OpenEndpoint'](arg1);
+export function OpenFileManagement() {
+  return window['go']['main']['App']['OpenFileManagement']();
 }
 
 export function OpenSkillDirectory(arg1) {

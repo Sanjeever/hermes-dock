@@ -132,6 +132,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"    command: /opt/hermes-dock/hermes-profile-runner",
 		"      HERMES_HOME: \"/opt/data\"",
 		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
+		"      HERMES_DASHBOARD: \"0\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
 		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
@@ -146,6 +147,8 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"    image: sigoden/dufs:v0.46.0",
 		"      - \"0.0.0.0:9878:5000\"",
 		"      - ./launcher/dufs/config.yaml:/etc/dufs.yaml:ro",
+		"      - hermes_runtime",
+		"      - file_management",
 	} {
 		if !strings.Contains(compose, want) {
 			t.Fatalf("compose missing %q:\n%s", want, compose)
@@ -156,6 +159,11 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	}
 	if strings.Contains(compose, "entrypoint:") {
 		t.Fatalf("compose must not override entrypoint:\n%s", compose)
+	}
+	for _, forbidden := range []string{"127.0.0.1:8642", "127.0.0.1:9119", "HERMES_DASHBOARD_BASIC_AUTH_"} {
+		if strings.Contains(compose, forbidden) {
+			t.Fatalf("compose must not expose Hermes native service %q:\n%s", forbidden, compose)
+		}
 	}
 }
 

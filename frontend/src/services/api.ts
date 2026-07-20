@@ -131,9 +131,9 @@ export const ExportInstanceBackup = (targetPath = '') => wailsOrRPC<InstanceBack
 export const InspectInstanceBackup = (path = '') => wailsOrRPC<InstanceBackupManifest>('InspectInstanceBackup', [path]);
 export const ImportInstanceBackup = (path: string, confirm: string) => wailsOrRPC<InstanceBackupImportResult>('ImportInstanceBackup', [{path, confirm}]);
 export const OpenSkillDirectory = (profileID: string, path: string) => wailsOrRPC<void>('OpenSkillDirectoryForProfile', [profileID, path]);
-export const OpenEndpoint = async (endpoint: string) => {
-    if (!isWebRuntime()) return wailsApp.OpenEndpoint(endpoint);
-    const url = await rpc<string>('OpenEndpoint', [endpoint]);
+export const OpenFileManagement = async () => {
+    if (!isWebRuntime()) return wailsApp.OpenFileManagement();
+    const url = await rpc<string>('OpenFileManagement');
     window.open(url, '_blank', 'noopener,noreferrer');
 };
 export const SaveWebSettings = (settings: WebSettingsRequest) => wailsOrRPC<void>('SaveWebSettings', [settings]);

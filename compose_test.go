@@ -17,8 +17,6 @@ func TestValidateComposeSettingsRejectsInvalidValues(t *testing.T) {
 	}{
 		{name: "image newline", mutate: func(settings *ComposeSettings) { settings.Image = "valid/image:tag\nservices:" }},
 		{name: "container name", mutate: func(settings *ComposeSettings) { settings.ContainerName = "bad name" }},
-		{name: "gateway host", mutate: func(settings *ComposeSettings) { settings.GatewayHost = "localhost" }},
-		{name: "dashboard port", mutate: func(settings *ComposeSettings) { settings.DashboardPort = "70000" }},
 		{name: "memory", mutate: func(settings *ComposeSettings) { settings.MemoryLimit = "not-memory" }},
 		{name: "cpu", mutate: func(settings *ComposeSettings) { settings.CPULimit = "0" }},
 		{name: "shm", mutate: func(settings *ComposeSettings) { settings.ShmSize = "1g\nvolumes:" }},
@@ -50,6 +48,111 @@ func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Fatalf("compose missing quoted scalar %q", want)
 		}
+	}
+	for _, forbidden := range []string{"8642", "9119", "HERMES_DASHBOARD_BASIC_AUTH_"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("compose unexpectedly exposes Hermes service %q:\n%s", forbidden, content)
+		}
+	}
+	for _, want := range []string{`HERMES_DASHBOARD: "0"`, "      - hermes_runtime", "      - file_management"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("compose missing private service configuration %q:\n%s", want, content)
+		}
+	}
+}
+
+func TestMigratePrivateHermesServicesRemovesPublishedPorts(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations := state.Migrations[:0]
+	for _, migration := range state.Migrations {
+		if migration.ID != privateHermesMigrationID {
+			migrations = append(migrations, migration)
+		}
+	}
+	state.Migrations = migrations
+	state.NeedsRebuild = false
+	state.PendingDufsOnly = true
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.Replace(renderCompose(app.readComposeSettings(), app.readProxySettings()), "    environment:\n", "    ports:\n      - target: 8642\n        published: 8642\n      - target: 9119\n        published: 9119\n    environment:\n", 1)
+	legacy = strings.Replace(legacy, `HERMES_DASHBOARD: "0"`, `HERMES_DASHBOARD: "1"`, 1)
+	if err := atomicWriteFile(app.composePath(), []byte(legacy), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migratePrivateHermesServicesIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, privateHermesMigrationID) || !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("private-services migration state = %+v", state)
+	}
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !privateHermesServicesCurrent(content, true) {
+		t.Fatalf("migrated compose still publishes Hermes ports:\n%s", content)
+	}
+}
+
+func TestPrivateHermesServicesCurrentRequiresIsolatedNetworks(t *testing.T) {
+	current := renderCompose(defaultComposeSettings(), defaultProxySettings())
+	if !privateHermesServicesCurrent([]byte(current), true) {
+		t.Fatal("rendered compose should keep Hermes services private")
+	}
+	sharedNetwork := strings.Replace(current, "      - file_management", "      - hermes_runtime", 1)
+	if privateHermesServicesCurrent([]byte(sharedNetwork), true) {
+		t.Fatal("Hermes and Dufs must not share a Compose network")
+	}
+	missingDefinition := strings.Replace(current, "  file_management:\n", "", 1)
+	if privateHermesServicesCurrent([]byte(missingDefinition), true) {
+		t.Fatal("file management network must be defined")
+	}
+}
+
+func TestPrivateHermesServicesMigrationRepairsLaterManagedComposeDrift(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, privateHermesMigrationID) {
+		t.Fatal("private service migration should already be recorded")
+	}
+	state.NeedsRebuild = false
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+	drifted := strings.Replace(renderCompose(app.readComposeSettings(), app.readProxySettings()), "    environment:\n", "    ports:\n      - \"127.0.0.1:9119:9119\"\n    environment:\n", 1)
+	if err := atomicWriteFile(app.composePath(), []byte(drifted), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migratePrivateHermesServicesIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.NeedsRebuild {
+		t.Fatal("managed Compose drift should require applying the repaired configuration")
+	}
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !privateHermesServicesCurrent(content, true) {
+		t.Fatalf("managed Compose drift was not repaired:\n%s", content)
 	}
 }
 

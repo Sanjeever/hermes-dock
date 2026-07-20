@@ -187,7 +187,7 @@ func (a *App) runApplyConfigTask(ctx context.Context, id string) {
 	}
 	if err := a.updateApplyConfigStatus(id, func(status *ApplyConfigStatus) {
 		status.State = applyStateWaiting
-		status.Phase = "gateway"
+		status.Phase = "profiles"
 		status.Message = waitingApplyMessage(0, status.RunnableProfiles, false)
 	}); err != nil {
 		a.failApplyConfigTask(id, err)
@@ -497,7 +497,7 @@ func (a *App) resumeApplyConfigTask() {
 	}
 	if err := a.updateApplyConfigStatus(status.ID, func(current *ApplyConfigStatus) {
 		current.State = applyStateWaiting
-		current.Phase = "gateway"
+		current.Phase = "profiles"
 		current.Message = "已恢复应用任务，正在等待助手启动"
 	}); err != nil {
 		a.failApplyConfigTask(status.ID, err)
@@ -555,7 +555,7 @@ func (a *App) resumeApplyingConfigTask(ctx context.Context, status ApplyConfigSt
 	}
 	if err := a.updateApplyConfigStatus(status.ID, func(current *ApplyConfigStatus) {
 		current.State = applyStateWaiting
-		current.Phase = "gateway"
+		current.Phase = "profiles"
 		current.Message = waitingApplyMessage(0, current.RunnableProfiles, false)
 	}); err != nil {
 		a.failApplyConfigTask(status.ID, err)

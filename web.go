@@ -850,16 +850,18 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"InspectInstanceBackup":          oneArgValue[string, InstanceBackupManifest](a.InspectInstanceBackup),
 		"ImportInstanceBackup":           oneArgValue[InstanceBackupImportRequest, InstanceBackupImportResult](a.ImportInstanceBackup),
 		"OpenSkillDirectoryForProfile":   twoArgs[string, string](a.OpenSkillDirectoryForProfile),
-		"OpenEndpoint":                   oneArgValue[string, string](a.webEndpointURL),
-		"SaveWebSettings":                oneArg[WebSettingsRequest](a.SaveWebSettings),
-		"ChangeWebPassword":              twoArgs[string, string](a.ChangeWebPassword),
-		"ResetWebPassword":               noResult(a.ResetWebPassword),
-		"CheckForUpdates":                oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
-		"DismissUpdate":                  oneArg[string](a.DismissUpdate),
-		"InstallUpdate":                  oneArg[string](a.InstallUpdate),
-		"SetAutoUpdateEnabled":           oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
-		"OpenUpdateURL":                  oneArg[string](a.OpenUpdateURL),
-		"OpenWebManagement":              noResult(a.OpenWebManagement),
+		"OpenFileManagement": noParams(func() (interface{}, error) {
+			return a.webFileManagementURL()
+		}),
+		"SaveWebSettings":      oneArg[WebSettingsRequest](a.SaveWebSettings),
+		"ChangeWebPassword":    twoArgs[string, string](a.ChangeWebPassword),
+		"ResetWebPassword":     noResult(a.ResetWebPassword),
+		"CheckForUpdates":      oneArgValue[bool, UpdateInfo](a.CheckForUpdates),
+		"DismissUpdate":        oneArg[string](a.DismissUpdate),
+		"InstallUpdate":        oneArg[string](a.InstallUpdate),
+		"SetAutoUpdateEnabled": oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
+		"OpenUpdateURL":        oneArg[string](a.OpenUpdateURL),
+		"OpenWebManagement":    noResult(a.OpenWebManagement),
 	}
 }
 
@@ -970,34 +972,12 @@ func (a *App) webTextFilePath(profileID string, kind string) (string, error) {
 	return rel, nil
 }
 
-func (a *App) webEndpointURL(endpoint string) (string, error) {
+func (a *App) webFileManagementURL() (string, error) {
 	settings := a.readComposeSettings()
-	var host, port string
-	switch endpoint {
-	case "dashboard":
-		host = settings.DashboardHost
-		port = settings.DashboardPort
-	case "gateway":
-		host = settings.GatewayHost
-		port = settings.GatewayPort
-	case "dufs":
-		if !settings.DufsEnabled {
-			return "", fmt.Errorf("Dufs 文件管理未开启")
-		}
-		status := a.dufsStatus()
-		return status.PrimaryURL, nil
-	default:
-		return "", fmt.Errorf("未知入口：%s", endpoint)
+	if !settings.DufsEnabled {
+		return "", fmt.Errorf("Dufs 文件管理未开启")
 	}
-	if host == "" || host == "0.0.0.0" || host == "::" {
-		web := a.webStatus()
-		host = "127.0.0.1"
-		if len(web.LanURLs) > 0 {
-			u := strings.TrimPrefix(web.LanURLs[0], "http://")
-			host, _, _ = net.SplitHostPort(u)
-		}
-	}
-	return "http://" + host + ":" + port, nil
+	return a.dufsStatus().PrimaryURL, nil
 }
 
 func (a *App) SaveWebSettings(req WebSettingsRequest) error {

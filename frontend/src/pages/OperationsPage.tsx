@@ -1,6 +1,6 @@
 import type {RefObject} from 'react';
 import {useEffect, useState} from 'react';
-import {CheckCircle2, CircleAlert, Clipboard, Download, ExternalLink, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Clipboard, Download, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
@@ -50,7 +50,7 @@ export function OperationsPage(props: {
     onLogs: () => void;
     onClearLogs: () => void;
     onCopyLogs: () => void;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
+    onOpenFileManagement: () => void;
     onOpenAssistantPlatforms: () => void;
     onSaveDeploy: () => void;
     onDiscardDeploy: () => void;
@@ -95,7 +95,6 @@ export function OperationsPage(props: {
             {activeTab === 'runtime' && (
                 <RuntimePage
                     state={props.state}
-                    compose={props.compose}
                     needsRebuild={props.needsRebuild}
                     busy={props.busy}
                     weixinBound={props.weixinBound}
@@ -107,7 +106,6 @@ export function OperationsPage(props: {
                     onStop={props.onStop}
                     onRestart={props.onRestart}
                     onRebuild={props.onRebuild}
-                    onOpenEndpoint={props.onOpenEndpoint}
                     onOpenDiagnostics={() => props.setTab('diagnostics')}
                 />
             )}
@@ -161,7 +159,7 @@ export function OperationsPage(props: {
             )}
             {activeTab === 'basic' && (
                 <section className="advanced-ops-stack">
-                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="basic" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenFileManagement={props.onOpenFileManagement} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'access' && (
@@ -173,13 +171,13 @@ export function OperationsPage(props: {
                         onChangePassword={props.onChangeWebPassword}
                         onResetPassword={props.onResetWebPassword}
                     />
-                    <DeployPage section="access" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                    <DeployPage section="access" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenFileManagement={props.onOpenFileManagement} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                 </section>
             )}
             {activeTab === 'advanced' && (
                 <section className="advanced-ops-stack">
                     <div className="operations-context">
-                        <DeployPage section="advanced" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenEndpoint={props.onOpenEndpoint} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
+                        <DeployPage section="advanced" compose={props.compose} proxy={props.proxy} hostBridge={props.state.hostBridge} dufs={props.state.dufs} setCompose={props.setCompose} setProxy={props.setProxy} dirty={props.deployDirty} busy={!!props.busy} onOpenFileManagement={props.onOpenFileManagement} onSave={props.onSaveDeploy} onDiscard={props.onDiscardDeploy}/>
                         <AdvancedPage
                             options={props.advancedOptions}
                             path={props.advancedPath}
@@ -247,7 +245,6 @@ function UpdateSettingsCard(props: {
 
 function RuntimePage(props: {
     state: AppState;
-    compose: ComposeSettings;
     needsRebuild: boolean;
     busy: string;
     weixinBound: boolean;
@@ -259,13 +256,9 @@ function RuntimePage(props: {
     onStop: () => void;
     onRestart: () => void;
     onRebuild: () => void;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway' | 'dufs') => void;
     onOpenDiagnostics: () => void;
 }) {
     const actionBusy = props.busy !== '';
-    const endpointsReady = props.state.containerStatus === 'running';
-    const dashboardReady = endpointsReady && isPortValue(props.compose.dashboardPort);
-    const gatewayReady = endpointsReady && isPortValue(props.compose.gatewayPort);
     const profiles = props.state.profiles?.profiles || [];
     const profileStatuses = props.state.profileStatus?.profiles || {};
     const runningProfiles = profiles.filter((profile) => profileStatuses[profile.id]?.state === 'running').length;
@@ -338,12 +331,6 @@ function RuntimePage(props: {
                 </div>
 
                 <div className="runtime-workbench-footer">
-                    <RuntimeAdvancedTools
-                        dashboardReady={dashboardReady}
-                        gatewayReady={gatewayReady}
-                        gatewayPort={props.compose.gatewayPort}
-                        onOpenEndpoint={props.onOpenEndpoint}
-                    />
                     <div className="runtime-check-strip">
                         <RuntimeCheck label="Docker" ok={props.state.dockerAvailable}/>
                         <RuntimeCheck label="Compose" ok={props.state.composeAvailable}/>
@@ -373,32 +360,6 @@ function RuntimeCheck(props: { label: string; ok: boolean }) {
             {props.ok ? <CheckCircle2 size={15}/> : <CircleAlert size={15}/>}
             <span>{props.label}</span>
         </div>
-    );
-}
-
-function RuntimeAdvancedTools(props: {
-    dashboardReady: boolean;
-    gatewayReady: boolean;
-    gatewayPort: string;
-    onOpenEndpoint: (endpoint: 'dashboard' | 'gateway') => void;
-}) {
-    return (
-        <details className="runtime-advanced-tools">
-            <summary>高级工具</summary>
-            <div className="runtime-advanced-tool-row">
-                <span>
-                    <strong>Hermes 高级控制台</strong>
-                    <small>仅用于排查高级运行问题。</small>
-                </span>
-                <button className="ghost" onClick={() => props.onOpenEndpoint('dashboard')} disabled={!props.dashboardReady}><ExternalLink size={16}/>打开控制台</button>
-            </div>
-            <div className="runtime-advanced-tool-row">
-                <span>
-                    <strong>消息服务</strong>
-                    <small>{props.gatewayReady ? `运行正常 · 端口 ${props.gatewayPort}` : '服务未运行或端口无效'}</small>
-                </span>
-            </div>
-        </details>
     );
 }
 

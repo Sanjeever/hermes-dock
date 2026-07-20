@@ -116,7 +116,7 @@ func TestResumeApplyConfigTaskCompletesPersistedGeneration(t *testing.T) {
 	}
 	status := ApplyConfigStatus{
 		ID: "persisted-task", Generation: manifest.Generation, State: applyStateWaiting,
-		Phase: "gateway", Strategy: "restart", Active: true, StartedAt: time.Now().UTC().Format(time.RFC3339),
+		Phase: "profiles", Strategy: "restart", Active: true, StartedAt: time.Now().UTC().Format(time.RFC3339),
 		ComposeHash: composeHash, DufsHash: dufsHash, InputHash: inputHash, HermesImage: state.HermesImage,
 	}
 	if err := app.writeApplyConfigStatusUnlocked(status); err != nil {

@@ -501,13 +501,6 @@ export namespace main {
 	export class ComposeSettings {
 	    image: string;
 	    containerName: string;
-	    gatewayHost: string;
-	    gatewayPort: string;
-	    dashboardHost: string;
-	    dashboardPort: string;
-	    dashboardEnabled: boolean;
-	    dashboardUsername: string;
-	    dashboardPassword: string;
 	    gatewayBusyInputMode: string;
 	    gatewayBusyAckEnabled: string;
 	    backgroundNotifications: string;
@@ -530,13 +523,6 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.image = source["image"];
 	        this.containerName = source["containerName"];
-	        this.gatewayHost = source["gatewayHost"];
-	        this.gatewayPort = source["gatewayPort"];
-	        this.dashboardHost = source["dashboardHost"];
-	        this.dashboardPort = source["dashboardPort"];
-	        this.dashboardEnabled = source["dashboardEnabled"];
-	        this.dashboardUsername = source["dashboardUsername"];
-	        this.dashboardPassword = source["dashboardPassword"];
 	        this.gatewayBusyInputMode = source["gatewayBusyInputMode"];
 	        this.gatewayBusyAckEnabled = source["gatewayBusyAckEnabled"];
 	        this.backgroundNotifications = source["backgroundNotifications"];

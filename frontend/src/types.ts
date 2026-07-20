@@ -7,13 +7,6 @@ export type EnvVar = { key: string; value: string; secret: boolean };
 export type ComposeSettings = {
     image: string;
     containerName: string;
-    gatewayHost: string;
-    gatewayPort: string;
-    dashboardHost: string;
-    dashboardPort: string;
-    dashboardEnabled: boolean;
-    dashboardUsername: string;
-    dashboardPassword: string;
     gatewayBusyInputMode: string;
     gatewayBusyAckEnabled: string;
     backgroundNotifications: string;

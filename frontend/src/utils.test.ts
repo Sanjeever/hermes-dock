@@ -1,7 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {
     defaultAdvancedPath,
-    endpointURL,
     isPortValue,
     providerReferenceLabels,
     setEnvValue,
@@ -19,11 +18,6 @@ describe('profile utilities', () => {
 });
 
 describe('deployment utilities', () => {
-    it('maps wildcard hosts to a local browser URL', () => {
-        expect(endpointURL('0.0.0.0', '9876')).toBe('http://127.0.0.1:9876');
-        expect(endpointURL('192.168.1.20', '9876')).toBe('http://192.168.1.20:9876');
-    });
-
     it('accepts only valid TCP port numbers', () => {
         expect(isPortValue('1')).toBe(true);
         expect(isPortValue('65535')).toBe(true);
