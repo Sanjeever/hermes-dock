@@ -54,9 +54,7 @@ func defaultComposeSettings() ComposeSettings {
 
 func withComposeDefaults(settings ComposeSettings) ComposeSettings {
 	defaults := defaultComposeSettings()
-	if settings.Image == "" {
-		settings.Image = defaults.Image
-	}
+	settings.Image = defaultImage
 	if settings.ContainerName == "" {
 		settings.ContainerName = defaults.ContainerName
 	}
@@ -311,6 +309,7 @@ func validateComposeSettings(settings ComposeSettings) error {
 const (
 	composeRuntimeMigrationID = "compose-runtime-v2"
 	dufsComposeMigrationID    = "compose-dufs-v1"
+	fixedImageMigrationID     = "compose-fixed-image-v1"
 )
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
@@ -446,6 +445,50 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	state.ComposeHash = fileSHA256(a.composePath())
 	state.NeedsRebuild = state.NeedsRebuild || !current
 	if !current {
+		state.PendingDufsOnly = false
+	}
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
+}
+
+func (a *App) migrateFixedHermesImageIfNeeded(settings ComposeSettings) error {
+	if !fileExists(a.statePath()) {
+		return nil
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	if migrationApplied(state.Migrations, fixedImageMigrationID) {
+		return nil
+	}
+	data, err := os.ReadFile(a.composePath())
+	if err != nil {
+		return err
+	}
+	image, hasImage, err := composeServiceImage(data, "hermes")
+	if err != nil {
+		return fmt.Errorf("读取标准 Docker Compose 失败：%w", err)
+	}
+	current := hasImage && image == defaultImage
+	if !current {
+		if err := a.writeCompose(settings, "before-compose-fixed-image-migration"); err != nil {
+			return err
+		}
+	}
+	imageChanged := state.HermesImage != defaultImage || state.ComposeSettings.Image != defaultImage
+	if imageChanged {
+		state.PreviousHermesImage = state.HermesImage
+	}
+	state.HermesImage = defaultImage
+	state.ComposeSettings = settings
+	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+		ID:        fixedImageMigrationID,
+		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+	state.ComposeHash = fileSHA256(a.composePath())
+	state.NeedsRebuild = state.NeedsRebuild || !current || imageChanged
+	if !current || imageChanged {
 		state.PendingDufsOnly = false
 	}
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)

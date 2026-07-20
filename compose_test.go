@@ -124,6 +124,92 @@ func TestSaveComposeSettingsMountsSharedDirectory(t *testing.T) {
 	}
 }
 
+func TestSaveComposeSettingsLocksHermesImage(t *testing.T) {
+	app := newTestApp(t)
+	settings := app.readComposeSettings()
+	settings.Image = "example/hermes:custom"
+
+	if err := app.SaveComposeSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.HermesImage != defaultImage || state.ComposeSettings.Image != defaultImage {
+		t.Fatalf("saved image = state=%q settings=%q, want %q", state.HermesImage, state.ComposeSettings.Image, defaultImage)
+	}
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), `image: "`+defaultImage+`"`) {
+		t.Fatalf("compose does not use locked image: %s", content)
+	}
+}
+
+func TestMigrateFixedHermesImageRewritesOnlyHermesService(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations := state.Migrations[:0]
+	for _, migration := range state.Migrations {
+		if migration.ID != fixedImageMigrationID {
+			migrations = append(migrations, migration)
+		}
+	}
+	state.Migrations = migrations
+	state.HermesImage = "example/hermes:custom"
+	state.ComposeSettings.Image = "example/hermes:custom"
+	state.NeedsRebuild = false
+	state.PendingDufsOnly = true
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+	content := "services:\n  helper:\n    image: \"" + defaultImage + "\"\n  hermes:\n    image: \"example/hermes:custom\"\n"
+	if err := atomicWriteFile(app.composePath(), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migrateFixedHermesImageIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, fixedImageMigrationID) || !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("fixed-image migration state = %+v", state)
+	}
+	if state.HermesImage != defaultImage || state.ComposeSettings.Image != defaultImage {
+		t.Fatalf("migrated image = state=%q settings=%q, want %q", state.HermesImage, state.ComposeSettings.Image, defaultImage)
+	}
+	data, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	image, hasImage, err := composeServiceImage(data, "hermes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasImage || image != defaultImage {
+		t.Fatalf("migrated Hermes image = %q, want %q", image, defaultImage)
+	}
+}
+
+func TestSaveTextFileRejectsHermesImageOverride(t *testing.T) {
+	app := newTestApp(t)
+	err := app.SaveTextFile(TextFileRequest{
+		Path:    filepath.Base(app.overridePath()),
+		Content: "services:\n  hermes:\n    image: example/hermes:custom\n",
+	})
+	if err == nil || !strings.Contains(err.Error(), "镜像已固定") {
+		t.Fatalf("expected locked image error, got %v", err)
+	}
+}
+
 func TestSaveComposeSettingsRejectsRelativeSharedDirectory(t *testing.T) {
 	app := newTestApp(t)
 	settings := app.readComposeSettings()

@@ -30,6 +30,30 @@ func parseYAML(data []byte, out interface{}) error {
 	return yaml.Unmarshal(data, out)
 }
 
+func composeServiceImage(data []byte, serviceName string) (string, bool, error) {
+	var compose map[string]interface{}
+	if err := yaml.Unmarshal(data, &compose); err != nil {
+		return "", false, err
+	}
+	services, ok := compose["services"].(map[string]interface{})
+	if !ok {
+		return "", false, nil
+	}
+	service, ok := services[serviceName].(map[string]interface{})
+	if !ok {
+		return "", false, nil
+	}
+	image, ok := service["image"]
+	if !ok {
+		return "", false, nil
+	}
+	value, ok := image.(string)
+	if !ok {
+		return "", true, nil
+	}
+	return strings.TrimSpace(value), true, nil
+}
+
 func (a *App) readModelConfig() (ModelConfig, error) {
 	return a.readModelConfigForProfile(a.currentProfileID())
 }

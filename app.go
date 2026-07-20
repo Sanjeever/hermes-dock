@@ -177,6 +177,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 		if err := a.migrateComposeIfNeeded(settings); err != nil {
 			return err
 		}
+		if err := a.migrateFixedHermesImageIfNeeded(settings); err != nil {
+			return err
+		}
 		if err := a.migrateDufsComposeIfNeeded(settings); err != nil {
 			return err
 		}
@@ -225,6 +228,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 			return err
 		}
 	} else if err := a.migrateComposeIfNeeded(settings); err != nil {
+		return err
+	}
+	if err := a.migrateFixedHermesImageIfNeeded(settings); err != nil {
 		return err
 	}
 	if err := a.writeOverrideIfMissing(); err != nil {
@@ -473,9 +479,21 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	if err != nil {
 		return err
 	}
+	if resolved == a.composePath() {
+		return fmt.Errorf("标准 Docker Compose 由启动器管理，请使用覆盖文件")
+	}
 	if strings.HasSuffix(resolved, ".yaml") || strings.HasSuffix(resolved, ".yml") {
 		if err := parseYAML([]byte(req.Content), nil); err != nil {
 			return err
+		}
+	}
+	if resolved == a.overridePath() {
+		_, hasImage, err := composeServiceImage([]byte(req.Content), "hermes")
+		if err != nil {
+			return err
+		}
+		if hasImage {
+			return fmt.Errorf("Hermes 镜像已固定，覆盖文件不能设置 services.hermes.image")
 		}
 	}
 	if err := a.backupFile(resolved, firstNonEmpty(req.Reason, "before-text-save")); err != nil {

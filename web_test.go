@@ -10,6 +10,19 @@ import (
 	"time"
 )
 
+func TestIsVirtualNetworkInterface(t *testing.T) {
+	for _, name := range []string{"utun3", "bridge0", "docker0", "vEthernet (Default Switch)", "VMware Network Adapter VMnet1", "Tailscale", "cni0", "flannel.1", "cali123", "podman0", "lxdbr0", "incusbr0", "nordlynx", "ppp0"} {
+		if !isVirtualNetworkInterface(name) {
+			t.Errorf("%q should be treated as virtual", name)
+		}
+	}
+	for _, name := range []string{"en0", "eth0", "wlan0", "Ethernet"} {
+		if isVirtualNetworkInterface(name) {
+			t.Errorf("%q should be treated as a LAN interface", name)
+		}
+	}
+}
+
 func TestSaveWebSettingsRejectsOccupiedPortWithoutChangingConfig(t *testing.T) {
 	app := newTestApp(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")

@@ -103,7 +103,7 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                 <div>
                     <p className="eyebrow">{isBasic ? '基础设置' : '网络设置'}</p>
                     <h2>{isBasic ? '日常会用到的设置' : '端口、资源和代理'}</h2>
-                    <p className="setup-subtitle">{isBasic ? '设置版本、管理页登录、共享文件和消息处理方式。' : '一般不需要修改。端口冲突或网络不通时再调整。'}</p>
+                    <p className="setup-subtitle">{isBasic ? '设置管理页登录、共享文件和消息处理方式。' : '一般不需要修改。端口冲突或网络不通时再调整。'}</p>
                 </div>
                 <div className="actions compact">
                     <button className="ghost" onClick={onDiscard} disabled={busy || !dirty}><RotateCcw size={16}/>放弃修改</button>
@@ -114,9 +114,6 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
             {isBasic ? (
                 <>
                     <div className="panel settings-list">
-                        <SettingRow title="Hermes 版本" description="一般保持默认。需要指定版本时再修改。">
-                            <Field label="镜像" value={compose.image} onChange={(value) => update('image', value)}/>
-                        </SettingRow>
                         <SettingRow title="管理页登录" description="用于打开 Hermes 管理页。">
                             <div className="setting-control-stack">
                                 <Field label="用户名" value={compose.dashboardUsername} onChange={(value) => update('dashboardUsername', value)}/>

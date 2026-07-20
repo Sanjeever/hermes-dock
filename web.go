@@ -361,7 +361,7 @@ func lanWebURLs(port string) []string {
 	}
 	var out []string
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || isVirtualNetworkInterface(iface.Name) {
 			continue
 		}
 		addrs, err := iface.Addrs()
@@ -383,6 +383,25 @@ func lanWebURLs(port string) []string {
 		}
 	}
 	return out
+}
+
+func isVirtualNetworkInterface(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, prefix := range []string{
+		"docker", "br-", "veth", "virbr", "vmnet", "vboxnet", "utun", "tun", "tap", "wg", "bridge", "awdl", "llw", "anpi", "ipsec", "gif", "stf", "p2p", "vnic", "vethernet", "cni", "flannel", "cali", "podman", "lxdbr", "incusbr", "nordlynx", "ppp",
+	} {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	for _, marker := range []string{
+		"virtual", "hyper-v", "host-only", "tailscale", "zerotier", "wireguard", "openvpn", "vmware", "wsl",
+	} {
+		if strings.Contains(name, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) registerWebRoutes(mux *http.ServeMux, static http.Handler) {
