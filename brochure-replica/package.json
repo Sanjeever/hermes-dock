@@ -1,7 +1,8 @@
 {
 	"scripts": {
 		"export:pdf": "node scripts/export-pdf.mjs",
-		"export:png": "swift scripts/export-png.swift"
+		"export:png": "node scripts/export-mobile-png.mjs",
+		"export:a4-png": "swift scripts/export-png.swift"
 	},
 	"dependencies": {
 		"@iconify-json/icon-park": "^1.2.4",
