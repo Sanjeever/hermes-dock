@@ -205,6 +205,10 @@ export type UpdateStatus = {
     autoUpdateEnabled: boolean;
     taskRegistered: boolean;
     lastError: string;
+    postUpdateVersion: string;
+    postUpdateState: string;
+    postUpdateMessage: string;
+    postUpdateError: string;
 };
 export type InstanceBackupProfile = {
     id: string;

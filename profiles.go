@@ -226,6 +226,11 @@ func (a *App) SelectProfile(id string) error {
 }
 
 func (a *App) CreateProfile(req CreateProfileRequest) (err error) {
+	release, err := a.beginExclusiveOperation("创建助手")
+	if err != nil {
+		return err
+	}
+	defer release()
 	id := strings.TrimSpace(req.ID)
 	if err := validateProfileID(id, false); err != nil {
 		return err

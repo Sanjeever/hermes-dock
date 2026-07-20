@@ -43,6 +43,7 @@ type App struct {
 	notificationReady   bool
 	updateMu            sync.Mutex
 	updateWatcherCancel context.CancelFunc
+	postUpdateMu        sync.Mutex
 	applyMu             sync.Mutex
 	applyCancel         context.CancelFunc
 	applyActiveID       string
@@ -76,8 +77,12 @@ func (a *App) startup(ctx context.Context) {
 	a.startUpdateWatcher()
 	a.startupErr = a.ensureInstanceReady()
 	if a.startupErr == nil {
-		a.resumeApplyConfigTask()
+		a.startupErr = a.preparePostUpdateTask()
+	}
+	if a.startupErr == nil {
 		a.acknowledgeInstalledUpdate()
+		a.resumeApplyConfigTask()
+		a.startPostUpdateTask()
 		a.startHostBridge()
 		a.startWebServer()
 		a.startTray()
@@ -481,6 +486,11 @@ func (a *App) ReadTextFile(path string) (string, error) {
 }
 
 func (a *App) SaveTextFile(req TextFileRequest) error {
+	release, err := a.beginExclusiveOperation("保存文件")
+	if err != nil {
+		return err
+	}
+	defer release()
 	resolved, err := a.safePath(req.Path)
 	if err != nil {
 		return err

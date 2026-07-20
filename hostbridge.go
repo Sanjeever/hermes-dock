@@ -234,6 +234,12 @@ func (a *App) handleHostExec(runtimeState *hostBridgeRuntime) http.HandlerFunc {
 			writeHostJSON(w, http.StatusBadRequest, map[string]string{"error": "set exactly one of command or program"})
 			return
 		}
+		release, err := a.beginExclusiveOperation("执行宿主机命令")
+		if err != nil {
+			writeHostJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+			return
+		}
+		defer release()
 		select {
 		case runtimeState.limit <- struct{}{}:
 			defer func() { <-runtimeState.limit }()

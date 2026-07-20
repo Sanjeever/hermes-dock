@@ -216,6 +216,7 @@ UI 和功能边界：
 - 保存配置不自动应用运行态；显示未应用变更，由用户手动“应用配置”。
 - Profiles 总览支持从一个 profile 向多个 profile 一次性复制模型、人格和指定 skills；API Key 默认不复制。
 - 启动器内置 `SOUL.md` 和 skills 支持批量同步：同步内置人格时先备份再直接重置 `SOUL.md`；内置 skills 新增缺失文件、更新未被用户修改的文件，并保留用户修改、自定义 skills 和模板已移除的旧 skills。
+- 软件升级后会对所有 profile 执行一次安全内置内容同步：`SOUL.md` 和 skills 只更新有可信内置基线且未被用户修改的文件，保留用户修改和自定义技能。如有写入，且 Hermes 在升级前和应用前都确认为 `running`，自动启动“应用配置”；Hermes 已停止或状态未知时不得自动启动。
 - 模型测试和平台测试消息只针对当前 profile。
 - 桌面和 Web 高级编辑都以当前 profile 为上下文，可打开当前 profile 的 `config.yaml`、`.env` 和全局 `docker-compose.override.yaml`。
 - 第一版不做 Kanban/跨 profile 协作 UI，但目录、ID 和 runner 启动方式必须保持 Hermes 原生 profile/Kanban 兼容。
@@ -357,7 +358,7 @@ pnpm --dir website run build
 
 - 私有源码仓库固定为 [`sqyl2026/hermes-dock`](https://github.com/sqyl2026/hermes-dock)，公开二进制发布仓库固定为 [`sqyl2026/hermes-dock-releases`](https://github.com/sqyl2026/hermes-dock-releases)。
 - 应用的更新检查、发布页和安装包下载只使用公开发布仓库，不得依赖私有源码仓库的 Release。
-- 检测到新版本后，“立即更新”会下载平台安装包和 `SHA256SUMS.txt`，校验后由独立 `hermes-dock-updater` 在主程序退出后安装并重启；不得停止 Hermes Docker 容器。
+- 检测到新版本后，“立即更新”会下载平台安装包和 `SHA256SUMS.txt`，校验后由独立 `hermes-dock-updater` 在主程序退出后安装并重启；安装阶段不得停止 Hermes Docker 容器。新版本通过启动健康确认后，再后台安全同步所有 profile 的内置人格和技能；仅当同步产生变化，且 Hermes 在升级前和应用前都确认为 `running` 时自动应用配置，否则不重启或自动启动服务。
 - 静默自动升级默认关闭。用户开启后才注册 Windows 计划任务、Linux systemd timer 或 macOS LaunchDaemon，关闭时必须删除；手动“立即更新”不改变该开关。
 - 发布产物必须包含对应平台的 `hermes-dock-updater`，Windows 便携版和 Linux tar 包也必须包含 updater。
 - 版本标签推送到私有源码仓库后，由 `.github/workflows/build-release.yml` 构建多平台产物，并使用 Actions Secret `RELEASE_REPO_TOKEN` 发布到公开发布仓库。该 Token 只应具有 `sqyl2026/hermes-dock-releases` 的 `Contents: read and write` 权限。

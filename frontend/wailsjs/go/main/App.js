@@ -234,6 +234,10 @@ export function RestoreDefaultSoulForProfile(arg1) {
   return window['go']['main']['App']['RestoreDefaultSoulForProfile'](arg1);
 }
 
+export function RetryPostUpdate() {
+  return window['go']['main']['App']['RetryPostUpdate']();
+}
+
 export function SaveComposeSettings(arg1) {
   return window['go']['main']['App']['SaveComposeSettings'](arg1);
 }

@@ -64,6 +64,10 @@ export namespace main {
 	    autoUpdateEnabled: boolean;
 	    taskRegistered: boolean;
 	    lastError: string;
+	    postUpdateVersion: string;
+	    postUpdateState: string;
+	    postUpdateMessage: string;
+	    postUpdateError: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateStatus(source);
@@ -74,6 +78,10 @@ export namespace main {
 	        this.autoUpdateEnabled = source["autoUpdateEnabled"];
 	        this.taskRegistered = source["taskRegistered"];
 	        this.lastError = source["lastError"];
+	        this.postUpdateVersion = source["postUpdateVersion"];
+	        this.postUpdateState = source["postUpdateState"];
+	        this.postUpdateMessage = source["postUpdateMessage"];
+	        this.postUpdateError = source["postUpdateError"];
 	    }
 	}
 	export class HostBridgeStatus {

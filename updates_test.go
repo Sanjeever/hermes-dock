@@ -63,3 +63,37 @@ func TestIsAllowedUpdateURL(t *testing.T) {
 		})
 	}
 }
+
+func TestPostUpdateTaskActive(t *testing.T) {
+	for _, state := range []string{postUpdateStatePending, postUpdateStateWaiting, postUpdateStateSyncing, postUpdateStateApplying} {
+		if !postUpdateTaskActive(state) {
+			t.Fatalf("post-update state %q should be active", state)
+		}
+	}
+	for _, state := range []string{"", postUpdateStateSucceeded, postUpdateStateFailed} {
+		if postUpdateTaskActive(state) {
+			t.Fatalf("post-update state %q should be terminal", state)
+		}
+	}
+}
+
+func TestShouldAutoApplyPostUpdate(t *testing.T) {
+	if !shouldAutoApplyPostUpdate(true, true, "running") {
+		t.Fatal("changed content should apply while Hermes remained running")
+	}
+	for _, test := range []struct {
+		changed       bool
+		wasRunning    bool
+		currentStatus string
+	}{
+		{changed: false, wasRunning: true, currentStatus: "running"},
+		{changed: true, wasRunning: false, currentStatus: "running"},
+		{changed: true, wasRunning: true, currentStatus: "stopped"},
+		{changed: true, wasRunning: true, currentStatus: "missing"},
+		{changed: true, wasRunning: true, currentStatus: "unknown"},
+	} {
+		if shouldAutoApplyPostUpdate(test.changed, test.wasRunning, test.currentStatus) {
+			t.Fatalf("unexpected auto apply for %+v", test)
+		}
+	}
+}

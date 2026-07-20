@@ -349,8 +349,9 @@ function App() {
     useEffect(() => {
         if (!state) return;
         const applyActive = !!state.applyConfig?.active;
+        const postUpdateActive = ['pending', 'waiting', 'syncing', 'applying'].includes(state.update?.postUpdateState || '');
         const profileStates = Object.values(state.profileStatus?.profiles || {}).map((status) => status.state);
-        if (!shouldPollRuntimeStatus(applyActive, !!busy, state.containerStatus, profileStates)) return;
+        if (!shouldPollRuntimeStatus(applyActive || postUpdateActive, !!busy, state.containerStatus, profileStates)) return;
         const timer = window.setTimeout(() => {
             refresh();
         }, 1500);
@@ -1267,7 +1268,7 @@ function App() {
     const unsavedChanges = hasUnsavedChanges();
     const updateInfo = updates.info;
     const showUpdateBanner = !!updateInfo?.available && !updateInfo.dismissed;
-    const updateBannerDetail = updates.progress || '点击“立即更新”后将自动下载、安装并重启启动器，Hermes Agent 容器不会停止。';
+    const updateBannerDetail = updates.progress || '点击“立即更新”后将自动下载、安装并重启启动器；新版本启动后会安全同步内置内容，如有变化且 Hermes 始终保持运行，会自动应用。';
 
     return (
         <div className="shell">
@@ -1336,7 +1337,7 @@ function App() {
                         </div>
                         <div className="update-actions">
                             <button className="primary" onClick={() => {
-                                if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
+                                if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。安装期间启动器和 Web 管理会暂时不可用；新版本启动后会安全同步所有助手的内置内容。如有变化且 Hermes 在升级前和应用前都正在运行，会自动应用并可能短暂重启；已停止或状态未知的服务不会自动启动。`)) updates.install();
                             }} disabled={updates.busy || !!blockingBusy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
                             <button onClick={updates.dismiss}>忽略</button>
                         </div>
@@ -1595,9 +1596,10 @@ function App() {
                         onCheckUpdate={() => updates.check(true)}
                         onInstallUpdate={() => {
                             if (!updates.info) return;
-                            if (window.confirm(`即将升级到 v${updates.info.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
+                            if (window.confirm(`即将升级到 v${updates.info.latestVersion}。安装期间启动器和 Web 管理会暂时不可用；新版本启动后会安全同步所有助手的内置内容。如有变化且 Hermes 在升级前和应用前都正在运行，会自动应用并可能短暂重启；已停止或状态未知的服务不会自动启动。`)) updates.install();
                         }}
                         onSetAutoUpdate={updates.setAutoUpdate}
+                        onRetryPostUpdate={updates.retryPostUpdate}
                     />
                 )}
             </main>

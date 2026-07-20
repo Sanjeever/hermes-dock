@@ -94,6 +94,7 @@ export const SetProfileEnabled = (id: string, enabled: boolean) => wailsOrRPC<vo
 export const SelectProfile = (id: string) => wailsOrRPC<void>('SelectProfile', [id]);
 export const BatchCopyProfileConfig = (req: BatchProfileConfigRequest) => wailsOrRPC<BatchProfileConfigResult>('BatchCopyProfileConfig', [req]);
 export const SyncBundledContent = (req: BundledContentSyncRequest) => wailsOrRPC<BundledContentSyncResult>('SyncBundledContent', [req]);
+export const RetryPostUpdate = () => wailsOrRPC<UpdateStatus>('RetryPostUpdate');
 export const GetRecommendedResourceLimits = () => wailsOrRPC<ResourceLimitsRecommendation>('GetRecommendedResourceLimits');
 export const ChooseSharedDirectory = (currentPath: string) => {
     if (isWebRuntime()) return Promise.reject(new Error('请在桌面端选择目录'));

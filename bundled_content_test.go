@@ -61,6 +61,98 @@ func TestClassifyBundledFile(t *testing.T) {
 	}
 }
 
+func TestBundledSyncTargetMatchesPlanRejectsConcurrentChanges(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "SOUL.md")
+	original := []byte("bundled soul\n")
+	if err := os.WriteFile(target, original, 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan := bundledSyncPlan{existed: true, currentHash: contentHash(original)}
+	if err := os.WriteFile(target, []byte("user edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := bundledSyncTargetMatchesPlan(target, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches {
+		t.Fatal("sync plan still matched after a concurrent user edit")
+	}
+
+	missing := filepath.Join(t.TempDir(), "new-skill.md")
+	addPlan := bundledSyncPlan{existed: false}
+	if err := os.WriteFile(missing, []byte("user-created skill\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	matches, err = bundledSyncTargetMatchesPlan(missing, addPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches {
+		t.Fatal("add plan still matched after the user created the target")
+	}
+}
+
+func TestBundledSyncOpenedTargetMatchesPlanRejectsAtomicReplacement(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "SOUL.md")
+	original := []byte("bundled soul\n")
+	if err := os.WriteFile(target, original, 0644); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.Open(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+	if err := os.Rename(target, filepath.Join(dir, "old-SOUL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("user edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	matches, err := bundledSyncOpenedTargetMatchesPlan(target, opened, bundledSyncPlan{
+		existed:     true,
+		currentHash: contentHash(original),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches {
+		t.Fatal("sync plan still matched after the target path was atomically replaced")
+	}
+}
+
+func TestCommitBundledFileDoesNotReplaceConcurrentlyCreatedTarget(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "new-skill.md")
+	staged, err := stageBundledFile(target, []byte("bundled skill\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(staged)
+
+	userContent := []byte("user-created skill\n")
+	if err := os.WriteFile(target, userContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	committed, err := commitBundledFile(target, staged, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if committed {
+		t.Fatal("bundled file replaced a target created after synchronization was planned")
+	}
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(userContent) {
+		t.Fatalf("target content = %q, want %q", got, userContent)
+	}
+}
+
 func TestReleaseSeedDataDoesNotReplaceExistingBundledBaseline(t *testing.T) {
 	app := newTestApp(t)
 	state, err := app.readBundledContentState("default")
@@ -141,6 +233,70 @@ func TestSyncBundledContentResetsModifiedSoul(t *testing.T) {
 	}
 	if len(state.Backups) == 0 || state.Backups[len(state.Backups)-1].Reason != "before-sync-bundled-soul-default" {
 		t.Fatal("modified SOUL.md was not backed up before reset")
+	}
+}
+
+func TestAutomaticBundledContentSyncPreservesModifiedSoul(t *testing.T) {
+	app := newTestApp(t)
+	modified := []byte("user customized soul\n")
+	if err := atomicWriteFile(app.profileSoulPath(defaultProfileID), modified, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.syncBundledContent(BundledContentSyncRequest{
+		TargetProfileIDs: []string{defaultProfileID},
+		SyncSoul:         true,
+	}, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 0 || result.Skipped != 1 {
+		t.Fatalf("unexpected automatic sync result: %+v", result)
+	}
+	got, err := os.ReadFile(app.profileSoulPath(defaultProfileID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(modified) {
+		t.Fatal("automatic sync overwrote a modified SOUL.md")
+	}
+}
+
+func TestAutomaticBundledContentSyncUpdatesSoulAtKnownBaseline(t *testing.T) {
+	app := newTestApp(t)
+	previous := []byte("previous bundled soul\n")
+	if err := atomicWriteFile(app.profileSoulPath(defaultProfileID), previous, 0644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := app.readBundledContentState(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Files["SOUL.md"] = contentHash(previous)
+	if err := app.writeBundledContentState(defaultProfileID, state); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.syncBundledContent(BundledContentSyncRequest{
+		TargetProfileIDs: []string{defaultProfileID},
+		SyncSoul:         true,
+	}, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 1 || result.Skipped != 0 {
+		t.Fatalf("unexpected automatic sync result: %+v", result)
+	}
+	want, err := seedData.ReadFile("templates/seed-data/SOUL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(app.profileSoulPath(defaultProfileID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("automatic sync did not update SOUL.md at its known bundled baseline")
 	}
 }
 

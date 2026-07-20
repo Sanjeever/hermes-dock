@@ -50,17 +50,28 @@ var updateMirrorPrefixes = []UpdateMirrorLink{
 }
 
 type updateState struct {
-	SchemaVersion     int    `json:"schemaVersion"`
-	LastCheckedAt     string `json:"lastCheckedAt"`
-	LatestVersion     string `json:"latestVersion"`
-	ReleaseURL        string `json:"releaseUrl"`
-	AssetURL          string `json:"assetUrl"`
-	AssetName         string `json:"assetName"`
-	AssetSize         int64  `json:"assetSize"`
-	ChecksumURL       string `json:"checksumUrl"`
-	DismissedVersion  string `json:"dismissedVersion"`
-	AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
-	LastError         string `json:"lastError"`
+	SchemaVersion                 int    `json:"schemaVersion"`
+	LastCheckedAt                 string `json:"lastCheckedAt"`
+	LatestVersion                 string `json:"latestVersion"`
+	ReleaseURL                    string `json:"releaseUrl"`
+	AssetURL                      string `json:"assetUrl"`
+	AssetName                     string `json:"assetName"`
+	AssetSize                     int64  `json:"assetSize"`
+	ChecksumURL                   string `json:"checksumUrl"`
+	DismissedVersion              string `json:"dismissedVersion"`
+	AutoUpdateEnabled             bool   `json:"autoUpdateEnabled"`
+	LastError                     string `json:"lastError"`
+	PostUpdateVersion             string `json:"postUpdateVersion"`
+	PostUpdateTemplateVersion     string `json:"postUpdateTemplateVersion"`
+	PostUpdateState               string `json:"postUpdateState"`
+	PostUpdateMessage             string `json:"postUpdateMessage"`
+	PostUpdateError               string `json:"postUpdateError"`
+	PostUpdateUpdatedAt           string `json:"postUpdateUpdatedAt"`
+	PostUpdateContainerWasRunning bool   `json:"postUpdateContainerWasRunning"`
+	PostUpdateApplyID             string `json:"postUpdateApplyId"`
+	PostUpdateSyncFailures        int    `json:"postUpdateSyncFailures"`
+	PostUpdateContentChanged      bool   `json:"postUpdateContentChanged"`
+	PostUpdateWritePending        bool   `json:"postUpdateWritePending"`
 }
 
 type updateRequest struct {
@@ -88,6 +99,12 @@ type githubReleaseAsset struct {
 }
 
 func (a *App) CheckForUpdates(force bool) (UpdateInfo, error) {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	return a.checkForUpdates(force, true)
+}
+
+func (a *App) checkForUpdates(force bool, persist bool) (UpdateInfo, error) {
 	state, err := a.readUpdateState()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return UpdateInfo{}, fmt.Errorf("读取更新状态失败：%w", err)
@@ -122,8 +139,10 @@ func (a *App) CheckForUpdates(force bool) (UpdateInfo, error) {
 	state.AssetName = asset.Name
 	state.AssetSize = asset.Size
 	state.ChecksumURL = checksum.BrowserDownloadURL
-	if err := a.writeUpdateState(state); err != nil {
-		return UpdateInfo{}, err
+	if persist {
+		if err := a.writeUpdateState(state); err != nil {
+			return UpdateInfo{}, err
+		}
 	}
 
 	info := UpdateInfo{
@@ -143,6 +162,8 @@ func (a *App) CheckForUpdates(force bool) (UpdateInfo, error) {
 }
 
 func (a *App) DismissUpdate(version string) error {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
 	version = normalizeVersion(version)
 	if version == "" {
 		return errors.New("版本号不能为空")
@@ -391,6 +412,9 @@ func (a *App) updateStatus() UpdateStatus {
 	state, stateErr := a.readUpdateState()
 	registered, err := a.updateTaskRegistered()
 	lastError := state.LastError
+	if data, readErr := os.ReadFile(a.updaterErrorPath()); readErr == nil && strings.TrimSpace(string(data)) != "" {
+		lastError = redact(strings.TrimSpace(string(data)))
+	}
 	if stateErr != nil && !errors.Is(stateErr, os.ErrNotExist) {
 		lastError = "读取更新状态失败：" + stateErr.Error()
 	}
@@ -401,6 +425,10 @@ func (a *App) updateStatus() UpdateStatus {
 		AutoUpdateEnabled: state.AutoUpdateEnabled,
 		TaskRegistered:    registered,
 		LastError:         lastError,
+		PostUpdateVersion: state.PostUpdateVersion,
+		PostUpdateState:   state.PostUpdateState,
+		PostUpdateMessage: state.PostUpdateMessage,
+		PostUpdateError:   state.PostUpdateError,
 	}
 }
 
@@ -422,7 +450,7 @@ func (a *App) InstallUpdate(version string) error {
 		}
 	}()
 
-	info, err := a.CheckForUpdates(true)
+	info, err := a.checkForUpdates(true, true)
 	if err != nil {
 		return err
 	}
@@ -434,16 +462,16 @@ func (a *App) InstallUpdate(version string) error {
 	}
 	request, err := a.downloadAndStageUpdate(info)
 	if err != nil {
-		a.recordUpdateError(err)
+		a.recordUpdateErrorUnlocked(err)
 		return err
 	}
 	request.Relaunch = true
 	if err := a.launchUpdateHelper(request, os.Getpid()); err != nil {
-		a.recordUpdateError(err)
+		a.recordUpdateErrorUnlocked(err)
 		return err
 	}
 	handoffLock = true
-	a.recordUpdateError(nil)
+	a.recordUpdateErrorUnlocked(nil)
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		if a.ctx != nil {
@@ -665,16 +693,34 @@ func (a *App) emitUpdateProgress(message string, percent int) {
 }
 
 func (a *App) recordUpdateError(err error) {
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	a.recordUpdateErrorUnlocked(err)
+}
+
+func (a *App) recordUpdateErrorUnlocked(err error) {
 	state, stateErr := a.readUpdateState()
 	if stateErr != nil && !errors.Is(stateErr, os.ErrNotExist) {
 		return
 	}
 	if err == nil {
 		state.LastError = ""
+		_ = os.Remove(a.updaterErrorPath())
 	} else {
 		state.LastError = err.Error()
 	}
 	_ = a.writeUpdateState(state)
+}
+
+func (a *App) recordExternalUpdateError(err error) {
+	if err == nil {
+		_ = os.Remove(a.updaterErrorPath())
+		return
+	}
+	if ensureErr := ensureDir(a.updateDir()); ensureErr != nil {
+		return
+	}
+	_ = atomicWriteFile(a.updaterErrorPath(), []byte(redact(err.Error())+"\n"), 0600)
 }
 
 func parseUpdateArguments(args []string) {
@@ -721,27 +767,27 @@ func runScheduledUpdate() error {
 			releaseLock()
 		}
 	}()
-	info, err := app.CheckForUpdates(true)
+	info, err := app.checkForUpdates(true, false)
 	if err != nil {
-		app.recordUpdateError(err)
+		app.recordExternalUpdateError(err)
 		return err
 	}
 	if !info.Available {
-		app.recordUpdateError(nil)
+		app.recordExternalUpdateError(nil)
 		return nil
 	}
 	request, err := app.downloadAndStageUpdate(info)
 	if err != nil {
-		app.recordUpdateError(err)
+		app.recordExternalUpdateError(err)
 		return err
 	}
 	request.Relaunch = scheduledRelaunchAllowed()
 	if err := app.queueUpdateRequest(request); err != nil {
-		app.recordUpdateError(err)
+		app.recordExternalUpdateError(err)
 		return err
 	}
 	handoffLock = true
-	app.recordUpdateError(nil)
+	app.recordExternalUpdateError(nil)
 	return nil
 }
 
@@ -967,8 +1013,4 @@ func (a *App) acquireUpdateFileLock() (func(), error) {
 
 func pendingUpdateRestart() bool {
 	return fileExists(filepath.Join(detectInstanceRoot(), "launcher", "updates", "restart-pending"))
-}
-
-func clearPendingUpdateRestart() {
-	_ = os.Remove(filepath.Join(detectInstanceRoot(), "launcher", "updates", "restart-pending"))
 }

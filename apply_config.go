@@ -35,7 +35,14 @@ func (a *App) beginExclusiveOperation(action string) (func(), error) {
 }
 
 func (a *App) startApplyConfigTask() error {
-	if !a.operationMu.TryLock() {
+	return a.startApplyConfigTaskWithOperationID(false, "")
+}
+
+// startApplyConfigTaskWithOperationID starts the task and transfers ownership
+// of operationMu to it. When operationLocked is true, the caller must hold the
+// mutex; this function releases it on every setup error.
+func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id string) error {
+	if !operationLocked && !a.operationMu.TryLock() {
 		return fmt.Errorf("正在执行其他实例操作，暂时无法应用配置")
 	}
 	a.applyMu.Lock()
@@ -51,8 +58,11 @@ func (a *App) startApplyConfigTask() error {
 		return fmt.Errorf("已有应用配置任务正在执行")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
+	if id == "" {
+		id = uuid.NewString()
+	}
 	status := ApplyConfigStatus{
-		ID:        uuid.NewString(),
+		ID:        id,
 		State:     applyStateValidating,
 		Phase:     "validate",
 		Message:   "正在检查配置",

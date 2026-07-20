@@ -55,6 +55,10 @@ type UpdateStatus struct {
 	AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
 	TaskRegistered    bool   `json:"taskRegistered"`
 	LastError         string `json:"lastError"`
+	PostUpdateVersion string `json:"postUpdateVersion"`
+	PostUpdateState   string `json:"postUpdateState"`
+	PostUpdateMessage string `json:"postUpdateMessage"`
+	PostUpdateError   string `json:"postUpdateError"`
 }
 
 type HostBridgeStatus struct {

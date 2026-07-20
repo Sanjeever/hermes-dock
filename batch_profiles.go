@@ -17,9 +17,11 @@ type batchSkillSource struct {
 }
 
 func (a *App) BatchCopyProfileConfig(req BatchProfileConfigRequest) (BatchProfileConfigResult, error) {
-	if a.readApplyConfigStatus().Active {
-		return BatchProfileConfigResult{}, fmt.Errorf("正在应用配置，请等待完成后再批量修改")
+	release, err := a.beginExclusiveOperation("批量修改")
+	if err != nil {
+		return BatchProfileConfigResult{}, err
 	}
+	defer release()
 	registry, err := a.readProfileRegistry()
 	if err != nil {
 		return BatchProfileConfigResult{}, err

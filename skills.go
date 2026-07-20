@@ -109,7 +109,12 @@ func (a *App) DeleteSkill(path string) error {
 }
 
 func (a *App) DeleteSkillForProfile(profileID string, path string) error {
-	profileID, err := a.resolveProfileID(profileID)
+	release, err := a.beginExclusiveOperation("删除技能")
+	if err != nil {
+		return err
+	}
+	defer release()
+	profileID, err = a.resolveProfileID(profileID)
 	if err != nil {
 		return err
 	}
@@ -131,7 +136,12 @@ func (a *App) BatchDeleteSkills(paths []string) error {
 }
 
 func (a *App) BatchDeleteSkillsForProfile(profileID string, paths []string) error {
-	profileID, err := a.resolveProfileID(profileID)
+	release, err := a.beginExclusiveOperation("批量删除技能")
+	if err != nil {
+		return err
+	}
+	defer release()
+	profileID, err = a.resolveProfileID(profileID)
 	if err != nil {
 		return err
 	}
@@ -210,7 +220,12 @@ func (a *App) RestoreDefaultSkills() (SyncBundledSkillsResult, error) {
 }
 
 func (a *App) RestoreDefaultSkillsForProfile(profileID string) (SyncBundledSkillsResult, error) {
-	profileID, err := a.resolveProfileID(profileID)
+	release, err := a.beginExclusiveOperation("恢复默认技能")
+	if err != nil {
+		return SyncBundledSkillsResult{}, err
+	}
+	defer release()
+	profileID, err = a.resolveProfileID(profileID)
 	if err != nil {
 		return SyncBundledSkillsResult{}, err
 	}
@@ -242,7 +257,12 @@ func (a *App) RestoreDefaultSoul() error {
 }
 
 func (a *App) RestoreDefaultSoulForProfile(profileID string) error {
-	profileID, err := a.resolveProfileID(profileID)
+	release, err := a.beginExclusiveOperation("恢复默认人格")
+	if err != nil {
+		return err
+	}
+	defer release()
+	profileID, err = a.resolveProfileID(profileID)
 	if err != nil {
 		return err
 	}

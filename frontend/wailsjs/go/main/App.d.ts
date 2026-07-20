@@ -118,6 +118,8 @@ export function RestoreDefaultSoul():Promise<void>;
 
 export function RestoreDefaultSoulForProfile(arg1:string):Promise<void>;
 
+export function RetryPostUpdate():Promise<main.UpdateStatus>;
+
 export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 
 export function SaveDingTalkConfig(arg1:main.DingTalkConfig):Promise<void>;

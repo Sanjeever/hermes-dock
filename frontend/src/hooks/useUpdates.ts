@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {CheckForUpdates, DismissUpdate, InstallUpdate, OpenUpdateURL, SetAutoUpdateEnabled} from '../services/api';
+import {CheckForUpdates, DismissUpdate, InstallUpdate, OpenUpdateURL, RetryPostUpdate, SetAutoUpdateEnabled} from '../services/api';
 import {EventsOn} from '../services/events';
 import type {Notice, UpdateInfo, UpdateStatus} from '../types';
 
@@ -87,6 +87,21 @@ export function useUpdates(options: {
         }
     }
 
+    async function retryPostUpdate() {
+        setBusy(true);
+        try {
+            const status = await RetryPostUpdate();
+            options.onStatusChanged(status);
+            options.setNotice({type: 'info', message: '已重新开始处理升级后内容'});
+        } catch (error) {
+            const message = String(error);
+            options.appendLog(message);
+            options.setNotice({type: 'error', message});
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function open(url: string) {
         if (!url) return;
         try {
@@ -98,5 +113,5 @@ export function useUpdates(options: {
         }
     }
 
-    return {info, busy, progress, check, dismiss, install, open, setAutoUpdate};
+    return {info, busy, progress, check, dismiss, install, open, setAutoUpdate, retryPostUpdate};
 }

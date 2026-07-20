@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,14 +27,22 @@ type bundledTemplateFile struct {
 }
 
 type bundledSyncPlan struct {
-	file   bundledTemplateFile
-	action string
+	file        bundledTemplateFile
+	action      string
+	existed     bool
+	currentHash string
 }
 
 func (a *App) SyncBundledContent(req BundledContentSyncRequest) (BundledContentSyncResult, error) {
-	if a.readApplyConfigStatus().Active {
-		return BundledContentSyncResult{}, fmt.Errorf("正在应用配置，请等待完成后再同步内置内容")
+	release, err := a.beginExclusiveOperation("同步内置内容")
+	if err != nil {
+		return BundledContentSyncResult{}, err
 	}
+	defer release()
+	return a.syncBundledContent(req, true, nil)
+}
+
+func (a *App) syncBundledContent(req BundledContentSyncRequest, forceSoul bool, beforeFirstWrite func() error) (BundledContentSyncResult, error) {
 	if !req.SyncSoul && !req.SyncSkills {
 		return BundledContentSyncResult{}, fmt.Errorf("请至少选择内置人格或内置技能")
 	}
@@ -46,6 +56,7 @@ func (a *App) SyncBundledContent(req BundledContentSyncRequest) (BundledContentS
 	seen := map[string]bool{}
 	result := BundledContentSyncResult{Results: []BundledContentProfileResult{}}
 	changed := false
+	writeStarted := false
 	for _, rawID := range req.TargetProfileIDs {
 		profileID := strings.TrimSpace(rawID)
 		item := BundledContentProfileResult{ProfileID: profileID}
@@ -56,7 +67,16 @@ func (a *App) SyncBundledContent(req BundledContentSyncRequest) (BundledContentS
 			item.Error = "目标 profile 不存在"
 		default:
 			seen[profileID] = true
-			item, err = a.syncBundledContentForProfile(profileID, req.SyncSoul, req.SyncSkills)
+			item, err = a.syncBundledContentForProfile(profileID, req.SyncSoul, req.SyncSkills, forceSoul, func() error {
+				if writeStarted || beforeFirstWrite == nil {
+					return nil
+				}
+				if err := beforeFirstWrite(); err != nil {
+					return err
+				}
+				writeStarted = true
+				return nil
+			})
 			if err != nil {
 				item.Success = false
 				item.Error = redact(err.Error())
@@ -87,7 +107,7 @@ func (a *App) SyncBundledContent(req BundledContentSyncRequest) (BundledContentS
 	return result, nil
 }
 
-func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, syncSkills bool) (BundledContentProfileResult, error) {
+func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, syncSkills bool, forceSoul bool, beforeWrite func() error) (BundledContentProfileResult, error) {
 	result := BundledContentProfileResult{ProfileID: profileID}
 	targetRoot := a.profileDataDir(profileID)
 	templates, err := bundledTemplateContent(profileID, targetRoot, syncSoul, syncSkills)
@@ -126,10 +146,10 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 		action := ""
 		skillRoot := skillRoots[file.rel]
 		action = classifyBundledFile(!os.IsNotExist(readErr), currentHash, templateHash, state.Files[file.rel], skillRoot != "" && skippedSkillRoots[skillRoot])
-		if file.rel == "SOUL.md" && readErr == nil && currentHash != templateHash {
+		if forceSoul && file.rel == "SOUL.md" && readErr == nil && currentHash != templateHash {
 			action = "updated"
 		}
-		plans = append(plans, bundledSyncPlan{file: file, action: action})
+		plans = append(plans, bundledSyncPlan{file: file, action: action, existed: readErr == nil, currentHash: currentHash})
 		if action == "added" || action == "updated" {
 			if file.rel == "SOUL.md" && readErr == nil {
 				soulNeedsBackup = true
@@ -156,8 +176,45 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 			if err := ensureDir(filepath.Dir(target)); err != nil {
 				return result, err
 			}
-			if err := atomicWriteFile(target, plan.file.data, 0644); err != nil {
+			if err := ensureNoSymlinkComponents(targetRoot, target); err != nil {
+				return result, fmt.Errorf("内置内容目标路径不安全：%s：%w", plan.file.rel, err)
+			}
+			matches, err := bundledSyncTargetMatchesPlan(target, plan)
+			if err != nil {
 				return result, err
+			}
+			if !matches {
+				result.Skipped++
+				continue
+			}
+			if beforeWrite != nil {
+				if err := beforeWrite(); err != nil {
+					return result, err
+				}
+			}
+			staged, err := stageBundledFile(target, plan.file.data)
+			if err != nil {
+				return result, err
+			}
+			defer os.Remove(staged)
+			if err := ensureNoSymlinkComponents(targetRoot, target); err != nil {
+				return result, fmt.Errorf("内置内容目标路径不安全：%s：%w", plan.file.rel, err)
+			}
+			matches, err = bundledSyncTargetMatchesPlan(target, plan)
+			if err != nil {
+				return result, err
+			}
+			if !matches {
+				result.Skipped++
+				continue
+			}
+			committed, err := commitBundledFile(target, staged, plan.existed)
+			if err != nil {
+				return result, err
+			}
+			if !committed {
+				result.Skipped++
+				continue
 			}
 			state.Files[plan.file.rel] = contentHash(plan.file.data)
 			if plan.action == "added" {
@@ -187,6 +244,99 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 	}
 	result.Success = true
 	return result, nil
+}
+
+func bundledSyncTargetMatchesPlan(target string, plan bundledSyncPlan) (bool, error) {
+	if !plan.existed {
+		_, err := os.Lstat(target)
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	opened, err := os.Open(target)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer opened.Close()
+	return bundledSyncOpenedTargetMatchesPlan(target, opened, plan)
+}
+
+func bundledSyncOpenedTargetMatchesPlan(target string, opened *os.File, plan bundledSyncPlan) (bool, error) {
+	before, err := opened.Stat()
+	if err != nil {
+		return false, err
+	}
+	current, err := io.ReadAll(opened)
+	if err != nil {
+		return false, err
+	}
+	after, err := opened.Stat()
+	if err != nil {
+		return false, err
+	}
+	pathInfo, err := os.Lstat(target)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !os.SameFile(before, after) || !os.SameFile(after, pathInfo) {
+		return false, nil
+	}
+	if before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
+		return false, nil
+	}
+	return contentHash(current) == plan.currentHash, nil
+}
+
+func stageBundledFile(target string, data []byte) (string, error) {
+	file, err := os.CreateTemp(filepath.Dir(target), ".hermes-dock-bundled-*")
+	if err != nil {
+		return "", err
+	}
+	staged := file.Name()
+	cleanup := func() {
+		file.Close()
+		os.Remove(staged)
+	}
+	if err := file.Chmod(0644); err != nil {
+		cleanup()
+		return "", err
+	}
+	if _, err := file.Write(data); err != nil {
+		cleanup()
+		return "", err
+	}
+	if err := file.Sync(); err != nil {
+		cleanup()
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		os.Remove(staged)
+		return "", err
+	}
+	return staged, nil
+}
+
+func commitBundledFile(target string, staged string, targetExisted bool) (bool, error) {
+	if targetExisted {
+		if err := os.Rename(staged, target); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if err := os.Link(staged, target); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func bundledTemplateContent(profileID string, targetRoot string, includeSoul bool, includeSkills bool) ([]bundledTemplateFile, error) {

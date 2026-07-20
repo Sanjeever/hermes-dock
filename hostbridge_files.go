@@ -98,6 +98,12 @@ func (a *App) handleHostFileWrite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	release, err := a.beginExclusiveOperation("写入宿主机文件")
+	if err != nil {
+		writeHostError(w, http.StatusConflict, err)
+		return
+	}
+	defer release()
 	var req hostFileWriteRequest
 	if !decodeHostJSON(w, r, hostBridgeMaxFileRequest, &req) {
 		return
@@ -216,6 +222,12 @@ func (a *App) handleHostFileMkdir(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	release, err := a.beginExclusiveOperation("创建宿主机目录")
+	if err != nil {
+		writeHostError(w, http.StatusConflict, err)
+		return
+	}
+	defer release()
 	var req hostPathRequest
 	if !decodeHostJSON(w, r, hostBridgeMaxBody, &req) {
 		return
@@ -236,6 +248,12 @@ func (a *App) handleHostFileMove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	release, err := a.beginExclusiveOperation("移动宿主机文件")
+	if err != nil {
+		writeHostError(w, http.StatusConflict, err)
+		return
+	}
+	defer release()
 	var req hostFileMoveRequest
 	if !decodeHostJSON(w, r, hostBridgeMaxBody, &req) {
 		return

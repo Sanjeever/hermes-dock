@@ -172,6 +172,10 @@ func (a *App) updateLockPath() string {
 	return filepath.Join(a.updateDir(), "update.lock")
 }
 
+func (a *App) updaterErrorPath() string {
+	return filepath.Join(a.updateDir(), "last-error")
+}
+
 func (a *App) dockDataDir() string {
 	return filepath.Join(a.defaultDataDir(), ".dock")
 }

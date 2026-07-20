@@ -251,7 +251,12 @@ func (a *App) InstallSkillHubSkill(slug string) error {
 }
 
 func (a *App) InstallSkillHubSkillForProfile(profileID string, slug string) error {
-	profileID, err := a.resolveProfileID(profileID)
+	release, err := a.beginExclusiveOperation("安装技能")
+	if err != nil {
+		return err
+	}
+	defer release()
+	profileID, err = a.resolveProfileID(profileID)
 	if err != nil {
 		return err
 	}

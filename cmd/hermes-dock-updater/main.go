@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,7 +31,7 @@ func main() {
 		saveUpdateError(config.instanceRoot, err.Error())
 		os.Exit(1)
 	}
-	saveUpdateError(config.instanceRoot, "")
+	clearUpdateError(config.instanceRoot)
 }
 
 func parseFlags() updateConfig {
@@ -194,18 +193,11 @@ func logUpdate(instanceRoot string, message string) {
 }
 
 func saveUpdateError(instanceRoot string, message string) {
-	path := filepath.Join(instanceRoot, "launcher", "update.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
+	if instanceRoot == "" {
 		return
 	}
-	var state map[string]interface{}
-	if json.Unmarshal(data, &state) != nil {
-		return
-	}
-	state["lastError"] = message
-	data, err = json.MarshalIndent(state, "", "  ")
-	if err != nil {
+	path := filepath.Join(instanceRoot, "launcher", "updates", "last-error")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return
 	}
 	temp, err := os.CreateTemp(filepath.Dir(path), ".hermes-dock-update-state-*")
@@ -214,8 +206,8 @@ func saveUpdateError(instanceRoot string, message string) {
 	}
 	tempPath := temp.Name()
 	defer os.Remove(tempPath)
-	_ = temp.Chmod(0644)
-	if _, err := temp.Write(append(data, '\n')); err != nil {
+	_ = temp.Chmod(0600)
+	if _, err := temp.Write([]byte(strings.TrimSpace(message) + "\n")); err != nil {
 		temp.Close()
 		return
 	}
@@ -227,6 +219,13 @@ func saveUpdateError(instanceRoot string, message string) {
 		return
 	}
 	_ = os.Rename(tempPath, path)
+}
+
+func clearUpdateError(instanceRoot string) {
+	if instanceRoot == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(instanceRoot, "launcher", "updates", "last-error"))
 }
 
 func runCommand(name string, args ...string) error {

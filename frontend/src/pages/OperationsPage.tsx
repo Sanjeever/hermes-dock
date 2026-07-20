@@ -76,6 +76,7 @@ export function OperationsPage(props: {
     onCheckUpdate: () => void;
     onInstallUpdate: () => void;
     onSetAutoUpdate: (enabled: boolean) => Promise<void>;
+    onRetryPostUpdate: () => Promise<void>;
 }) {
     const tabs: Array<{ id: OperationsTab; label: string }> = props.scope === 'settings' ? [
         {id: 'basic', label: '基础设置'},
@@ -154,6 +155,7 @@ export function OperationsPage(props: {
                         onCheck={props.onCheckUpdate}
                         onInstall={props.onInstallUpdate}
                         onSetAutoUpdate={props.onSetAutoUpdate}
+                        onRetryPostUpdate={props.onRetryPostUpdate}
                     />
                 </section>
             )}
@@ -216,6 +218,7 @@ function UpdateSettingsCard(props: {
     onCheck: () => void;
     onInstall: () => void;
     onSetAutoUpdate: (enabled: boolean) => Promise<void>;
+    onRetryPostUpdate: () => Promise<void>;
 }) {
     const available = !!props.info?.available;
     const detail = available
@@ -228,7 +231,7 @@ function UpdateSettingsCard(props: {
             <SettingsCardHeader title="软件更新" detail={detail} status={available ? '可更新' : undefined} statusTone="warn"/>
             <div className="update-settings-actions">
                 <button className="ghost" onClick={props.onCheck} disabled={props.busy}><RefreshCcw size={16} className={props.busy && !props.progress ? 'spin' : undefined}/>{props.busy && !props.progress ? '检查中' : '检查更新'}</button>
-                {available && <div className="update-install-action"><button className="primary no-margin" onClick={props.onInstall} disabled={props.busy || !props.info?.assetUrl}><Download size={16}/>{props.busy ? (props.progress || '正在更新') : '立即更新'}</button><small>更新不会停止 Hermes 容器。</small></div>}
+                {available && <div className="update-install-action"><button className="primary no-margin" onClick={props.onInstall} disabled={props.busy || !props.info?.assetUrl}><Download size={16}/>{props.busy ? (props.progress || '正在更新') : '立即更新'}</button><small>安装阶段不停止 Hermes；如有变化且升级前后均保持运行，会自动应用。已停止或状态未知的服务不会自动启动。</small></div>}
             </div>
             <label className="update-auto-row">
                 <span>
@@ -239,6 +242,18 @@ function UpdateSettingsCard(props: {
             </label>
             {props.status.autoUpdateEnabled && !props.status.taskRegistered && <div className="form-warning">自动更新已开启，但系统定时任务未注册。</div>}
             {props.status.lastError && <div className="operation-error">自动更新：{props.status.lastError}</div>}
+            {['pending', 'waiting', 'syncing', 'applying'].includes(props.status.postUpdateState) && (
+                <div className="busy"><Loader2 size={16} className="spin"/>{props.status.postUpdateMessage || '正在处理升级后内容'}</div>
+            )}
+            {props.status.postUpdateState === 'succeeded' && props.status.postUpdateMessage && (
+                <div className="inline-status"><CheckCircle2 size={15}/> {props.status.postUpdateMessage}</div>
+            )}
+            {props.status.postUpdateState === 'failed' && (
+                <div className="operation-error operation-error-action">
+                    <span>升级后处理：{props.status.postUpdateError || props.status.postUpdateMessage}</span>
+                    <button className="ghost" onClick={props.onRetryPostUpdate} disabled={props.busy}><RotateCcw size={15}/>重新处理</button>
+                </div>
+            )}
         </div>
     );
 }

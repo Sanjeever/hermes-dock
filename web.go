@@ -861,6 +861,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"DismissUpdate":        oneArg[string](a.DismissUpdate),
 		"InstallUpdate":        oneArg[string](a.InstallUpdate),
 		"SetAutoUpdateEnabled": oneArgValue[bool, UpdateStatus](a.SetAutoUpdateEnabled),
+		"RetryPostUpdate":      noParams(func() (interface{}, error) { return a.RetryPostUpdate() }),
 		"OpenUpdateURL":        oneArg[string](a.OpenUpdateURL),
 		"OpenWebManagement":    noResult(a.OpenWebManagement),
 	}

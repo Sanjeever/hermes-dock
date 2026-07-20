@@ -34,10 +34,6 @@ func main() {
 	if relaunched {
 		return
 	}
-	if launchAfterUpdateMode {
-		clearPendingUpdateRestart()
-	}
-
 	// Create an instance of the app structure
 	app := NewApp()
 
