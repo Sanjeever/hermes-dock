@@ -888,11 +888,11 @@ export namespace main {
 	    clientId: string;
 	    clientSecret: string;
 	    requireMention: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DingTalkConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.clientId = source["clientId"];
@@ -1667,3 +1667,4 @@ export namespace main {
 	}
 
 }
+
