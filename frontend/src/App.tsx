@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {CheckCircle2, CircleAlert, Download, ExternalLink, RefreshCcw, RotateCcw} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Download, RefreshCcw, RotateCcw} from 'lucide-react';
 import './styles/tokens.css';
 import './App.css';
 import './styles/refresh.css';
@@ -1327,7 +1327,6 @@ function App() {
                             <button className="primary" onClick={() => {
                                 if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。升级期间启动器和 Web 管理会暂时不可用，Hermes Agent 容器不会停止。`)) updates.install();
                             }} disabled={updates.busy || !!blockingBusy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
-                            {updateInfo.releaseUrl && <button onClick={() => updates.open(updateInfo.releaseUrl)}><ExternalLink size={15}/>发布页</button>}
                             <button onClick={updates.dismiss}>忽略</button>
                         </div>
                     </div>
