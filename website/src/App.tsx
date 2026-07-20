@@ -1,5 +1,6 @@
 import {type FormEvent, useEffect, useRef, useState} from 'react';
 import {ArrowDown, ArrowRight, Check, ChevronRight, ClipboardList, Clock3, Database, FileText, LockKeyhole, MessageCircleMore, Send, UsersRound} from 'lucide-react';
+import deploymentVisual from './assets/deployment-local-options.jpg';
 import logo from './assets/qizhih-box-logo.png';
 
 const leadEndpoint = '/api/demo-requests';
@@ -321,7 +322,7 @@ function App() {
 
             <section id="deployment" className="deployment section-wrap" aria-labelledby="deployment-title">
                 <div className="deployment-art scale-in">
-                    <ProductDevice className="deployment-product" />
+                    <img className="deployment-visual" src={deploymentVisual} alt="一体机与企业服务器机房" loading="lazy" />
                 </div>
                 <div className="deployment-copy">
                     <p>数据留在掌控之中</p>
