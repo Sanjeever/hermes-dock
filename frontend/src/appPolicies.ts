@@ -30,6 +30,7 @@ export function platformLabel(platform: PlatformKey) {
         weixin: '个人微信',
         wecom: '企业微信',
         feishu: '飞书 / Lark',
+        dingtalk: '钉钉',
     };
     return labels[platform];
 }
@@ -38,6 +39,7 @@ export function firstBoundPlatform(env: EnvVar[]): PlatformKey {
     if (envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN')) return 'weixin';
     if (envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET')) return 'wecom';
     if (envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET')) return 'feishu';
+    if (envValue(env, 'DINGTALK_CLIENT_ID') && envValue(env, 'DINGTALK_CLIENT_SECRET')) return 'dingtalk';
     return 'weixin';
 }
 

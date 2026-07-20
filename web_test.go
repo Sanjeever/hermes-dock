@@ -58,6 +58,8 @@ func TestWebRPCProfileOperationsRequireExplicitProfile(t *testing.T) {
 		"GetAppStateForProfile",
 		"SaveModelConfigForProfile",
 		"SaveFeishuConfigForProfile",
+		"SaveDingTalkConfigForProfile",
+		"StartDingTalkLoginForProfile",
 		"ListProfileSkillsForProfile",
 		"ReadWebTextFile",
 		"BatchCopyProfileConfig",

@@ -425,6 +425,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/017-patch-wecom-filenames") &&
 		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") &&
 		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
+		strings.Contains(content, "/etc/cont-init.d/020-install-dingtalk-deps") &&
 		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT")
 	if !current {
 		if err := a.writeCompose(settings, "before-compose-runtime-v2-migration"); err != nil {
@@ -557,6 +558,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro
+      - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
       - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro
       - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro

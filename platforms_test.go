@@ -121,6 +121,37 @@ func TestSaveFeishuConfigPreservesExistingSecretWhenRequestIsRedacted(t *testing
 	}
 }
 
+func TestSaveDingTalkConfigUsesOpenAccessAndPreservesMaskedSecret(t *testing.T) {
+	app := newTestAppWithDefaultEnv(t, []EnvVar{
+		{Key: "DINGTALK_CLIENT_ID", Value: "app-key"},
+		{Key: "DINGTALK_CLIENT_SECRET", Value: "real-secret"},
+		{Key: "DINGTALK_ALLOWED_USERS", Value: "user-a"},
+	})
+
+	if err := app.SaveDingTalkConfig(DingTalkConfig{
+		ClientID:       "app-key",
+		ClientSecret:   "******",
+		RequireMention: false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := readEnvFile(app.envPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"DINGTALK_CLIENT_SECRET":   "real-secret",
+		"DINGTALK_ALLOW_ALL_USERS": "true",
+		"DINGTALK_ALLOWED_USERS":   "",
+		"DINGTALK_REQUIRE_MENTION": "false",
+	} {
+		if got := envValue(env, key); got != want {
+			t.Fatalf("%s = %q, want %q", key, got, want)
+		}
+	}
+}
+
 func TestUnbindPlatformClearsWeixinBinding(t *testing.T) {
 	app := newTestAppWithDefaultEnv(t, []EnvVar{
 		{Key: "WEIXIN_ACCOUNT_ID", Value: "wx-account"},
@@ -204,6 +235,35 @@ func TestUnbindPlatformClearsFeishuBinding(t *testing.T) {
 	}
 	if got := envValue(env, "FEISHU_ALLOW_ALL_USERS"); got != "true" {
 		t.Fatalf("FEISHU_ALLOW_ALL_USERS = %q, want true", got)
+	}
+}
+
+func TestUnbindPlatformClearsDingTalkBinding(t *testing.T) {
+	app := newTestAppWithDefaultEnv(t, []EnvVar{
+		{Key: "DINGTALK_CLIENT_ID", Value: "app-key"},
+		{Key: "DINGTALK_CLIENT_SECRET", Value: "secret"},
+		{Key: "DINGTALK_ALLOWED_USERS", Value: "user-a"},
+		{Key: "DINGTALK_REQUIRE_MENTION", Value: "false"},
+	})
+
+	if err := app.UnbindPlatform("dingtalk"); err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := readEnvFile(app.envPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"DINGTALK_CLIENT_ID":       "",
+		"DINGTALK_CLIENT_SECRET":   "",
+		"DINGTALK_ALLOWED_USERS":   "",
+		"DINGTALK_ALLOW_ALL_USERS": "true",
+		"DINGTALK_REQUIRE_MENTION": "true",
+	} {
+		if got := envValue(env, key); got != want {
+			t.Fatalf("%s = %q, want %q", key, got, want)
+		}
 	}
 }
 

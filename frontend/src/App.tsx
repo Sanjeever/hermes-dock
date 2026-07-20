@@ -8,6 +8,7 @@ import logoUniversal from './assets/images/logo-universal.png';
 import {
     CancelWeixinLogin,
     CancelFeishuLogin,
+	CancelDingTalkLogin,
     BatchCopyProfileConfig,
     CompleteProfileSetup,
     CreateProfile,
@@ -34,6 +35,7 @@ import {
     SaveComposeSettings,
     SaveProxySettings,
     SaveFeishuConfig,
+	SaveDingTalkConfig,
     SaveModelConfig,
     SaveProviderConfig,
     SaveTextFile,
@@ -45,6 +47,7 @@ import {
     StartHermes,
     StartWeixinLogin,
     StartFeishuLogin,
+	StartDingTalkLogin,
     StopHermes,
     StopTailLogs,
     SyncBundledSkills,
@@ -237,6 +240,34 @@ function App() {
             setQrStatus(event.message);
             setPlatformLoginProfile('');
         });
+        const offDingTalkQR = EventsOn('dingtalk-login:qr', (event: { scan_data: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
+            setQrPlatform('dingtalk');
+            setQrData(event.scan_data);
+            setQrStatus('等待钉钉扫码');
+        });
+        const offDingTalkDone = EventsOn('dingtalk-login:confirmed', (event: { status?: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) {
+                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
+                setNeedsRebuild(true);
+                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
+                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的钉钉已绑定成功，应用配置后生效`});
+                refresh();
+                return;
+            }
+            setQrStatus(event.status || '钉钉已绑定成功');
+            setQrData('');
+            setPlatformLoginProfile('');
+			markPlatformDirty(false);
+            setNeedsRebuild(true);
+            refresh();
+        });
+        const offDingTalkError = EventsOn('dingtalk-login:error', (event: { message: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setQrStatus(event.message);
+            setPlatformLoginProfile('');
+        });
         return () => {
             offDocker();
             offApply();
@@ -249,6 +280,9 @@ function App() {
             offFeishuQR();
             offFeishuDone();
             offFeishuError();
+            offDingTalkQR();
+            offDingTalkDone();
+            offDingTalkError();
         };
     }, []);
 
@@ -672,6 +706,9 @@ function App() {
         if (selectedPlatform === 'feishu') {
             return await saveFeishuConfig();
         }
+		if (selectedPlatform === 'dingtalk') {
+			return await saveDingTalkConfig();
+		}
         markPlatformDirty(false);
         return true;
     }
@@ -816,6 +853,31 @@ function App() {
         setPlatformLoginProfile('');
     }
 
+    async function startDingTalkLogin() {
+		const profileID = activeProfileRef.current || 'default';
+		if (platformDirty) {
+			setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存或放弃后再扫码'});
+			return;
+		}
+		const replacing = !!envValue(env, 'DINGTALK_CLIENT_ID') && !!envValue(env, 'DINGTALK_CLIENT_SECRET');
+		if (replacing && !window.confirm('扫码创建的新钉钉机器人会替换当前钉钉绑定。是否继续？')) return;
+		setPlatformLoginProfile(profileID);
+		setQrPlatform('dingtalk');
+		setQrData('');
+		setQrStatus('正在生成钉钉二维码');
+		const ok = await run('正在启动钉钉扫码绑定', () => StartDingTalkLogin(profileID));
+		if (!ok) setPlatformLoginProfile('');
+	}
+
+    async function cancelDingTalkLogin() {
+		const ok = await run('正在取消钉钉扫码绑定', CancelDingTalkLogin);
+		if (!ok) return;
+		setQrData('');
+		setQrStatus('');
+		setQrPlatform('');
+		setPlatformLoginProfile('');
+	}
+
     async function saveWeComConfig() {
 		if (platformLoginProfile) {
 			setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消'});
@@ -865,6 +927,28 @@ function App() {
 			if (revision === platformEditRevisionRef.current) markPlatformDirty(false);
 		}});
     }
+
+    async function saveDingTalkConfig() {
+		if (platformLoginProfile) {
+			setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消'});
+			return false;
+		}
+		if (envValue(env, 'DINGTALK_CLIENT_ID').trim() === '' || envValue(env, 'DINGTALK_CLIENT_SECRET').trim() === '') {
+			const message = '请填写钉钉 AppKey 和 AppSecret 后再保存';
+			setNotice({type: 'error', message});
+			setLastOperationError(message);
+			return false;
+		}
+		const profileID = activeProfileRef.current || 'default';
+		const revision = platformEditRevisionRef.current;
+		return await run('正在保存钉钉配置', () => SaveDingTalkConfig(profileID, {
+			clientId: envValue(env, 'DINGTALK_CLIENT_ID'),
+			clientSecret: envValue(env, 'DINGTALK_CLIENT_SECRET'),
+			requireMention: envValue(env, 'DINGTALK_REQUIRE_MENTION') !== 'false',
+		}), {rebuildRequired: true, beforeRefresh: () => {
+			if (revision === platformEditRevisionRef.current) markPlatformDirty(false);
+		}});
+	}
 
     async function unbindPlatform(platform: PlatformKey) {
         const label = platformLabel(platform);
@@ -1155,7 +1239,11 @@ function App() {
     const weixinBound = envValue(env, 'WEIXIN_ACCOUNT_ID') && envValue(env, 'WEIXIN_TOKEN');
     const wecomBound = envValue(env, 'WECOM_BOT_ID') && envValue(env, 'WECOM_SECRET');
     const feishuBound = envValue(env, 'FEISHU_APP_ID') && envValue(env, 'FEISHU_APP_SECRET');
-    const weixinHomeChannel = envValue(env, 'WEIXIN_HOME_CHANNEL');
+	const dingtalkBound = envValue(env, 'DINGTALK_CLIENT_ID') && envValue(env, 'DINGTALK_CLIENT_SECRET');
+	const homeChannels = {
+		weixin: envValue(env, 'WEIXIN_HOME_CHANNEL'),
+		dingtalk: envValue(env, 'DINGTALK_HOME_CHANNEL'),
+	};
     const currentProviderKey = model ? model.provider : '';
     const currentModelOptionsKey = model ? modelOptionKey(currentProviderKey) : '';
     const visibleModelOptions = currentModelOptionsKey === modelOptionsKey ? modelOptions : [];
@@ -1357,7 +1445,7 @@ function App() {
                         selectedPlatform={selectedPlatform}
                         setSelectedPlatform={selectPlatform}
                         needsRebuild={needsRebuild}
-                        hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound}
+                        hasPlatformBinding={!!weixinBound || !!wecomBound || !!feishuBound || !!dingtalkBound}
                         skillsState={skills.skillsState}
                         skillDetail={skills.skillDetail}
                         skillsStatus={skills.skillsStatus}
@@ -1382,8 +1470,11 @@ function App() {
                         onCancelWeixin={cancelWeixinLogin}
 						onFeishuLogin={startFeishuLogin}
 						onCancelFeishu={cancelFeishuLogin}
+						onDingTalkLogin={startDingTalkLogin}
+						onCancelDingTalk={cancelDingTalkLogin}
                         onSaveWeCom={saveWeComConfig}
                         onSaveFeishu={saveFeishuConfig}
+						onSaveDingTalk={saveDingTalkConfig}
                         onUnbindPlatform={unbindPlatform}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}
@@ -1428,7 +1519,8 @@ function App() {
                         weixinBound={!!weixinBound}
                         wecomBound={!!wecomBound}
                         feishuBound={!!feishuBound}
-                        weixinHomeChannel={weixinHomeChannel}
+						dingtalkBound={!!dingtalkBound}
+						homeChannels={homeChannels}
                         advancedOptions={advancedFileOptions(state.activeProfile || 'default')}
                         advancedPath={advancedPath}
                         setAdvancedPath={changeAdvancedPath}

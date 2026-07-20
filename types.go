@@ -572,3 +572,9 @@ type FeishuConfig struct {
 	AllowedUsers string `json:"allowedUsers"`
 	GroupPolicy  string `json:"groupPolicy"`
 }
+
+type DingTalkConfig struct {
+	ClientID       string `json:"clientId"`
+	ClientSecret   string `json:"clientSecret"`
+	RequireMention bool   `json:"requireMention"`
+}

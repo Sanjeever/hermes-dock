@@ -103,6 +103,11 @@ func TestLoginSessionAllowsOnlyOnePlatform(t *testing.T) {
 	if _, err := app.startLoginSession("feishu", defaultProfileID, feishuLoginTimeout); err != nil {
 		t.Fatal(err)
 	}
+	app.cancelLoginSession("feishu")
+	app.finishLoginSession("feishu", nil)
+	if _, err := app.startLoginSession("dingtalk", defaultProfileID, dingtalkLoginTimeout); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCancelLoginSessionAndWaitWaitsForWorkerExit(t *testing.T) {

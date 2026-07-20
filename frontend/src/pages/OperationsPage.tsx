@@ -25,7 +25,8 @@ export function OperationsPage(props: {
     weixinBound: boolean;
     wecomBound: boolean;
     feishuBound: boolean;
-    weixinHomeChannel: string;
+	dingtalkBound: boolean;
+	homeChannels: Record<string, string>;
     advancedOptions: Array<{ value: string; label: string }>;
     advancedPath: string;
     setAdvancedPath: (value: string) => void;
@@ -102,6 +103,7 @@ export function OperationsPage(props: {
                     weixinBound={props.weixinBound}
                     wecomBound={props.wecomBound}
                     feishuBound={props.feishuBound}
+					dingtalkBound={props.dingtalkBound}
                     lastOperationError={props.lastOperationError}
                     onStart={props.onStart}
                     onStop={props.onStop}
@@ -134,8 +136,8 @@ export function OperationsPage(props: {
                     <ChannelsPage
                         channels={props.state.channels}
                         activeProfileName={props.activeProfileName}
-                        hasPlatformBinding={props.weixinBound || props.wecomBound || props.feishuBound}
-                        weixinHomeChannel={props.weixinHomeChannel}
+                        hasPlatformBinding={props.weixinBound || props.wecomBound || props.feishuBound || props.dingtalkBound}
+						homeChannels={props.homeChannels}
                         busy={!!props.busy}
                         actionStatus={props.channelActionStatus}
                         onRefresh={props.onRefreshChannels}
@@ -263,6 +265,7 @@ function RuntimePage(props: {
     weixinBound: boolean;
     wecomBound: boolean;
     feishuBound: boolean;
+	dingtalkBound: boolean;
     lastOperationError: string;
     onStart: () => void;
     onStop: () => void;
@@ -362,6 +365,7 @@ function RuntimePage(props: {
                         <RuntimeCheck label="个人微信" ok={props.weixinBound}/>
                         <RuntimeCheck label="企业微信" ok={props.wecomBound}/>
                         <RuntimeCheck label="飞书 / Lark" ok={props.feishuBound}/>
+						<RuntimeCheck label="钉钉" ok={props.dingtalkBound}/>
                     </div>
                 </div>
             </div>

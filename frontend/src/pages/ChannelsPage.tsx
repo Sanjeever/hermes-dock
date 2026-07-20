@@ -2,11 +2,11 @@ import {useMemo} from 'react';
 import {MessageSquarePlus, RefreshCcw} from 'lucide-react';
 import type {ChannelFile} from '../types';
 
-export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, weixinHomeChannel, busy, actionStatus, onRefresh, onOpenAssistantPlatforms, onHome, onTest}: {
+export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, homeChannels, busy, actionStatus, onRefresh, onOpenAssistantPlatforms, onHome, onTest}: {
     channels: ChannelFile;
     activeProfileName: string;
     hasPlatformBinding: boolean;
-    weixinHomeChannel: string;
+    homeChannels: Record<string, string>;
     busy: boolean;
     actionStatus: Record<string, string>;
     onRefresh: () => void;
@@ -29,7 +29,7 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
                 <div className="panel empty-state">
                     <MessageSquarePlus size={28}/>
                     <h2>{hasPlatformBinding ? '暂未发现通道' : '当前助手还没有绑定平台'}</h2>
-                    <p>{hasPlatformBinding ? '启动服务后，从已绑定的平台给助手发送一条消息，再刷新通道。' : '请先回到助手页绑定微信、企业微信或飞书。'}</p>
+                    <p>{hasPlatformBinding ? '启动服务后，从已绑定的平台给助手发送一条消息，再刷新通道。' : '请先回到助手页绑定微信、企业微信、飞书或钉钉。'}</p>
                     {hasPlatformBinding ? (
                         <button className="primary no-margin" onClick={onRefresh} disabled={busy}><RefreshCcw size={16}/>刷新通道</button>
                     ) : (
@@ -52,20 +52,22 @@ export function ChannelsPage({channels, activeProfileName, hasPlatformBinding, w
                             <span>默认通道</span>
                             <span>操作</span>
                         </div>
-                        {rows.map((row) => (
-                            <div className="table-row" key={`${row.platform}-${row.id}`}>
+                        {rows.map((row) => {
+                            const homeChannel = homeChannels[row.platform] || '';
+                            const supportsHomeChannel = row.platform === 'weixin' || row.platform === 'dingtalk';
+                            return <div className="table-row" key={`${row.platform}-${row.id}`}>
                                 <code data-label="平台">{row.platform}</code>
-                                <span data-label="通道">{row.name || row.id}{row.platform === 'weixin' && row.id === weixinHomeChannel && <b className="home-badge">默认</b>}</span>
+                                <span data-label="通道">{row.name || row.id}{row.id === homeChannel && <b className="home-badge">默认</b>}</span>
                                 <span data-label="类型">{row.type}</span>
-                                {row.platform === 'weixin' ? (
-                                    <button data-label="默认通道" onClick={() => onHome(row.platform, row.id)} disabled={busy || row.id === weixinHomeChannel}>{row.id === weixinHomeChannel ? '已默认' : '设为默认'}</button>
+                                {supportsHomeChannel ? (
+                                    <button data-label="默认通道" onClick={() => onHome(row.platform, row.id)} disabled={busy || row.id === homeChannel}>{row.id === homeChannel ? '已默认' : '设为默认'}</button>
                                 ) : <span className="muted" data-label="默认通道">-</span>}
                                 <button data-label="操作" onClick={() => onTest(row.platform, row.id)} disabled={busy}>测试</button>
                                 {(actionStatus[channelStatusKey(row.platform, row.id, 'home')] || actionStatus[channelStatusKey(row.platform, row.id, 'test')]) && (
                                     <small className="row-status">{actionStatus[channelStatusKey(row.platform, row.id, 'home')] || actionStatus[channelStatusKey(row.platform, row.id, 'test')]}</small>
                                 )}
-                            </div>
-                        ))}
+                            </div>;
+                        })}
                     </div>
                 </div>
             )}

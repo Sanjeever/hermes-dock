@@ -898,6 +898,22 @@ export namespace main {
 	        this.copyMode = source["copyMode"];
 	    }
 	}
+	export class DingTalkConfig {
+	    clientId: string;
+	    clientSecret: string;
+	    requireMention: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new DingTalkConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.clientId = source["clientId"];
+	        this.clientSecret = source["clientSecret"];
+	        this.requireMention = source["requireMention"];
+	    }
+	}
 	
 	
 	export class FeishuConfig {
@@ -1665,4 +1681,3 @@ export namespace main {
 	}
 
 }
-

@@ -82,6 +82,8 @@ export const StartWeixinLogin = (profileID: string) => wailsOrRPC<void>('StartWe
 export const CancelWeixinLogin = () => wailsOrRPC<void>('CancelWeixinLogin');
 export const StartFeishuLogin = (profileID: string) => wailsOrRPC<void>('StartFeishuLoginForProfile', [profileID]);
 export const CancelFeishuLogin = () => wailsOrRPC<void>('CancelFeishuLogin');
+export const StartDingTalkLogin = (profileID: string) => wailsOrRPC<void>('StartDingTalkLoginForProfile', [profileID]);
+export const CancelDingTalkLogin = () => wailsOrRPC<void>('CancelDingTalkLogin');
 export const TestModel = (profileID: string) => wailsOrRPC<void>('TestModelForProfile', [profileID]);
 export const CompleteProfileSetup = (id: string) => wailsOrRPC<void>('CompleteProfileSetup', [id]);
 export const CreateProfile = (req: unknown) => wailsOrRPC<void>('CreateProfile', [req]);
@@ -99,6 +101,7 @@ export const SaveModelConfig = (profileID: string, model: ModelConfig) => wailsO
 export const SaveProviderConfig = (profileID: string, providers: ProviderConfig) => wailsOrRPC<void>('SaveProviderConfigForProfile', [profileID, providers]);
 export const SaveWeComConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveWeComConfigForProfile', [profileID, config]);
 export const SaveFeishuConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveFeishuConfigForProfile', [profileID, config]);
+export const SaveDingTalkConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveDingTalkConfigForProfile', [profileID, config]);
 export const UnbindPlatform = (profileID: string, platform: string) => wailsOrRPC<void>('UnbindPlatformForProfile', [profileID, platform]);
 export const FetchProviderConfigModelList = (profileID: string, provider: ProviderEntry) => wailsOrRPC<unknown[]>('FetchProviderConfigModelListForProfile', [profileID, provider]);
 export const SetHomeChannel = (profileID: string, platform: string, id: string) => wailsOrRPC<void>('SetHomeChannelForProfile', [profileID, platform, id]);

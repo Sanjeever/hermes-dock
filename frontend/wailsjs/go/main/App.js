@@ -6,6 +6,10 @@ export function BatchCopyProfileConfig(arg1) {
   return window['go']['main']['App']['BatchCopyProfileConfig'](arg1);
 }
 
+export function CancelDingTalkLogin() {
+  return window['go']['main']['App']['CancelDingTalkLogin']();
+}
+
 export function CancelFeishuLogin() {
   return window['go']['main']['App']['CancelFeishuLogin']();
 }
@@ -222,6 +226,14 @@ export function SaveComposeSettings(arg1) {
   return window['go']['main']['App']['SaveComposeSettings'](arg1);
 }
 
+export function SaveDingTalkConfig(arg1) {
+  return window['go']['main']['App']['SaveDingTalkConfig'](arg1);
+}
+
+export function SaveDingTalkConfigForProfile(arg1, arg2) {
+  return window['go']['main']['App']['SaveDingTalkConfigForProfile'](arg1, arg2);
+}
+
 export function SaveEnvironment(arg1) {
   return window['go']['main']['App']['SaveEnvironment'](arg1);
 }
@@ -300,6 +312,14 @@ export function SetHomeChannelForProfile(arg1, arg2, arg3) {
 
 export function SetProfileEnabled(arg1, arg2) {
   return window['go']['main']['App']['SetProfileEnabled'](arg1, arg2);
+}
+
+export function StartDingTalkLogin() {
+  return window['go']['main']['App']['StartDingTalkLogin']();
+}
+
+export function StartDingTalkLoginForProfile(arg1) {
+  return window['go']['main']['App']['StartDingTalkLoginForProfile'](arg1);
 }
 
 export function StartFeishuLogin() {

@@ -19,14 +19,18 @@ export function PlatformsPage(props: {
     onCancelWeixin: () => void;
     onFeishuLogin: () => void;
     onCancelFeishu: () => void;
+    onDingTalkLogin: () => void;
+    onCancelDingTalk: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
+    onSaveDingTalk: () => Promise<boolean>;
     onUnbind: (platform: PlatformKey) => void;
 }) {
     const [confirmUnbind, setConfirmUnbind] = useState<PlatformKey | null>(null);
     const weixinBound = !!envValue(props.env, 'WEIXIN_ACCOUNT_ID') && !!envValue(props.env, 'WEIXIN_TOKEN');
     const wecomBound = !!envValue(props.env, 'WECOM_BOT_ID') && !!envValue(props.env, 'WECOM_SECRET');
     const feishuBound = !!envValue(props.env, 'FEISHU_APP_ID') && !!envValue(props.env, 'FEISHU_APP_SECRET');
+    const dingtalkBound = !!envValue(props.env, 'DINGTALK_CLIENT_ID') && !!envValue(props.env, 'DINGTALK_CLIENT_SECRET');
     const set = (key: string, value: string) => props.setEnv(setEnvValue(props.env, key, value));
     const selectPlatform = (value: PlatformKey) => {
         setConfirmUnbind(null);
@@ -45,6 +49,7 @@ export function PlatformsPage(props: {
                 <PlatformCard id="weixin" selected={props.selected} bound={weixinBound} title="个人微信" note="适合个人测试，扫码登录" busy={props.busy} onSelect={selectPlatform}/>
                 <PlatformCard id="wecom" selected={props.selected} bound={wecomBound} title="企业微信" note="适合企业微信 AI Bot" busy={props.busy} onSelect={selectPlatform}/>
                 <PlatformCard id="feishu" selected={props.selected} bound={feishuBound} title="飞书 / Lark" note="适合飞书机器人" busy={props.busy} onSelect={selectPlatform}/>
+                <PlatformCard id="dingtalk" selected={props.selected} bound={dingtalkBound} title="钉钉" note="适合钉钉 Stream 机器人" busy={props.busy} onSelect={selectPlatform}/>
             </div>
             {confirmUnbind && (
                 <div className="danger-confirm platform-unbind-confirm">
@@ -56,6 +61,7 @@ export function PlatformsPage(props: {
             {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrPlatform === 'weixin' ? props.qrData : ''} qrStatus={props.qrPlatform === 'weixin' ? props.qrStatus : ''} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin} onUnbind={() => requestUnbind('weixin')}/>}
             {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom} onUnbind={() => requestUnbind('wecom')}/>}
             {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} qrData={props.qrPlatform === 'feishu' ? props.qrData : ''} qrStatus={props.qrPlatform === 'feishu' ? props.qrStatus : ''} busy={props.busy} onLogin={props.onFeishuLogin} onCancel={props.onCancelFeishu} onSave={props.onSaveFeishu} onUnbind={() => requestUnbind('feishu')}/>}
+            {props.selected === 'dingtalk' && <DingTalkPanel env={props.env} set={set} qrData={props.qrPlatform === 'dingtalk' ? props.qrData : ''} qrStatus={props.qrPlatform === 'dingtalk' ? props.qrStatus : ''} busy={props.busy} onLogin={props.onDingTalkLogin} onCancel={props.onCancelDingTalk} onSave={props.onSaveDingTalk} onUnbind={() => requestUnbind('dingtalk')}/>}
         </section>
     );
 }
@@ -163,6 +169,43 @@ function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) =
     );
 }
 
+function DingTalkPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; qrData: string; qrStatus: string; busy: boolean; onLogin: () => void; onCancel: () => void; onSave: () => Promise<boolean>; onUnbind: () => void }) {
+    const clientID = envValue(props.env, 'DINGTALK_CLIENT_ID');
+    const clientSecret = envValue(props.env, 'DINGTALK_CLIENT_SECRET');
+    const requireMention = envValue(props.env, 'DINGTALK_REQUIRE_MENTION') !== 'false';
+    const canSave = clientID.trim() !== '' && clientSecret.trim() !== '';
+    const bound = canSave;
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [secretVisible, setSecretVisible] = useState(false);
+    return (
+        <div className="panel">
+            <p className="eyebrow">钉钉 Stream 机器人</p>
+            <div className="qr-stage">
+                {props.qrData ? <QRCodeSVG value={props.qrData} size={184}/> : bound ? <CheckCircle2 className="bound-icon" size={112}/> : <QrCode size={120}/>}
+                <span>{props.qrStatus || (bound ? `已绑定钉钉 ${maskID(clientID)}` : '扫码创建钉钉机器人并自动绑定。')}</span>
+            </div>
+            <div className="actions">
+                <IconButton icon={QrCode} label={bound ? '重新扫码绑定' : '扫码创建并绑定'} onClick={props.onLogin} disabled={props.busy}/>
+                <IconButton icon={Square} label="取消" onClick={props.onCancel} disabled={props.busy || !props.qrStatus}/>
+                <button className="ghost" onClick={() => setShowAdvanced((value) => !value)} disabled={props.busy}>{showAdvanced ? '收起已有应用配置' : '使用已有应用（高级）'}</button>
+                <button className="ghost danger-text" onClick={props.onUnbind} disabled={props.busy || !bound}><Unlink size={16}/>取消绑定</button>
+            </div>
+            {showAdvanced && <>
+                <div className="field-grid">
+                    <Field label="AppKey" value={clientID} onChange={(value) => props.set('DINGTALK_CLIENT_ID', value)}/>
+                    <SecretField label="AppSecret" value={clientSecret} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('DINGTALK_CLIENT_SECRET', value)}/>
+                    <label className="mini-toggle"><input type="checkbox" checked={requireMention} onChange={(event) => props.set('DINGTALK_REQUIRE_MENTION', event.target.checked ? 'true' : 'false')}/>群聊仅在 @机器人时回复</label>
+                </div>
+                <div className="setting-note">默认允许所有钉钉用户访问；扫码页可能显示 openClaw，这是钉钉授权页的来源标识。</div>
+                {!canSave && <div className="form-warning">请填写 AppKey 和 AppSecret 后再保存。</div>}
+                <div className="actions">
+                    <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存钉钉配置</button>
+                </div>
+            </>}
+        </div>
+    );
+}
+
 function closedPolicyValue(value: string) {
     return value === 'open' || value === '' ? 'open' : 'closed';
 }
@@ -184,6 +227,8 @@ function platformLabel(platform: PlatformKey) {
             return '企业微信';
         case 'feishu':
             return '飞书 / Lark';
+        case 'dingtalk':
+            return '钉钉';
         default:
             return '平台';
     }

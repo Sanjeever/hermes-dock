@@ -81,8 +81,11 @@ export function AssistantsPage(props: {
     onCancelWeixin: () => void;
 	onFeishuLogin: () => void;
 	onCancelFeishu: () => void;
+	onDingTalkLogin: () => void;
+	onCancelDingTalk: () => void;
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
+	onSaveDingTalk: () => Promise<boolean>;
     onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
@@ -416,8 +419,11 @@ export function AssistantsPage(props: {
                         onCancelWeixin={props.onCancelWeixin}
 						onFeishuLogin={props.onFeishuLogin}
 						onCancelFeishu={props.onCancelFeishu}
+						onDingTalkLogin={props.onDingTalkLogin}
+						onCancelDingTalk={props.onCancelDingTalk}
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
+						onSaveDingTalk={props.onSaveDingTalk}
                         onUnbindPlatform={props.onUnbindPlatform}
                         onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}

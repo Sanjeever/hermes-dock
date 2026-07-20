@@ -609,6 +609,7 @@ func (a *App) validateRuntimeProfiles(registry ProfileRegistry) error {
 	wecomOwners := map[string]string{}
 	weixinOwners := map[string]string{}
 	feishuOwners := map[string]string{}
+	dingtalkOwners := map[string]string{}
 	for _, profile := range registry.Profiles {
 		if err := validateProfileID(profile.ID, true); err != nil {
 			return err
@@ -641,15 +642,22 @@ func (a *App) validateRuntimeProfiles(registry ProfileRegistry) error {
 			}
 			feishuOwners[binding.feishuAppID] = profile.Name
 		}
+		if binding.dingtalkClientID != "" {
+			if owner := dingtalkOwners[binding.dingtalkClientID]; owner != "" {
+				return fmt.Errorf("钉钉 AppKey 被多个启用 profile 使用：%s 和 %s", owner, profile.Name)
+			}
+			dingtalkOwners[binding.dingtalkClientID] = profile.Name
+		}
 	}
 	return nil
 }
 
 type platformBinding struct {
-	runnable    bool
-	wecomID     string
-	weixinID    string
-	feishuAppID string
+	runnable         bool
+	wecomID          string
+	weixinID         string
+	feishuAppID      string
+	dingtalkClientID string
 }
 
 func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) {
@@ -661,6 +669,8 @@ func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) 
 	feishuAppID := strings.TrimSpace(envValue(env, "FEISHU_APP_ID"))
 	feishuAppSecret := strings.TrimSpace(envValue(env, "FEISHU_APP_SECRET"))
 	feishuConnectionMode := firstNonEmpty(strings.TrimSpace(envValue(env, "FEISHU_CONNECTION_MODE")), "websocket")
+	dingtalkClientID := strings.TrimSpace(envValue(env, "DINGTALK_CLIENT_ID"))
+	dingtalkClientSecret := strings.TrimSpace(envValue(env, "DINGTALK_CLIENT_SECRET"))
 	if (wecomID == "") != (wecomSecret == "") {
 		return platformBinding{}, fmt.Errorf("企业微信 Bot ID 和密钥必须同时填写")
 	}
@@ -673,11 +683,15 @@ func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) 
 	if feishuAppID != "" && feishuConnectionMode != "websocket" {
 		return platformBinding{}, fmt.Errorf("飞书第一版只支持 WebSocket 模式")
 	}
+	if (dingtalkClientID == "") != (dingtalkClientSecret == "") {
+		return platformBinding{}, fmt.Errorf("钉钉 AppKey 和 AppSecret 必须同时填写")
+	}
 	return platformBinding{
-		runnable:    (wecomID != "" && wecomSecret != "") || (weixinID != "" && weixinToken != "") || (feishuAppID != "" && feishuAppSecret != ""),
-		wecomID:     wecomID,
-		weixinID:    weixinID,
-		feishuAppID: feishuAppID,
+		runnable:         (wecomID != "" && wecomSecret != "") || (weixinID != "" && weixinToken != "") || (feishuAppID != "" && feishuAppSecret != "") || (dingtalkClientID != "" && dingtalkClientSecret != ""),
+		wecomID:          wecomID,
+		weixinID:         weixinID,
+		feishuAppID:      feishuAppID,
+		dingtalkClientID: dingtalkClientID,
 	}, nil
 }
 

@@ -439,6 +439,54 @@ func TestValidateRuntimeProfilesRejectsDuplicateEnabledPlatformIdentity(t *testi
 	}
 }
 
+func TestValidateRuntimeProfilesRejectsDuplicateDingTalkAppKey(t *testing.T) {
+	app := newTestApp(t)
+	for _, id := range []string{"sales", "support"} {
+		if err := app.CreateProfile(CreateProfileRequest{ID: id, Name: id, Enabled: true, CopyMode: "clean"}); err != nil {
+			t.Fatal(err)
+		}
+		envPath := filepath.Join(app.profileDataDir(id), ".env")
+		if err := writeEnvFile(envPath, mergeEnv(defaultEnvVars(), []EnvVar{
+			{Key: "DINGTALK_CLIENT_ID", Value: "app-key"},
+			{Key: "DINGTALK_CLIENT_SECRET", Value: "secret"},
+		})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	registry, err := app.readProfileRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.validateRuntimeProfiles(registry); err == nil || !strings.Contains(err.Error(), "钉钉 AppKey") {
+		t.Fatalf("expected duplicate dingtalk error, got %v", err)
+	}
+}
+
+func TestBuildRuntimeManifestIncludesDingTalkBinding(t *testing.T) {
+	app := newTestApp(t)
+	env, err := readEnvFile(app.defaultEnvPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeEnvFile(app.defaultEnvPath(), mergeEnv(env, []EnvVar{
+		{Key: "DINGTALK_CLIENT_ID", Value: "app-key"},
+		{Key: "DINGTALK_CLIENT_SECRET", Value: "secret"},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := app.readProfileRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := app.buildRuntimeManifest(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Profiles) != 1 || !manifest.Profiles[0].Runnable {
+		t.Fatalf("dingtalk profile should be runnable: %#v", manifest.Profiles)
+	}
+}
+
 func TestBuildRuntimeManifestSkipsUnboundProfile(t *testing.T) {
 	app := newTestApp(t)
 	if err := app.CreateProfile(CreateProfileRequest{ID: "sales", Name: "销售助手", Enabled: true, CopyMode: "clean"}); err != nil {

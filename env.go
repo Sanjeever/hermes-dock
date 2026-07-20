@@ -59,7 +59,10 @@ func (a *App) saveEnvironmentTo(path string, vars []EnvVar) error {
 			return err
 		}
 	}
-	existing, _ := readEnvFile(path)
+	existing, err := readEnvFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	merged := mergeEnv(existing, vars)
 	return writeEnvFile(path, merged)
 }
@@ -135,6 +138,11 @@ func defaultEnvVars() []EnvVar {
 		"FEISHU_ALLOW_ALL_USERS":               "true",
 		"FEISHU_ALLOWED_USERS":                 "",
 		"FEISHU_GROUP_POLICY":                  "open",
+		"DINGTALK_CLIENT_ID":                   "",
+		"DINGTALK_CLIENT_SECRET":               "",
+		"DINGTALK_ALLOW_ALL_USERS":             "true",
+		"DINGTALK_ALLOWED_USERS":               "",
+		"DINGTALK_REQUIRE_MENTION":             "true",
 		"TERMINAL_LIFETIME_SECONDS":            "86400",
 		"HERMES_DASHBOARD_BASIC_AUTH_USERNAME": "admin",
 		"HERMES_DASHBOARD_BASIC_AUTH_PASSWORD": "123456",
@@ -217,6 +225,8 @@ func envOrder(key string) int {
 		"WECOM_DM_POLICY", "WECOM_ALLOWED_USERS", "WECOM_GROUP_POLICY", "WECOM_GROUP_ALLOWED_USERS",
 		"FEISHU_APP_ID", "FEISHU_APP_SECRET", "FEISHU_DOMAIN", "FEISHU_CONNECTION_MODE",
 		"FEISHU_ALLOW_ALL_USERS", "FEISHU_ALLOWED_USERS", "FEISHU_GROUP_POLICY",
+		"DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_SECRET", "DINGTALK_ALLOW_ALL_USERS",
+		"DINGTALK_ALLOWED_USERS", "DINGTALK_REQUIRE_MENTION",
 		"TERMINAL_LIFETIME_SECONDS",
 		"HERMES_DASHBOARD", "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD",
 		"HERMES_GATEWAY_BUSY_INPUT_MODE", "HERMES_GATEWAY_BUSY_ACK_ENABLED", "HERMES_BACKGROUND_NOTIFICATIONS",

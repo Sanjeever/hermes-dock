@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function BatchCopyProfileConfig(arg1:main.BatchProfileConfigRequest):Promise<main.BatchProfileConfigResult>;
 
+export function CancelDingTalkLogin():Promise<void>;
+
 export function CancelFeishuLogin():Promise<void>;
 
 export function CancelWeixinLogin():Promise<void>;
@@ -112,6 +114,10 @@ export function RestoreDefaultSoulForProfile(arg1:string):Promise<void>;
 
 export function SaveComposeSettings(arg1:main.ComposeSettings):Promise<void>;
 
+export function SaveDingTalkConfig(arg1:main.DingTalkConfig):Promise<void>;
+
+export function SaveDingTalkConfigForProfile(arg1:string,arg2:main.DingTalkConfig):Promise<void>;
+
 export function SaveEnvironment(arg1:Array<main.EnvVar>):Promise<void>;
 
 export function SaveEnvironmentForProfile(arg1:string,arg2:Array<main.EnvVar>):Promise<void>;
@@ -151,6 +157,10 @@ export function SetHomeChannel(arg1:string,arg2:string):Promise<void>;
 export function SetHomeChannelForProfile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetProfileEnabled(arg1:string,arg2:boolean):Promise<void>;
+
+export function StartDingTalkLogin():Promise<void>;
+
+export function StartDingTalkLoginForProfile(arg1:string):Promise<void>;
 
 export function StartFeishuLogin():Promise<void>;
 

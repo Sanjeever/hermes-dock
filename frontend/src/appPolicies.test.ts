@@ -17,6 +17,7 @@ describe('application policies', () => {
 
     it('formats platform and channel identifiers', () => {
         expect(platformLabel('feishu')).toBe('飞书 / Lark');
+		expect(platformLabel('dingtalk')).toBe('钉钉');
         expect(channelStatusKey('feishu', 'chat-1', 'test')).toBe('feishu:chat-1:test');
     });
 

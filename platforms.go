@@ -74,6 +74,29 @@ func (a *App) SaveFeishuConfigForProfile(profileID string, config FeishuConfig) 
 	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
 }
 
+func (a *App) SaveDingTalkConfig(config DingTalkConfig) error {
+	return a.SaveDingTalkConfigForProfile(a.currentProfileID(), config)
+}
+
+func (a *App) SaveDingTalkConfigForProfile(profileID string, config DingTalkConfig) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	env, err := readEnvFile(a.profileEnvPath(profileID))
+	if err != nil {
+		return err
+	}
+	updates := []EnvVar{
+		{Key: "DINGTALK_CLIENT_ID", Value: strings.TrimSpace(config.ClientID)},
+		{Key: "DINGTALK_CLIENT_SECRET", Value: keepExistingIfMaskedSecret(env, "DINGTALK_CLIENT_SECRET", config.ClientSecret)},
+		{Key: "DINGTALK_ALLOW_ALL_USERS", Value: "true"},
+		{Key: "DINGTALK_ALLOWED_USERS", Value: ""},
+		{Key: "DINGTALK_REQUIRE_MENTION", Value: fmt.Sprintf("%t", config.RequireMention)},
+	}
+	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
+}
+
 func (a *App) UnbindPlatform(platform string) error {
 	return a.UnbindPlatformForProfile(a.currentProfileID(), platform)
 }
@@ -123,6 +146,18 @@ func (a *App) UnbindPlatformForProfile(profileID string, platform string) error 
 			{Key: "FEISHU_ALLOW_ALL_USERS", Value: "true"},
 			{Key: "FEISHU_ALLOWED_USERS", Value: ""},
 			{Key: "FEISHU_GROUP_POLICY", Value: "open"},
+		}
+	case "dingtalk":
+		if err := a.cancelProfileLoginSessionAndWait(profileID); err != nil {
+			return err
+		}
+		updates = []EnvVar{
+			{Key: "DINGTALK_CLIENT_ID", Value: ""},
+			{Key: "DINGTALK_CLIENT_SECRET", Value: ""},
+			{Key: "DINGTALK_ALLOW_ALL_USERS", Value: "true"},
+			{Key: "DINGTALK_ALLOWED_USERS", Value: ""},
+			{Key: "DINGTALK_REQUIRE_MENTION", Value: "true"},
+			{Key: "DINGTALK_HOME_CHANNEL", Value: ""},
 		}
 	default:
 		return fmt.Errorf("不支持的平台：%s", platform)
@@ -218,6 +253,8 @@ func (a *App) SetHomeChannelForProfile(profileID string, platform string, channe
 	switch platform {
 	case "weixin":
 		return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, []EnvVar{{Key: "WEIXIN_HOME_CHANNEL", Value: channelID}}))
+	case "dingtalk":
+		return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, []EnvVar{{Key: "DINGTALK_HOME_CHANNEL", Value: channelID}}))
 	default:
 		return fmt.Errorf("不支持的平台：%s", platform)
 	}

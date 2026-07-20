@@ -137,6 +137,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
+		"      - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
@@ -242,6 +243,9 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	if !strings.Contains(string(actual), "/etc/cont-init.d/019-patch-home-channel-prompt") {
 		t.Fatalf("migrated compose missing home channel prompt patch helper:\n%s", actual)
 	}
+	if !strings.Contains(string(actual), "/etc/cont-init.d/020-install-dingtalk-deps") {
+		t.Fatalf("migrated compose missing dingtalk dependency helper:\n%s", actual)
+	}
 	if strings.Contains(string(actual), "init-permissions") {
 		t.Fatalf("migrated compose still includes full data chown:\n%s", actual)
 	}
@@ -318,6 +322,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 		"./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
+		"./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
 			t.Fatalf("migrated compose missing %q:\n%s", want, migratedCompose)
@@ -396,6 +401,9 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *test
 	if !strings.Contains(migratedCompose, "./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro") {
 		t.Fatalf("migrated compose missing wecom patch helper:\n%s", migratedCompose)
 	}
+	if !strings.Contains(migratedCompose, "./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro") {
+		t.Fatalf("migrated compose missing dingtalk helper:\n%s", migratedCompose)
+	}
 }
 
 func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
@@ -416,6 +424,10 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(feishuHelper); err != nil {
 		t.Fatal(err)
 	}
+	dingtalkHelper := filepath.Join(root, "launcher", "helpers", "install-dingtalk-deps")
+	if err := os.Remove(dingtalkHelper); err != nil {
+		t.Fatal(err)
+	}
 	wecomHelper := filepath.Join(root, "launcher", "helpers", "patch-wecom-filenames")
 	if err := os.Remove(wecomHelper); err != nil {
 		t.Fatal(err)
@@ -433,6 +445,7 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 func assertRuntimeHelpers(t *testing.T, root string) {
 	t.Helper()
 	assertFeishuDepsHelper(t, root)
+	assertDingTalkDepsHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
 	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
@@ -518,6 +531,29 @@ func assertFeishuDepsHelper(t *testing.T, root string) {
 		}
 		if info.Mode()&0111 == 0 {
 			t.Fatalf("install-feishu-deps mode = %v, want executable bit", info.Mode())
+		}
+	}
+}
+
+func assertDingTalkDepsHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "install-dingtalk-deps")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected install-dingtalk-deps helper: %v", err)
+	}
+	content := string(data)
+	assertUnixRuntimeHelper(t, "install-dingtalk-deps", content)
+	for _, want := range []string{
+		"dingtalk-stream==0.24.3",
+		"alibabacloud-dingtalk==2.2.42",
+		"qrcode==7.4.2",
+		"/opt/hermes/.venv/bin/python",
+		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
+		"importlib.metadata",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("install-dingtalk-deps missing %q:\n%s", want, content)
 		}
 	}
 }

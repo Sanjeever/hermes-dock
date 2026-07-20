@@ -87,6 +87,8 @@ func loginPlatformLabel(platform string) string {
 		return "个人微信"
 	case "feishu":
 		return "飞书 / Lark"
+	case "dingtalk":
+		return "钉钉"
 	default:
 		return "平台"
 	}

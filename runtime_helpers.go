@@ -9,11 +9,15 @@ import (
 	"path/filepath"
 )
 
-//go:embed scripts/hostctl.py scripts/install-feishu-deps.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh
+//go:embed scripts/hostctl.py scripts/install-dingtalk-deps.sh scripts/install-feishu-deps.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh
 var runtimeHelperFS embed.FS
 
 func (a *App) feishuDepsHelperPath() string {
 	return filepath.Join(a.hermesDockDir(), "helpers", "install-feishu-deps")
+}
+
+func (a *App) dingtalkDepsHelperPath() string {
+	return filepath.Join(a.hermesDockDir(), "helpers", "install-dingtalk-deps")
 }
 
 func (a *App) wecomFilenamePatchHelperPath() string {
@@ -30,6 +34,10 @@ func (a *App) hostctlHelperPath() string {
 
 func (a *App) ensureFeishuDepsHelper() error {
 	return a.ensureRuntimeHelper("scripts/install-feishu-deps.sh", a.feishuDepsHelperPath(), "飞书依赖 helper")
+}
+
+func (a *App) ensureDingTalkDepsHelper() error {
+	return a.ensureRuntimeHelper("scripts/install-dingtalk-deps.sh", a.dingtalkDepsHelperPath(), "钉钉依赖 helper")
 }
 
 func (a *App) ensureWecomFilenamePatchHelper() error {
@@ -49,6 +57,9 @@ func (a *App) ensureContainerInitHelpers() error {
 		return err
 	}
 	if err := a.ensureFeishuDepsHelper(); err != nil {
+		return err
+	}
+	if err := a.ensureDingTalkDepsHelper(); err != nil {
 		return err
 	}
 	if err := a.ensureWecomFilenamePatchHelper(); err != nil {
