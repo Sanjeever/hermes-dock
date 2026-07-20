@@ -139,6 +139,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"      - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
+		"      - ./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
@@ -331,6 +332,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
+		"./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
 			t.Fatalf("migrated compose missing %q:\n%s", want, migratedCompose)
@@ -346,7 +348,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v2-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v3-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 
@@ -412,6 +414,9 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *test
 	if !strings.Contains(migratedCompose, "./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro") {
 		t.Fatalf("migrated compose missing dingtalk helper:\n%s", migratedCompose)
 	}
+	if !strings.Contains(migratedCompose, "./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro") {
+		t.Fatalf("migrated compose missing paddleocr helper:\n%s", migratedCompose)
+	}
 }
 
 func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
@@ -436,6 +441,10 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(dingtalkHelper); err != nil {
 		t.Fatal(err)
 	}
+	paddleOCRHelper := filepath.Join(root, "launcher", "helpers", "install-paddleocr-deps")
+	if err := os.Remove(paddleOCRHelper); err != nil {
+		t.Fatal(err)
+	}
 	wecomHelper := filepath.Join(root, "launcher", "helpers", "patch-wecom-filenames")
 	if err := os.Remove(wecomHelper); err != nil {
 		t.Fatal(err)
@@ -454,6 +463,7 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	t.Helper()
 	assertFeishuDepsHelper(t, root)
 	assertDingTalkDepsHelper(t, root)
+	assertPaddleOCRDepsHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
 	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
@@ -562,6 +572,30 @@ func assertDingTalkDepsHelper(t *testing.T, root string) {
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("install-dingtalk-deps missing %q:\n%s", want, content)
+		}
+	}
+}
+
+func assertPaddleOCRDepsHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "install-paddleocr-deps")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected install-paddleocr-deps helper: %v", err)
+	}
+	content := string(data)
+	assertUnixRuntimeHelper(t, "install-paddleocr-deps", content)
+	for _, want := range []string{
+		"paddleocr==3.7.0",
+		"paddlepaddle-3.1.1",
+		"paddlex==3.7.2",
+		"/opt/data/.dock/image-text-ocr-venv",
+		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
+		"cp311/x86_64|cp311/aarch64",
+		"cp313/x86_64|cp313/aarch64",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("install-paddleocr-deps missing %q:\n%s", want, content)
 		}
 	}
 }

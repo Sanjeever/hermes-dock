@@ -154,6 +154,10 @@ func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *tes
 	if err := os.Remove(missing); err != nil {
 		t.Fatal(err)
 	}
+	missingOCRModel := filepath.Join(app.profileDataDir(defaultProfileID), "skills", "productivity", "image-text-ocr", "assets", "models", "PP-OCRv6_small_det_infer", "inference.json")
+	if err := os.Remove(missingOCRModel); err != nil {
+		t.Fatal(err)
+	}
 	custom := filepath.Join(app.profileDataDir(defaultProfileID), "skills", "custom", "keep", "SKILL.md")
 	if err := os.MkdirAll(filepath.Dir(custom), 0755); err != nil {
 		t.Fatal(err)
@@ -181,6 +185,9 @@ func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *tes
 	}
 	if !fileExists(missing) {
 		t.Fatal("missing bundled file was not added")
+	}
+	if !fileExists(missingOCRModel) {
+		t.Fatal("missing bundled OCR model was not added")
 	}
 	if data, _ := os.ReadFile(custom); string(data) != "custom skill" {
 		t.Fatal("custom skill was modified")

@@ -114,6 +114,7 @@ Hermes Dock 固定管理当前用户下的单实例目录：
       hermes-profile-runner
       install-feishu-deps
       install-dingtalk-deps
+      install-paddleocr-deps
       patch-home-channel-prompt
       patch-wecom-filenames
 ```
@@ -221,6 +222,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - 数据目录权限由 Hermes 镜像启动脚本定向处理，不在每次应用配置时对整个 `data/` 执行递归 `chown`。
 - `launcher/helpers/install-feishu-deps` 挂载到 `/etc/cont-init.d/018-install-feishu-deps`，在 s6 初始化阶段补齐飞书运行依赖；uv 下载缓存持久化到 `data/.dock/uv-cache`。
 - `launcher/helpers/install-dingtalk-deps` 挂载到 `/etc/cont-init.d/020-install-dingtalk-deps`，在 s6 初始化阶段补齐钉钉运行依赖；uv 下载缓存同样持久化到 `data/.dock/uv-cache`。
+- `launcher/helpers/install-paddleocr-deps` 挂载到 `/etc/cont-init.d/021-install-paddleocr-deps`，在 s6 初始化阶段准备独立的 PaddleOCR 3.7.0 CPU 环境；`image-text-ocr` 技能直接捆绑 PP-OCRv6_small 模型，识别时不下载模型。
 - `launcher/helpers/patch-home-channel-prompt` 挂载到 `/etc/cont-init.d/019-patch-home-channel-prompt`，在固定 Hermes 镜像启动时关闭未设置 Home Channel 的首次对话提示，不影响 `/sethome` 和实际投递校验。
 - `launcher/helpers/hostctl` 挂载到 `/usr/local/bin/hostctl`，通过 `host.docker.internal:9877` 调用桌面主进程内的 Host Bridge。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。
