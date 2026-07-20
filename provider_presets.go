@@ -70,6 +70,15 @@ var modelProviderPresets = []ModelProviderPreset{
 		ModelListURL: "https://ark.cn-beijing.volces.com/api/coding/v3/models",
 	},
 	{
+		Key:          "volcengine-ark-agent-plan",
+		Label:        "火山方舟 Agent Plan",
+		Provider:     "custom",
+		BaseURL:      "https://ark.cn-beijing.volces.com/api/plan/v3",
+		APIMode:      "chat_completions",
+		DefaultModel: "doubao-seed-2.0-code",
+		ModelListURL: "https://ark.cn-beijing.volces.com/api/plan/v3/models",
+	},
+	{
 		Key:          "opencode-go",
 		Label:        "OpenCode Go",
 		Provider:     "custom",

@@ -900,7 +900,7 @@ func modelProviderEnvUpdates(model ModelConfig) []EnvVar {
 }
 
 func orderedEnvUpdates(byKey map[string]EnvVar) []EnvVar {
-	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "ARK_API_KEY", "DEEPSEEK_API_KEY", "AGNES_API_KEY"}
+	order := []string{"OPENCODE_GO_API_KEY", "DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "ARK_API_KEY", "ARK_AGENT_PLAN_API_KEY", "DEEPSEEK_API_KEY", "AGNES_API_KEY"}
 	updates := make([]EnvVar, 0, len(byKey))
 	for _, key := range order {
 		if item, ok := byKey[key]; ok {
@@ -930,7 +930,9 @@ func modelProviderAPIKeyEnv(provider string, baseURL string) string {
 		return "DASHSCOPE_API_KEY"
 	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
 		return "ZHIPU_API_KEY"
-	case provider == "custom" && strings.Contains(baseURL, "ark.cn-beijing.volces.com"):
+	case provider == "custom" && volcengineArkPlanPresetKey(baseURL) == "volcengine-ark-agent-plan":
+		return "ARK_AGENT_PLAN_API_KEY"
+	case provider == "custom" && volcengineArkPlanPresetKey(baseURL) == "volcengine-ark-coding-plan":
 		return "ARK_API_KEY"
 	default:
 		return ""
@@ -953,10 +955,26 @@ func detectModelProviderPreset(model ModelConfig) *ModelProviderPreset {
 		return modelProviderPresetByKey("dashscope-payg")
 	case provider == "custom" && strings.Contains(baseURL, "bigmodel.cn"):
 		return modelProviderPresetByKey("zhipu-payg")
-	case provider == "custom" && strings.Contains(baseURL, "ark.cn-beijing.volces.com"):
-		return modelProviderPresetByKey("volcengine-ark-coding-plan")
+	case provider == "custom" && volcengineArkPlanPresetKey(baseURL) != "":
+		return modelProviderPresetByKey(volcengineArkPlanPresetKey(baseURL))
 	default:
 		return nil
+	}
+}
+
+func volcengineArkPlanPresetKey(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || !strings.EqualFold(parsed.Host, "ark.cn-beijing.volces.com") {
+		return ""
+	}
+	path := strings.TrimSuffix(parsed.EscapedPath(), "/")
+	switch path {
+	case "/api/coding/v3":
+		return "volcengine-ark-coding-plan"
+	case "/api/plan/v3":
+		return "volcengine-ark-agent-plan"
+	default:
+		return ""
 	}
 }
 

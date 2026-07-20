@@ -200,7 +200,7 @@ func TestNormalizeProviderConfigAddsZhipuPresets(t *testing.T) {
 	}
 }
 
-func TestNormalizeProviderConfigAddsVolcengineArkCodingPlan(t *testing.T) {
+func TestNormalizeProviderConfigAddsVolcengineArkPlans(t *testing.T) {
 	providers := normalizeProviderConfig(ProviderConfig{Providers: map[string]ProviderConfigEntry{}})
 	provider := providers.Providers["volcengine-ark-coding-plan"]
 
@@ -221,6 +221,89 @@ func TestNormalizeProviderConfigAddsVolcengineArkCodingPlan(t *testing.T) {
 	}
 	if key := modelProviderAPIKeyEnv(provider.Provider, provider.BaseURL); key != "ARK_API_KEY" {
 		t.Fatalf("env key = %q, want ARK_API_KEY", key)
+	}
+
+	agentPlan := providers.Providers["volcengine-ark-agent-plan"]
+	if agentPlan.Label != "火山方舟 Agent Plan" {
+		t.Fatalf("label = %q", agentPlan.Label)
+	}
+	if agentPlan.BaseURL != "https://ark.cn-beijing.volces.com/api/plan/v3" {
+		t.Fatalf("base URL = %q", agentPlan.BaseURL)
+	}
+	if agentPlan.DefaultModel != "doubao-seed-2.0-code" {
+		t.Fatalf("default model = %q", agentPlan.DefaultModel)
+	}
+	if agentPlan.APIMode != "chat_completions" {
+		t.Fatalf("api mode = %q", agentPlan.APIMode)
+	}
+	if agentPlan.ModelListURL != "https://ark.cn-beijing.volces.com/api/plan/v3/models" {
+		t.Fatalf("model list URL = %q", agentPlan.ModelListURL)
+	}
+	if key := modelProviderAPIKeyEnv(agentPlan.Provider, agentPlan.BaseURL); key != "ARK_AGENT_PLAN_API_KEY" {
+		t.Fatalf("env key = %q, want ARK_AGENT_PLAN_API_KEY", key)
+	}
+}
+
+func TestVolcengineArkPlansUseSeparateAPIKeyEnv(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{Providers: map[string]ProviderConfigEntry{}})
+	codingPlan := providers.Providers["volcengine-ark-coding-plan"]
+	codingPlan.APIKey = "coding-secret"
+	providers.Providers["volcengine-ark-coding-plan"] = codingPlan
+	agentPlan := providers.Providers["volcengine-ark-agent-plan"]
+	agentPlan.APIKey = "agent-secret"
+	providers.Providers["volcengine-ark-agent-plan"] = agentPlan
+
+	codingKey := modelProviderAPIKeyEnv(codingPlan.Provider, codingPlan.BaseURL)
+	agentKey := modelProviderAPIKeyEnv(agentPlan.Provider, agentPlan.BaseURL)
+	if codingKey == agentKey {
+		t.Fatalf("coding and agent plans share env key %q", codingKey)
+	}
+
+	updates := referencedProviderEnvUpdates(map[string]interface{}{
+		"model": map[string]interface{}{"provider": "volcengine-ark-coding-plan"},
+		"auxiliary": map[string]interface{}{
+			"vision": map[string]interface{}{"provider": "volcengine-ark-agent-plan"},
+		},
+	}, providers)
+	if len(updates) != 2 {
+		t.Fatalf("env updates = %#v, want two separate keys", updates)
+	}
+	if updates[0].Key != "ARK_API_KEY" || updates[0].Value != "coding-secret" {
+		t.Fatalf("coding env update = %#v", updates[0])
+	}
+	if updates[1].Key != "ARK_AGENT_PLAN_API_KEY" || updates[1].Value != "agent-secret" {
+		t.Fatalf("agent env update = %#v", updates[1])
+	}
+}
+
+func TestDetectVolcengineArkPlanPresets(t *testing.T) {
+	agentPlan := detectModelProviderPreset(ModelConfig{
+		Provider: "custom",
+		BaseURL:  "https://ark.cn-beijing.volces.com/api/plan/v3",
+	})
+	if agentPlan == nil || agentPlan.Key != "volcengine-ark-agent-plan" {
+		t.Fatalf("agent plan preset = %#v", agentPlan)
+	}
+
+	codingPlan := detectModelProviderPreset(ModelConfig{
+		Provider: "custom",
+		BaseURL:  "https://ark.cn-beijing.volces.com/api/coding/v3",
+	})
+	if codingPlan == nil || codingPlan.Key != "volcengine-ark-coding-plan" {
+		t.Fatalf("coding plan preset = %#v", codingPlan)
+	}
+
+	for _, baseURL := range []string{
+		"https://ark.cn-beijing.volces.com/api/plan/v3-preview",
+		"https://ark.cn-beijing.volces.com/api/other/v3?next=/api/plan/v3",
+		"https://ark.cn-beijing.volces.com.evil.example/api/plan/v3",
+	} {
+		if preset := detectModelProviderPreset(ModelConfig{Provider: "custom", BaseURL: baseURL}); preset != nil {
+			t.Fatalf("unexpected preset for %q: %#v", baseURL, preset)
+		}
+		if key := modelProviderAPIKeyEnv("custom", baseURL); key != "" {
+			t.Fatalf("unexpected env key for %q: %q", baseURL, key)
+		}
 	}
 }
 
