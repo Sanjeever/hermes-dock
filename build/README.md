@@ -1,35 +1,10 @@
-# Build Directory
+# Hermes Dock 构建资产
 
-The build directory is used to house all the build files and assets for your application. 
+`build/` 保存 Wails 为 Hermes Dock 打包桌面应用时使用的平台资产；这些文件属于发布输入，不是运行时生成的数据。
 
-The structure is:
+- `appicon.png` 和 `appicon.svg`：应用图标源文件。
+- `darwin/`：macOS 发布构建使用的 `Info.plist`，以及开发模式使用的 `Info.dev.plist`。
+- `windows/`：Windows manifest、版本信息、图标和 NSIS 安装器脚本。
+- `bin/`：本地构建输出目录（如存在），不作为源码提交。
 
-* bin - Output directory
-* darwin - macOS specific files
-* windows - Windows specific files
-
-## Mac
-
-The `darwin` directory holds files specific to Mac builds.
-These may be customised and used as part of the build. To return these files to the default state, simply delete them
-and
-build with `wails build`.
-
-The directory contains the following files:
-
-- `Info.plist` - the main plist file used for Mac builds. It is used when building using `wails build`.
-- `Info.dev.plist` - same as the main plist file but used when building using `wails dev`.
-
-## Windows
-
-The `windows` directory contains the manifest and rc files used when building with `wails build`.
-These may be customised for your application. To return these files to the default state, simply delete them and
-build with `wails build`.
-
-- `icon.ico` - The icon used for the application. This is used when building using `wails build`. If you wish to
-  use a different icon, simply replace this file with your own. If it is missing, a new `icon.ico` file
-  will be created using the `appicon.png` file in the build directory.
-- `installer/*` - The files used to create the Windows installer. These are used when building using `wails build`.
-- `info.json` - Application details used for Windows builds. The data here will be used by the Windows installer,
-  as well as the application itself (right click the exe -> properties -> details)
-- `wails.exe.manifest` - The main application manifest file.
+修改平台资产时，应同时核对 `wails.json`、对应平台安装器配置和发布 workflow，避免应用元数据、版本号或安装行为不一致。正式发布约束和版本同步规则维护在根目录的 `README.md` 与 `AGENTS.md`。

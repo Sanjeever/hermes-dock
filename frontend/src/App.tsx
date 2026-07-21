@@ -180,26 +180,36 @@ function App() {
         });
         const offLogs = EventsOn('logs:line', (event: { line?: string }) => event.line && appendLog(event.line));
         const isCurrentProfileEvent = (event: { profile_id?: string }) => !event.profile_id || event.profile_id === activeProfileRef.current;
-        const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
+        const showPlatformLoginQR = (event: { scan_data: string; profile_id?: string }, platform: PlatformKey, message: string) => {
             if (!isCurrentProfileEvent(event)) return;
             setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
-            setQrPlatform('weixin');
+            setQrPlatform(platform);
             setQrData(event.scan_data);
-            setQrStatus('等待微信扫码');
+            setQrStatus(message);
+        };
+        const completeOtherProfileLogin = (event: { profile_id?: string }, platform: string, applyMessage: string) => {
+            if (isCurrentProfileEvent(event)) return false;
+            setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
+            setNeedsRebuild(true);
+            const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
+            setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的${platform}已绑定成功，${applyMessage}`});
+            refresh();
+            return true;
+        };
+        const showPlatformLoginError = (event: { message: string; profile_id?: string }) => {
+            if (!isCurrentProfileEvent(event)) return;
+            setQrStatus(event.message);
+            setPlatformLoginProfile('');
+        };
+        const offQR = EventsOn('weixin-login:qr', (event: { scan_data: string; profile_id?: string }) => {
+            showPlatformLoginQR(event, 'weixin', '等待微信扫码');
         });
         const offQRStatus = EventsOn('weixin-login:status', (event: { status?: string; message?: string; profile_id?: string }) => {
             if (!isCurrentProfileEvent(event)) return;
             setQrStatus(event.message || event.status || '');
         });
         const offQRDone = EventsOn('weixin-login:confirmed', (event: { account_id: string; user_id: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) {
-                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
-                setNeedsRebuild(true);
-                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
-                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的微信已绑定成功，重建后生效`});
-                refresh();
-                return;
-            }
+            if (completeOtherProfileLogin(event, '微信', '重建后生效')) return;
             setQrStatus(`绑定成功 ${event.user_id || event.account_id}`);
             setQrData('');
             setPlatformLoginProfile('');
@@ -207,27 +217,12 @@ function App() {
             setNeedsRebuild(true);
             refresh();
         });
-        const offQRError = EventsOn('weixin-login:error', (event: { message: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) return;
-            setQrStatus(event.message);
-            setPlatformLoginProfile('');
-        });
+        const offQRError = EventsOn('weixin-login:error', showPlatformLoginError);
         const offFeishuQR = EventsOn('feishu-login:qr', (event: { scan_data: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) return;
-            setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
-            setQrPlatform('feishu');
-            setQrData(event.scan_data);
-            setQrStatus('等待飞书扫码');
+            showPlatformLoginQR(event, 'feishu', '等待飞书扫码');
         });
         const offFeishuDone = EventsOn('feishu-login:confirmed', (event: { status?: string; bot_name?: string; domain?: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) {
-                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
-                setNeedsRebuild(true);
-                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
-                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的飞书 / Lark 已绑定成功，重建后生效`});
-                refresh();
-                return;
-            }
+            if (completeOtherProfileLogin(event, '飞书 / Lark', '重建后生效')) return;
             const platform = event.domain === 'lark' ? 'Lark' : '飞书';
             setQrStatus(event.status || `${platform} 已绑定成功${event.bot_name ? `：${event.bot_name}` : ''}`);
             setQrData('');
@@ -236,27 +231,12 @@ function App() {
             setNeedsRebuild(true);
             refresh();
         });
-        const offFeishuError = EventsOn('feishu-login:error', (event: { message: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) return;
-            setQrStatus(event.message);
-            setPlatformLoginProfile('');
-        });
+        const offFeishuError = EventsOn('feishu-login:error', showPlatformLoginError);
         const offDingTalkQR = EventsOn('dingtalk-login:qr', (event: { scan_data: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) return;
-            setPlatformLoginProfile(event.profile_id || activeProfileRef.current);
-            setQrPlatform('dingtalk');
-            setQrData(event.scan_data);
-            setQrStatus('等待钉钉扫码');
+            showPlatformLoginQR(event, 'dingtalk', '等待钉钉扫码');
         });
         const offDingTalkDone = EventsOn('dingtalk-login:confirmed', (event: { status?: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) {
-                setPlatformLoginProfile((current) => current === event.profile_id ? '' : current);
-                setNeedsRebuild(true);
-                const profile = stateRef.current?.profiles?.profiles?.find((item) => item.id === event.profile_id);
-                setNotice({type: 'ok', message: `${profile?.name || event.profile_id || '其他助手'} 的钉钉已绑定成功，应用配置后生效`});
-                refresh();
-                return;
-            }
+            if (completeOtherProfileLogin(event, '钉钉', '应用配置后生效')) return;
             setQrStatus(event.status || '钉钉已绑定成功');
             setQrData('');
             setPlatformLoginProfile('');
@@ -264,11 +244,7 @@ function App() {
             setNeedsRebuild(true);
             refresh();
         });
-        const offDingTalkError = EventsOn('dingtalk-login:error', (event: { message: string; profile_id?: string }) => {
-            if (!isCurrentProfileEvent(event)) return;
-            setQrStatus(event.message);
-            setPlatformLoginProfile('');
-        });
+        const offDingTalkError = EventsOn('dingtalk-login:error', showPlatformLoginError);
         return () => {
             offDocker();
             offApply();

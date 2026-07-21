@@ -1,14 +1,122 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestHandleWebRPCValidatesRequestBoundary(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+
+	tests := []struct {
+		name       string
+		method     string
+		origin     string
+		body       string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "method", method: http.MethodGet, body: `{}`, wantStatus: http.StatusMethodNotAllowed, wantBody: "method not allowed"},
+		{name: "origin", method: http.MethodPost, origin: "https://example.com", body: `{}`, wantStatus: http.StatusForbidden, wantBody: "origin rejected"},
+		{name: "json", method: http.MethodPost, body: `{`, wantStatus: http.StatusBadRequest, wantBody: "请求格式错误"},
+		{name: "rpc method", method: http.MethodPost, body: `{"method":"Unknown","params":[]}`, wantStatus: http.StatusBadRequest, wantBody: "Web 不支持该操作：Unknown"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest(test.method, "http://dock.local/api/rpc", bytes.NewBufferString(test.body))
+			if test.origin != "" {
+				req.Header.Set("Origin", test.origin)
+			}
+			response := httptest.NewRecorder()
+
+			app.handleWebRPC(response, req)
+
+			if response.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d", response.Code, test.wantStatus)
+			}
+			if !strings.Contains(response.Body.String(), test.wantBody) {
+				t.Fatalf("body = %q, want %q", response.Body.String(), test.wantBody)
+			}
+		})
+	}
+}
+
+func TestHandleWebRPCReturnsSuccessfulResult(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	app.web = newWebRuntime()
+	app.web.running = true
+
+	req := httptest.NewRequest(http.MethodPost, "http://dock.local/api/rpc", bytes.NewBufferString(`{"method":"GetWebStatus","params":[]}`))
+	response := httptest.NewRecorder()
+	app.handleWebRPC(response, req)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	var body struct {
+		OK     bool      `json:"ok"`
+		Result WebStatus `json:"result"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !body.OK || !body.Result.Running {
+		t.Fatalf("response = %+v", body)
+	}
+}
+
+func TestRegisterWebRoutesRequiresSessionForRPC(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	app.web = newWebRuntime()
+	app.web.running = true
+	mux := http.NewServeMux()
+	app.registerWebRoutes(mux, http.NotFoundHandler())
+
+	rpcBody := `{"method":"GetWebStatus","params":[]}`
+	unauthenticated := httptest.NewRecorder()
+	mux.ServeHTTP(unauthenticated, httptest.NewRequest(http.MethodPost, "http://dock.local/api/rpc", bytes.NewBufferString(rpcBody)))
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d, want %d", unauthenticated.Code, http.StatusUnauthorized)
+	}
+
+	login := httptest.NewRecorder()
+	mux.ServeHTTP(login, httptest.NewRequest(http.MethodPost, "http://dock.local/api/login", bytes.NewBufferString(`{"password":"123456"}`)))
+	if login.Code != http.StatusOK || len(login.Result().Cookies()) != 1 {
+		t.Fatalf("login status = %d, cookies = %d, body = %q", login.Code, len(login.Result().Cookies()), login.Body.String())
+	}
+
+	authenticatedRequest := httptest.NewRequest(http.MethodPost, "http://dock.local/api/rpc", bytes.NewBufferString(rpcBody))
+	authenticatedRequest.AddCookie(login.Result().Cookies()[0])
+	authenticated := httptest.NewRecorder()
+	mux.ServeHTTP(authenticated, authenticatedRequest)
+	if authenticated.Code != http.StatusOK {
+		t.Fatalf("authenticated status = %d, body = %q", authenticated.Code, authenticated.Body.String())
+	}
+	var body struct {
+		OK     bool      `json:"ok"`
+		Result WebStatus `json:"result"`
+	}
+	if err := json.Unmarshal(authenticated.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !body.OK || !body.Result.Running {
+		t.Fatalf("authenticated response = %+v", body)
+	}
+}
 
 func TestIsVirtualNetworkInterface(t *testing.T) {
 	for _, name := range []string{"utun3", "bridge0", "docker0", "vEthernet (Default Switch)", "VMware Network Adapter VMnet1", "Tailscale", "cni0", "flannel.1", "cali123", "podman0", "lxdbr0", "incusbr0", "nordlynx", "ppp0"} {
