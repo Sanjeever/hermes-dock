@@ -79,15 +79,15 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
             <div className="panel backup-panel">
                 <div className="section-head">
                     <div>
-                        <h2>实例备份</h2>
-                        <p className="setup-subtitle">包含配置和凭据，不包含共享目录。</p>
+                        <h2>快速迁移备份</h2>
+                        <p className="setup-subtitle">保留配置、凭据和业务数据，不包含可重建依赖、缓存及共享目录。</p>
                     </div>
                     {props.backupStatus && <span className="inline-status">{props.backupStatus}</span>}
                 </div>
                 <div className="backup-actions-grid">
                     <div className="backup-action">
                         <strong>导出当前实例</strong>
-                        <span>导出时会临时停止容器，完成后自动恢复。</span>
+                        <span>自动跳过虚拟环境、依赖和缓存；导出时会临时停止容器，完成后自动恢复。</span>
                         {props.webRuntime && (
                             <label>
                                 <span>服务器保存路径</span>

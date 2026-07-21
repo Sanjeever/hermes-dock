@@ -395,14 +395,62 @@ func shouldExcludeInstanceBackupPath(rel string) bool {
 	if rel == "." {
 		return false
 	}
-	return rel == "launcher/backups" ||
+	if rel == "launcher/backups" ||
 		strings.HasPrefix(rel, "launcher/backups/") ||
 		rel == "launcher/logs" ||
 		strings.HasPrefix(rel, "launcher/logs/") ||
 		rel == "launcher/web-sessions.json" ||
 		rel == "launcher/apply-status.json" ||
 		rel == "data/.dock" ||
-		strings.HasPrefix(rel, "data/.dock/")
+		strings.HasPrefix(rel, "data/.dock/") {
+		return true
+	}
+	if !strings.HasPrefix(rel, "data/") {
+		return false
+	}
+
+	parts := strings.Split(strings.TrimPrefix(rel, "data/"), "/")
+	for _, part := range parts {
+		switch part {
+		case "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache":
+			return true
+		}
+	}
+	if parts[len(parts)-1] == ".DS_Store" {
+		return true
+	}
+
+	switch parts[0] {
+	case "tmp", ".cache", ".npm", "npm-global", "lsp", "logs", "cache", "audio_cache", "image_cache", "bin", "checkpoints":
+		return true
+	case "home":
+		if len(parts) >= 2 {
+			switch parts[1] {
+			case ".cache", ".npm", ".local", ".paddlex":
+				return true
+			}
+		}
+	case "profiles":
+		if len(parts) >= 3 {
+			switch parts[2] {
+			case "tmp", "cache", "audio_cache", "image_cache", "logs", "bin", "checkpoints":
+				return true
+			}
+			if len(parts) == 3 && isInstanceBackupRuntimeFile(parts[2]) {
+				return true
+			}
+		}
+	}
+	return len(parts) == 1 && isInstanceBackupRuntimeFile(parts[0])
+}
+
+func isInstanceBackupRuntimeFile(name string) bool {
+	switch name {
+	case "models_dev_cache.json", "provider_models_cache.json", "ollama_cloud_models_cache.json", "gateway_state.json", "gateway.pid", "gateway.lock", "auth.lock", "kanban.db.init.lock", ".scratch_tip_shown":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) buildInstanceBackupManifest(entries []instanceBackupEntry, excluded []string) InstanceBackupManifest {
@@ -643,7 +691,7 @@ func cleanBackupArchiveName(name string) (string, error) {
 
 func validateRestorableBackupPath(path string) error {
 	if path == "data" || strings.HasPrefix(path, "data/") {
-		if shouldExcludeInstanceBackupPath(path) {
+		if path == "data/.dock" || strings.HasPrefix(path, "data/.dock/") {
 			return fmt.Errorf("备份包含运行态路径：%s", path)
 		}
 		return nil

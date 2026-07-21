@@ -136,7 +136,7 @@ Web 管理配置保存在 `launcher/web-server.json`，登录会话保存在 `la
 
 `data/.dock/` 保存 runner 的派生运行清单和运行状态。宿主机上的这些文件可由 Hermes Dock 重新生成，不是用户业务数据；容器内的 `/opt/data/.dock/shared` 是绑定到外部共享目录的挂载点。
 
-设置页的数据迁移功能会导出 `.hdbackup` 单文件，用于把当前实例迁移到其他设备。备份包含 `data/`、profile registry、Web 管理配置、Dufs 账号密码哈希、标准 Compose 和 Compose override，因此也包含 `.env` 密钥、平台账号凭据和远程访问凭据；共享目录文件、运行日志、Web 登录会话、旧备份和 `data/.dock/` 派生运行态不会写入备份。导出时如果容器正在运行，会先 `docker compose stop`，导出完成后再 `docker compose start` 恢复原运行状态，避免备份到写入中的文件。导入是整实例覆盖流程：先执行 `docker compose down`，再自动生成当前设备的导入前备份，最后恢复备份内容并重新生成标准 `docker-compose.yaml`。
+设置页的数据迁移功能会导出快速 `.hdbackup` 单文件，用于把当前实例迁移到其他设备。备份保留 profile、人格、技能、记忆、会话、任务、平台账号、用户项目和源码，以及 profile registry、Web 管理、Dufs、标准 Compose 和 Compose override 配置，因此也包含 `.env` 密钥、平台账号凭据和远程访问凭据。导出会跳过共享目录、运行日志、Web 登录会话、旧备份、`data/.dock/` 派生运行态，以及可重新生成的缓存、虚拟环境、`node_modules`、临时文件、模型列表缓存和检查点；用户项目中的 `.git` 和交付文件不会被通用排除。导出时如果容器正在运行，会先 `docker compose stop`，导出完成后再 `docker compose start` 恢复原运行状态，避免备份到写入中的文件。导入是实例覆盖流程：先执行 `docker compose down`，再以相同的快速策略自动生成当前设备的导入前备份，最后恢复备份内容并重新生成标准 `docker-compose.yaml`。新版仍可导入旧版包含缓存和依赖目录的 `.hdbackup`。
 
 ## 多 Profile 设计
 
@@ -441,7 +441,7 @@ pnpm --dir website run build
 - 通道查看、默认通道设置和测试消息发送。
 - UI 输出脱敏。
 - 写入前本地备份。
-- 整实例 `.hdbackup` 导出和覆盖导入，导入前自动备份当前实例。
+- 快速迁移 `.hdbackup` 导出和覆盖导入，导入前自动快速备份当前实例。
 
 当前不做：
 
