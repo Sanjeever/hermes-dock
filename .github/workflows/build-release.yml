@@ -226,6 +226,7 @@ jobs:
 
       - name: Checkout amd64 runtime dependencies
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git lfs install --local
           git lfs pull --include="runtime-deps/linux-amd64/**" --exclude=""
 
