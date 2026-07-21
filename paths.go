@@ -292,15 +292,16 @@ func (a *App) markRebuildRequired() error {
 
 func defaultState() LauncherState {
 	return LauncherState{
-		SchemaVersion:       1,
-		AppVersion:          appVersion,
-		ManagedCompose:      true,
-		TemplateVersion:     templateVersion,
-		SkillsSnapshotImage: defaultImage,
-		HermesImage:         defaultImage,
-		ComposeSettings:     defaultComposeSettings(),
-		UI:                  UIState{LastPage: "dashboard", LastProfile: "default"},
-		ModelAuxiliaryMode:  "auto",
+		SchemaVersion:            1,
+		AppVersion:               appVersion,
+		ManagedCompose:           true,
+		TemplateVersion:          templateVersion,
+		RuntimeDependencyVersion: runtimeDependencyBundleVersion,
+		SkillsSnapshotImage:      defaultImage,
+		HermesImage:              defaultImage,
+		ComposeSettings:          defaultComposeSettings(),
+		UI:                       UIState{LastPage: "dashboard", LastProfile: "default"},
+		ModelAuxiliaryMode:       "auto",
 	}
 }
 

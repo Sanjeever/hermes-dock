@@ -345,6 +345,7 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		ComposeHash:               fileSHA256(a.composePath()),
 		LastAppliedComposeHash:    existing.LastAppliedComposeHash,
 		TemplateVersion:           templateVersion,
+		RuntimeDependencyVersion:  existing.RuntimeDependencyVersion,
 		SkillsSnapshotImage:       defaultImage,
 		HermesImage:               settings.Image,
 		ComposeSettings:           settings,
@@ -360,6 +361,9 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 		Backups:            existing.Backups,
 		UI:                 UIState{LastPage: "dashboard"},
 		ModelAuxiliaryMode: firstNonEmpty(existing.ModelAuxiliaryMode, "auto"),
+	}
+	if existing.InstanceID == "" {
+		state.RuntimeDependencyVersion = runtimeDependencyBundleVersion
 	}
 	if err := a.writeState(state); err != nil {
 		return LauncherState{}, err

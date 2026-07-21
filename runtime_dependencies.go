@@ -84,6 +84,9 @@ func (a *App) cleanupObsoleteRuntimeDependencies() error {
 
 	parent := filepath.Dir(a.runtimeDependencyBundlePath())
 	entries, err := os.ReadDir(parent)
+	if os.IsNotExist(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

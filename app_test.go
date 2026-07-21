@@ -618,9 +618,9 @@ func assertPaddleOCRDepsHelper(t *testing.T, root string) {
 	content := string(data)
 	assertUnixRuntimeHelper(t, "install-paddleocr-deps", content)
 	for _, want := range []string{
-		"paddleocr==3.7.0",
+		"version(\"paddleocr\") == \"3.7.0\"",
 		"version(\"paddlepaddle\") == \"3.1.1\"",
-		"paddlex==3.7.2",
+		"version(\"paddlex\") == \"3.7.2\"",
 		"/opt/data/.dock/image-text-ocr-venv",
 		".hermes-dock-runtime-deps-sha256",
 		"sha256sum \"$DEPS/SHA256SUMS\"",
