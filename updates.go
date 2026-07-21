@@ -39,9 +39,9 @@ var (
 )
 
 var updateCheckURLs = []string{
-	updateCheckURL,
 	"https://gh-proxy.com/" + updateCheckURL,
 	"https://ghfast.top/" + updateCheckURL,
+	updateCheckURL,
 }
 
 var updateMirrorPrefixes = []UpdateMirrorLink{
@@ -680,13 +680,13 @@ func updateFileSHA256(path string) (string, error) {
 }
 
 func updateDownloadCandidates(rawURL string) []string {
-	candidates := []string{rawURL}
+	candidates := make([]string, 0, len(updateMirrorPrefixes)+1)
 	if strings.HasPrefix(rawURL, updateRepoURL+"/releases/download/") {
 		for _, mirror := range updateMirrorPrefixes {
 			candidates = append(candidates, mirror.URL+rawURL)
 		}
 	}
-	return candidates
+	return append(candidates, rawURL)
 }
 
 func (a *App) emitUpdateProgress(message string, percent int) {

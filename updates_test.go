@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestUpdateRepositoryURLs(t *testing.T) {
 	if updateCheckURL != "https://api.github.com/repos/sqyl2026/hermes-dock-releases/releases/latest" {
@@ -8,6 +11,27 @@ func TestUpdateRepositoryURLs(t *testing.T) {
 	}
 	if updateRepoURL != "https://github.com/sqyl2026/hermes-dock-releases" {
 		t.Fatalf("updateRepoURL = %q", updateRepoURL)
+	}
+}
+
+func TestUpdateSourcePriority(t *testing.T) {
+	wantChecks := []string{
+		"https://gh-proxy.com/" + updateCheckURL,
+		"https://ghfast.top/" + updateCheckURL,
+		updateCheckURL,
+	}
+	if !reflect.DeepEqual(updateCheckURLs, wantChecks) {
+		t.Fatalf("updateCheckURLs = %#v, want %#v", updateCheckURLs, wantChecks)
+	}
+
+	assetURL := updateRepoURL + "/releases/download/v1.11.2/hermes-dock-v1.11.2-linux-amd64.tar.gz"
+	wantDownloads := []string{
+		"https://gh-proxy.com/" + assetURL,
+		"https://ghfast.top/" + assetURL,
+		assetURL,
+	}
+	if got := updateDownloadCandidates(assetURL); !reflect.DeepEqual(got, wantDownloads) {
+		t.Fatalf("updateDownloadCandidates() = %#v, want %#v", got, wantDownloads)
 	}
 }
 
