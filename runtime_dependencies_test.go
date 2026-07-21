@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -33,6 +35,45 @@ func TestEmbeddedRuntimeDependenciesMatchBuildArchitecture(t *testing.T) {
 	}
 	if !strings.Contains(string(checksums), "paddlepaddle-3.1.1-cp313-cp313-linux_") {
 		t.Fatal("embedded wheelhouse is missing the architecture-specific PaddlePaddle wheel")
+	}
+}
+
+func TestEmbeddedRuntimeDependencyMetadataMatchesManifest(t *testing.T) {
+	checksums, err := runtimeDependencyFS.ReadFile(runtimeDependencySourceRoot + "/SHA256SUMS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(checksums), "\r") {
+		t.Fatal("embedded SHA256SUMS must use Unix line endings")
+	}
+	expected := map[string]string{}
+	for _, line := range strings.Split(string(checksums), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			t.Fatalf("invalid checksum line %q", line)
+		}
+		expected[strings.TrimPrefix(fields[1], "./")] = strings.ToLower(fields[0])
+	}
+	entries, err := runtimeDependencyFS.ReadDir(runtimeDependencySourceRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Name() == "SHA256SUMS" {
+			continue
+		}
+		content, err := runtimeDependencyFS.ReadFile(runtimeDependencySourceRoot + "/" + entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(content)
+		got := hex.EncodeToString(sum[:])
+		if got != expected[entry.Name()] {
+			t.Fatalf("embedded metadata checksum for %s = %s, want %s", entry.Name(), got, expected[entry.Name()])
+		}
 	}
 }
 

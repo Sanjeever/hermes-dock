@@ -56,6 +56,29 @@ jobs:
         shell: pwsh
         run: git lfs pull --include="runtime-deps/linux-amd64/**" --exclude=""
 
+      - name: Verify runtime dependency metadata
+        shell: pwsh
+        run: |
+          $root = "runtime-deps/linux-amd64"
+          $expected = @{}
+          if ((Get-Content "$root/SHA256SUMS" -Raw).Contains("`r")) {
+            throw "Runtime dependency SHA256SUMS must use Unix line endings"
+          }
+          Get-Content "$root/SHA256SUMS" | ForEach-Object {
+            $fields = $_ -split '\s+', 2
+            if ($fields.Count -ne 2) {
+              throw "Invalid runtime dependency checksum line: $_"
+            }
+            $relativePath = $fields[1] -replace '^\./', ''
+            $expected[$relativePath] = $fields[0].ToLowerInvariant()
+          }
+          Get-ChildItem $root -File | Where-Object Name -ne "SHA256SUMS" | ForEach-Object {
+            $actual = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected[$_.Name]) {
+              throw "Runtime dependency checksum mismatch: $($_.Name)"
+            }
+          }
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
