@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
@@ -87,6 +88,43 @@ func TestExportInstanceBackupStopsRunningContainerAndRestarts(t *testing.T) {
 	}
 	if !strings.Contains(log, "compose start") {
 		t.Fatalf("docker compose start was not called: %s", log)
+	}
+}
+
+func TestWriteBackupEntryUsesCurrentFileSize(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "growing-state.json")
+	mustWriteFile(t, path, "{}\n", 0600)
+	staleInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "{\"state\":\"updated after collection\"}\n"
+	mustWriteFile(t, path, want, 0600)
+
+	var archive bytes.Buffer
+	tw := tar.NewWriter(&archive)
+	checksums := map[string]string{}
+	if err := writeBackupEntry(tw, instanceBackupEntry{AbsPath: path, RelPath: "launcher/state.json", Info: staleInfo}, checksums); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := tar.NewReader(bytes.NewReader(archive.Bytes()))
+	header, err := tr.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if header.Size != int64(len(want)) {
+		t.Fatalf("archived size = %d, want %d", header.Size, len(want))
+	}
+	content, err := io.ReadAll(tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != want {
+		t.Fatalf("archived content = %q, want %q", content, want)
 	}
 }
 

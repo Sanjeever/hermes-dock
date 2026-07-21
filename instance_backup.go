@@ -258,7 +258,10 @@ func (a *App) exportInstanceBackupTo(targetPath string) (InstanceBackupManifest,
 	defer os.Remove(tmpPath)
 	defer tmp.Close()
 
-	gz := gzip.NewWriter(tmp)
+	gz, err := gzip.NewWriterLevel(tmp, gzip.BestSpeed)
+	if err != nil {
+		return InstanceBackupManifest{}, err
+	}
 	tw := tar.NewWriter(gz)
 	checksums := map[string]string{}
 	if err := writeBackupJSON(tw, instanceBackupManifestName, manifest); err != nil {
@@ -452,27 +455,39 @@ func writeBackupJSON(tw *tar.Writer, name string, value interface{}) error {
 }
 
 func writeBackupEntry(tw *tar.Writer, entry instanceBackupEntry, checksums map[string]string) error {
-	header, err := tar.FileInfoHeader(entry.Info, "")
+	info := entry.Info
+	var src *os.File
+	if info.Mode().IsRegular() {
+		var err error
+		src, err = os.Open(entry.AbsPath)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		info, err = src.Stat()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("备份文件类型已变化：%s", entry.RelPath)
+		}
+	}
+	header, err := tar.FileInfoHeader(info, "")
 	if err != nil {
 		return err
 	}
 	header.Name = entry.RelPath
-	if entry.Info.IsDir() {
+	if info.IsDir() {
 		header.Name = strings.TrimSuffix(header.Name, "/") + "/"
 	}
 	if err := tw.WriteHeader(header); err != nil {
 		return err
 	}
-	if !entry.Info.Mode().IsRegular() {
+	if !info.Mode().IsRegular() {
 		return nil
 	}
-	src, err := os.Open(entry.AbsPath)
-	if err != nil {
-		return err
-	}
-	defer src.Close()
 	sum := sha256.New()
-	if _, err := io.Copy(tw, io.TeeReader(src, sum)); err != nil {
+	if _, err := io.CopyN(tw, io.TeeReader(src, sum), info.Size()); err != nil {
 		return err
 	}
 	checksums[entry.RelPath] = hex.EncodeToString(sum.Sum(nil))
