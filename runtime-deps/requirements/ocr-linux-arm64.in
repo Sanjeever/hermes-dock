@@ -1,0 +1,3 @@
+paddleocr==3.7.0
+paddlepaddle @ https://paddle-whl.bj.bcebos.com/stable/cpu/paddlepaddle/paddlepaddle-3.1.1-cp313-cp313-linux_aarch64.whl
+paddlex==3.7.2

@@ -406,6 +406,40 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	return a.writeState(state)
 }
 
+func (a *App) migrateRuntimeDependencyComposeIfNeeded(settings ComposeSettings) error {
+	data, err := os.ReadFile(a.composePath())
+	if err != nil {
+		return err
+	}
+	expectedMount := "./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro"
+	current := strings.Contains(string(data), expectedMount) &&
+		strings.Contains(string(data), "/etc/cont-init.d/016-verify-runtime-deps")
+	if !current {
+		if err := a.writeCompose(settings, "before-runtime-deps-compose-migration"); err != nil {
+			return err
+		}
+	}
+	if !fileExists(a.statePath()) {
+		return nil
+	}
+	state, err := a.readState()
+	if err != nil {
+		return err
+	}
+	if current && state.RuntimeDependencyVersion == runtimeDependencyBundleVersion {
+		return nil
+	}
+	composeHash := fileSHA256(a.composePath())
+	if state.ComposeHash == composeHash && state.NeedsRebuild && !state.PendingDufsOnly {
+		return nil
+	}
+	state.ComposeHash = composeHash
+	state.NeedsRebuild = true
+	state.PendingDufsOnly = false
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	return a.writeState(state)
+}
+
 func (a *App) migrateFixedHermesImageIfNeeded(settings ComposeSettings) error {
 	if !fileExists(a.statePath()) {
 		return nil
@@ -650,7 +684,9 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
     volumes:
       - ./data:/opt/data
+      - ./launcher/runtime-deps/%s:/opt/hermes-dock/runtime-deps:ro
       - "%s:/opt/data/.dock/shared"
+      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro
       - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro
@@ -666,7 +702,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
         limits:
           memory: "%s"
           cpus: "%s"
-`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
 }
 
 func renderDufsService(settings ComposeSettings) string {
@@ -723,6 +759,9 @@ func (a *App) StartHermes() error {
 	}
 	defer release()
 	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
+		return err
+	}
+	if err := a.ensureRuntimeDependencies(); err != nil {
 		return err
 	}
 	if err := a.ensureContainerInitHelpers(); err != nil {
@@ -782,6 +821,9 @@ func (a *App) markRebuildApplied(composeHash string) error {
 	if err != nil {
 		return err
 	}
+	if err := a.cleanupObsoleteRuntimeDependencies(); err != nil {
+		return fmt.Errorf("清理旧运行依赖失败：%w", err)
+	}
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
 	state, err := a.readState()
@@ -790,6 +832,7 @@ func (a *App) markRebuildApplied(composeHash string) error {
 	}
 	state.LastAppliedComposeHash = composeHash
 	state.LastAppliedDufsHash = dufsHash
+	state.RuntimeDependencyVersion = runtimeDependencyBundleVersion
 	state.LastSuccessfulHermesImage = state.HermesImage
 	state.NeedsRebuild = false
 	state.PendingDufsOnly = false
@@ -797,7 +840,7 @@ func (a *App) markRebuildApplied(composeHash string) error {
 	return a.writeStateUnlocked(state)
 }
 
-func (a *App) finalizeRebuildAppliedSnapshot(composeHash string, dufsHash string, inputHash string, hermesImage string) (bool, error) {
+func (a *App) finalizeRebuildAppliedSnapshot(composeHash string, dufsHash string, inputHash string, hermesImage string, hermesApplied bool) (bool, error) {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
 	currentComposeHash, err := a.composeRuntimeHash()
@@ -816,18 +859,33 @@ func (a *App) finalizeRebuildAppliedSnapshot(composeHash string, dufsHash string
 		}
 		unchanged = currentInputHash == inputHash
 	}
+	if hermesApplied {
+		if err := a.cleanupObsoleteRuntimeDependencies(); err != nil {
+			return false, fmt.Errorf("清理旧运行依赖失败：%w", err)
+		}
+	}
 	state, err := a.readState()
 	if err != nil {
 		return false, err
 	}
-	state.LastAppliedComposeHash = composeHash
 	state.LastAppliedDufsHash = dufsHash
-	if state.HermesImage == hermesImage {
-		state.LastSuccessfulHermesImage = hermesImage
+	if hermesApplied {
+		state.LastAppliedComposeHash = composeHash
+		state.RuntimeDependencyVersion = runtimeDependencyBundleVersion
+		if state.HermesImage == hermesImage {
+			state.LastSuccessfulHermesImage = hermesImage
+		}
 	}
 	if unchanged {
-		state.NeedsRebuild = false
-		state.PendingDufsOnly = false
+		if hermesApplied {
+			state.NeedsRebuild = false
+			state.PendingDufsOnly = false
+		} else if state.PendingDufsOnly {
+			state.PendingDufsOnly = false
+			if state.RuntimeDependencyVersion == runtimeDependencyBundleVersion {
+				state.NeedsRebuild = false
+			}
+		}
 	}
 	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	if err := a.writeStateUnlocked(state); err != nil {
@@ -947,6 +1005,9 @@ func (a *App) TestModelForProfile(profileID string) error {
 		return err
 	}
 	if err := a.syncSavedModelProviderEnvForProfile(profileID); err != nil {
+		return err
+	}
+	if err := a.ensureRuntimeDependencies(); err != nil {
 		return err
 	}
 	args := append([]string{"run", "--rm"}, a.profileComposeEnvArgs(profileID)...)

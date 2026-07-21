@@ -71,6 +71,7 @@ type updateState struct {
 	PostUpdateApplyID             string `json:"postUpdateApplyId"`
 	PostUpdateSyncFailures        int    `json:"postUpdateSyncFailures"`
 	PostUpdateContentChanged      bool   `json:"postUpdateContentChanged"`
+	PostUpdateRuntimeDepsChanged  bool   `json:"postUpdateRuntimeDepsChanged"`
 	PostUpdateWritePending        bool   `json:"postUpdateWritePending"`
 }
 

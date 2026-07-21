@@ -134,10 +134,11 @@ func (a *App) runApplyConfigTask(ctx context.Context, id string) {
 			a.failApplyConfigTask(id, err)
 			return
 		}
-		a.completeApplyConfigTask(id, "文件管理配置已应用", composeHash, dufsHash, inputHash, state.HermesImage)
+		a.completeApplyConfigTask(id, "文件管理配置已应用", composeHash, dufsHash, inputHash, state.HermesImage, false)
 		return
 	}
 	for _, prepare := range []func() error{
+		a.ensureRuntimeDependencies,
 		a.ensureContainerInitHelpers,
 		a.ensureProfileRunnerHelper,
 		a.syncSavedModelProviderEnv,
@@ -222,7 +223,7 @@ func (a *App) monitorApplyConfigTask(ctx context.Context, id string, manifest Ru
 			return
 		}
 		if ready {
-			a.completeApplyConfigTask(id, fmt.Sprintf("配置已应用，%d 个助手正在运行", running), composeHash, dufsHash, inputHash, hermesImage)
+			a.completeApplyConfigTask(id, fmt.Sprintf("配置已应用，%d 个助手正在运行", running), composeHash, dufsHash, inputHash, hermesImage, true)
 			return
 		}
 		slow := time.Since(started) >= a.applySlowAfter
@@ -245,8 +246,8 @@ func (a *App) monitorApplyConfigTask(ctx context.Context, id string, manifest Ru
 	}
 }
 
-func (a *App) completeApplyConfigTask(id string, message string, composeHash string, dufsHash string, inputHash string, hermesImage string) {
-	unchanged, err := a.finalizeRebuildAppliedSnapshot(composeHash, dufsHash, inputHash, hermesImage)
+func (a *App) completeApplyConfigTask(id string, message string, composeHash string, dufsHash string, inputHash string, hermesImage string, hermesApplied bool) {
+	unchanged, err := a.finalizeRebuildAppliedSnapshot(composeHash, dufsHash, inputHash, hermesImage, hermesApplied)
 	if err != nil {
 		a.failApplyConfigTask(id, err)
 		return
@@ -544,7 +545,7 @@ func (a *App) resumeApplyingConfigTask(ctx context.Context, status ApplyConfigSt
 			}
 			return
 		}
-		a.completeApplyConfigTask(status.ID, "文件管理配置已应用", status.ComposeHash, status.DufsHash, status.InputHash, status.HermesImage)
+		a.completeApplyConfigTask(status.ID, "文件管理配置已应用", status.ComposeHash, status.DufsHash, status.InputHash, status.HermesImage, false)
 		return
 	}
 	if status.Strategy != "restart" && status.Strategy != "recreate" {

@@ -555,6 +555,7 @@ export namespace main {
 	    lastAppliedComposeHash: string;
 	    lastAppliedDufsHash: string;
 	    templateVersion: string;
+	    runtimeDependencyVersion: string;
 	    skillsSnapshotImage: string;
 	    hermesImage: string;
 	    composeSettings: ComposeSettings;
@@ -583,6 +584,7 @@ export namespace main {
 	        this.lastAppliedComposeHash = source["lastAppliedComposeHash"];
 	        this.lastAppliedDufsHash = source["lastAppliedDufsHash"];
 	        this.templateVersion = source["templateVersion"];
+	        this.runtimeDependencyVersion = source["runtimeDependencyVersion"];
 	        this.skillsSnapshotImage = source["skillsSnapshotImage"];
 	        this.hermesImage = source["hermesImage"];
 	        this.composeSettings = this.convertValues(source["composeSettings"], ComposeSettings);

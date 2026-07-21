@@ -8,3 +8,6 @@ build/windows/installer/wails_tools.nsh linguist-generated
 # Runtime helpers execute inside the Linux container and require Unix shebangs.
 scripts/*.sh text eol=lf
 scripts/hostctl.py text eol=lf
+
+# Runtime dependency wheels are binary release inputs.
+runtime-deps/**/*.whl filter=lfs diff=lfs merge=lfs -text

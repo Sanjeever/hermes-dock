@@ -1,0 +1,3 @@
+alibabacloud-dingtalk==2.2.42
+dingtalk-stream==0.24.3
+qrcode==7.4.2

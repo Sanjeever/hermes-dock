@@ -16,7 +16,7 @@ import (
 
 const (
 	appVersion      = "1.11.1"
-	templateVersion = "2026.07.20"
+	templateVersion = "2026.07.21"
 	defaultImage    = "nousresearch/hermes-agent:v2026.6.19"
 )
 
@@ -191,6 +191,9 @@ func (a *App) ensureInstanceReadyLocked() error {
 			return err
 		}
 		if err := a.migrateComposeIfNeeded(settings); err != nil {
+			return err
+		}
+		if err := a.migrateRuntimeDependencyComposeIfNeeded(settings); err != nil {
 			return err
 		}
 		if err := a.migrateFixedHermesImageIfNeeded(settings); err != nil {

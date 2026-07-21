@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout amd64 runtime dependencies
+        run: git lfs pull --include="runtime-deps/linux-amd64/**" --exclude=""
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -49,6 +51,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Checkout amd64 runtime dependencies
+        shell: pwsh
+        run: git lfs pull --include="runtime-deps/linux-amd64/**" --exclude=""
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -142,6 +148,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout arm64 runtime dependencies
+        run: git lfs pull --include="runtime-deps/linux-arm64/**" --exclude=""
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -200,6 +209,7 @@ jobs:
             ca-certificates \
             curl \
             git \
+            git-lfs \
             file \
             tar \
             unzip \
@@ -213,6 +223,11 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Checkout amd64 runtime dependencies
+        run: |
+          git lfs install --local
+          git lfs pull --include="runtime-deps/linux-amd64/**" --exclude=""
 
       - name: Set up Go
         uses: actions/setup-go@v5

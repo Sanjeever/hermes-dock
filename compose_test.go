@@ -61,6 +61,77 @@ func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 	}
 }
 
+func TestMigrateRuntimeDependencyComposeMarksHermesForRebuild(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.NeedsRebuild = false
+	state.PendingDufsOnly = true
+	state.RuntimeDependencyVersion = "old"
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.ReplaceAll(string(content), "      - ./launcher/runtime-deps/"+runtimeDependencyBundleVersion+":/opt/hermes-dock/runtime-deps:ro\n", "")
+	legacy = strings.ReplaceAll(legacy, "      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro\n", "")
+	if err := atomicWriteFile(app.composePath(), []byte(legacy), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migrateRuntimeDependencyComposeIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
+		"/etc/cont-init.d/016-verify-runtime-deps",
+	} {
+		if !strings.Contains(string(migrated), want) {
+			t.Fatalf("migrated compose missing %q", want)
+		}
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("runtime dependency migration state = %+v", state)
+	}
+}
+
+func TestMigrateRuntimeDependencyComposeRepairsInterruptedStateWrite(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.NeedsRebuild = true
+	state.PendingDufsOnly = true
+	state.RuntimeDependencyVersion = "old"
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migrateRuntimeDependencyComposeIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("interrupted runtime dependency migration state = %+v", state)
+	}
+}
+
 func TestMigratePrivateHermesServicesRemovesPublishedPorts(t *testing.T) {
 	app := newTestApp(t)
 	state, err := app.readState()

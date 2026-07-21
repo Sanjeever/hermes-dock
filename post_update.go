@@ -37,6 +37,10 @@ func (a *App) preparePostUpdateTask() error {
 	if state.PostUpdateVersion == appVersion && state.PostUpdateState != "" {
 		return nil
 	}
+	launcherState, err := a.readState()
+	if err != nil {
+		return fmt.Errorf("读取运行依赖版本失败：%w", err)
+	}
 	state.SchemaVersion = 1
 	state.PostUpdateVersion = appVersion
 	state.PostUpdateTemplateVersion = templateVersion
@@ -48,6 +52,7 @@ func (a *App) preparePostUpdateTask() error {
 	state.PostUpdateApplyID = ""
 	state.PostUpdateSyncFailures = 0
 	state.PostUpdateContentChanged = false
+	state.PostUpdateRuntimeDepsChanged = launcherState.RuntimeDependencyVersion != runtimeDependencyBundleVersion
 	state.PostUpdateWritePending = false
 	if err := a.writeUpdateState(state); err != nil {
 		return fmt.Errorf("保存升级后处理状态失败：%w", err)
@@ -100,6 +105,7 @@ func (a *App) runPostUpdateTask(initial updateState) {
 		if status.State == applyStateSucceeded && initial.PostUpdateSyncFailures > 0 {
 			_ = a.updatePostUpdateState(func(state *updateState) {
 				state.PostUpdateContentChanged = false
+				state.PostUpdateRuntimeDepsChanged = false
 			})
 		}
 		a.finishPostUpdateAfterApply(status, initial.PostUpdateSyncFailures)
@@ -151,7 +157,7 @@ func (a *App) runPostUpdateTask(initial updateState) {
 			state.PostUpdateWritePending = true
 		})
 	})
-	changed := initial.PostUpdateContentChanged || result.Added+result.Updated > 0
+	changed := initial.PostUpdateContentChanged || initial.PostUpdateRuntimeDepsChanged || result.Added+result.Updated > 0
 	syncFailure := bundledSyncFailureMessage(result)
 	if err := a.updatePostUpdateState(func(state *updateState) {
 		state.PostUpdateSyncFailures = result.Failed
@@ -242,6 +248,7 @@ func (a *App) runPostUpdateTask(initial updateState) {
 	if syncFailure != "" && applyStatus.State == applyStateSucceeded {
 		_ = a.updatePostUpdateState(func(state *updateState) {
 			state.PostUpdateContentChanged = false
+			state.PostUpdateRuntimeDepsChanged = false
 		})
 		a.failPostUpdateTask(errors.New(syncFailure))
 		return

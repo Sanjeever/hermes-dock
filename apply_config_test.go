@@ -287,6 +287,8 @@ func TestApplyConfigStrategies(t *testing.T) {
 		app := newTestApp(t)
 		installFakeDocker(t, true)
 		state, _ := app.readState()
+		state.RuntimeDependencyVersion = "old"
+		state.LastAppliedComposeHash = "old-compose"
 		state.NeedsRebuild = true
 		state.PendingDufsOnly = true
 		state.LastAppliedDufsHash = "old"
@@ -299,6 +301,19 @@ func TestApplyConfigStrategies(t *testing.T) {
 		status := waitForApplyState(t, app, applyStateSucceeded)
 		if status.Strategy != "dufs-only" {
 			t.Fatalf("strategy = %q", status.Strategy)
+		}
+		state, err := app.readState()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state.RuntimeDependencyVersion != "old" {
+			t.Fatalf("Dufs-only apply advanced runtime dependency version to %q", state.RuntimeDependencyVersion)
+		}
+		if state.LastAppliedComposeHash != "old-compose" {
+			t.Fatalf("Dufs-only apply advanced Compose hash to %q", state.LastAppliedComposeHash)
+		}
+		if !state.NeedsRebuild || state.PendingDufsOnly {
+			t.Fatalf("Dufs-only apply cleared pending Hermes rebuild: %+v", state)
 		}
 	})
 }

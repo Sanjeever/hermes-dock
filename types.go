@@ -186,6 +186,7 @@ type LauncherState struct {
 	LastAppliedComposeHash    string            `json:"lastAppliedComposeHash"`
 	LastAppliedDufsHash       string            `json:"lastAppliedDufsHash"`
 	TemplateVersion           string            `json:"templateVersion"`
+	RuntimeDependencyVersion  string            `json:"runtimeDependencyVersion"`
 	SkillsSnapshotImage       string            `json:"skillsSnapshotImage"`
 	HermesImage               string            `json:"hermesImage"`
 	ComposeSettings           ComposeSettings   `json:"composeSettings"`

@@ -134,7 +134,9 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
 		"      HERMES_DASHBOARD: \"0\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
+		"      - ./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
 		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
+		"      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro",
 		"      - ./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
@@ -328,6 +330,8 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	}
 	for _, want := range []string{
 		"command: /opt/hermes-dock/hermes-profile-runner",
+		"./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
+		"./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro",
 		"./launcher/helpers/patch-wecom-filenames:/etc/cont-init.d/017-patch-wecom-filenames:ro",
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
@@ -445,6 +449,10 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(paddleOCRHelper); err != nil {
 		t.Fatal(err)
 	}
+	runtimeDepsVerifier := filepath.Join(root, "launcher", "helpers", "verify-runtime-deps")
+	if err := os.Remove(runtimeDepsVerifier); err != nil {
+		t.Fatal(err)
+	}
 	wecomHelper := filepath.Join(root, "launcher", "helpers", "patch-wecom-filenames")
 	if err := os.Remove(wecomHelper); err != nil {
 		t.Fatal(err)
@@ -461,6 +469,7 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 
 func assertRuntimeHelpers(t *testing.T, root string) {
 	t.Helper()
+	assertRuntimeDepsVerifierHelper(t, root)
 	assertFeishuDepsHelper(t, root)
 	assertDingTalkDepsHelper(t, root)
 	assertPaddleOCRDepsHelper(t, root)
@@ -468,6 +477,22 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
 	assertHostBridgeToken(t, root)
+}
+
+func assertRuntimeDepsVerifierHelper(t *testing.T, root string) {
+	t.Helper()
+	helper := filepath.Join(root, "launcher", "helpers", "verify-runtime-deps")
+	data, err := os.ReadFile(helper)
+	if err != nil {
+		t.Fatalf("expected verify-runtime-deps helper: %v", err)
+	}
+	content := string(data)
+	assertUnixRuntimeHelper(t, "verify-runtime-deps", content)
+	for _, want := range []string{"python-version", "uname -m", "sha256sum -c SHA256SUMS"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("verify-runtime-deps missing %q:\n%s", want, content)
+		}
+	}
 }
 
 func assertHostctlHelper(t *testing.T, root string) {
@@ -532,15 +557,17 @@ func assertFeishuDepsHelper(t *testing.T, root string) {
 		"lark-oapi==1.5.3",
 		"qrcode==7.4.2",
 		"/opt/hermes/.venv/bin/python",
-		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
+		"--offline",
+		"--no-index",
+		"--find-links \"$DEPS/wheels\"",
 		"importlib.metadata",
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("install-feishu-deps missing %q:\n%s", want, content)
 		}
 	}
-	if strings.Contains(content, "--no-cache-dir") {
-		t.Fatalf("install-feishu-deps must preserve the uv download cache:\n%s", content)
+	if strings.Contains(content, "https://") {
+		t.Fatalf("install-feishu-deps must not use the network:\n%s", content)
 	}
 	if runtime.GOOS != "windows" {
 		info, err := os.Stat(helper)
@@ -567,12 +594,17 @@ func assertDingTalkDepsHelper(t *testing.T, root string) {
 		"alibabacloud-dingtalk==2.2.42",
 		"qrcode==7.4.2",
 		"/opt/hermes/.venv/bin/python",
-		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
+		"--offline",
+		"--no-index",
+		"--find-links \"$DEPS/wheels\"",
 		"importlib.metadata",
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("install-dingtalk-deps missing %q:\n%s", want, content)
 		}
+	}
+	if strings.Contains(content, "https://") {
+		t.Fatalf("install-dingtalk-deps must not use the network:\n%s", content)
 	}
 }
 
@@ -587,16 +619,21 @@ func assertPaddleOCRDepsHelper(t *testing.T, root string) {
 	assertUnixRuntimeHelper(t, "install-paddleocr-deps", content)
 	for _, want := range []string{
 		"paddleocr==3.7.0",
-		"paddlepaddle-3.1.1",
+		"version(\"paddlepaddle\") == \"3.1.1\"",
 		"paddlex==3.7.2",
 		"/opt/data/.dock/image-text-ocr-venv",
-		"UV_CACHE_DIR=/opt/data/.dock/uv-cache",
-		"cp311/x86_64|cp311/aarch64",
-		"cp313/x86_64|cp313/aarch64",
+		".hermes-dock-runtime-deps-sha256",
+		"sha256sum \"$DEPS/SHA256SUMS\"",
+		"--offline",
+		"--no-index",
+		"--requirements \"$DEPS/ocr.lock\"",
 	} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("install-paddleocr-deps missing %q:\n%s", want, content)
 		}
+	}
+	if strings.Contains(content, "https://") {
+		t.Fatalf("install-paddleocr-deps must not use the network:\n%s", content)
 	}
 }
 

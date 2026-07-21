@@ -276,6 +276,9 @@ func (a *App) SendTestMessageForProfile(profileID string, platform string, chann
 	if message == "" {
 		message = "企智盒测试消息"
 	}
+	if err := a.ensureRuntimeDependencies(); err != nil {
+		return err
+	}
 	args := append([]string{"run", "--rm"}, a.profileComposeEnvArgs(profileID)...)
 	args = append(args, "hermes")
 	args = append(args, a.profileHermesArgs(profileID, "send", "--to", target, message)...)
