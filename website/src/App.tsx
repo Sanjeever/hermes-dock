@@ -1,7 +1,8 @@
 import {type FormEvent, useCallback, useEffect, useRef, useState} from 'react';
-import {ArrowDown, ArrowRight, Check, ChevronLeft, ChevronRight, Clock3, FileText, LockKeyhole, Maximize2, MessageCircleMore, X} from 'lucide-react';
+import {ArrowDown, ArrowRight, Check, ChevronLeft, ChevronRight, Clock3, FileText, LockKeyhole, Maximize2, MessageCircleMore, TableProperties, X} from 'lucide-react';
 import deploymentVisual from './assets/deployment-local-options.jpg';
 import logo from './assets/qizhih-box-logo.png';
+import scenarioAnalytics from './assets/scenarios/scenario-analytics.png';
 import scenarioKnowledge from './assets/scenarios/scenario-knowledge.png';
 import scenarioOperations from './assets/scenarios/scenario-operations.png';
 import scenarioSales from './assets/scenarios/scenario-sales.png';
@@ -47,6 +48,12 @@ const capabilities = [
         title: '资料会被真正用起来',
         copy: '理解制度、产品资料与常见问答，给出贴合业务的答案和初稿。',
         className: 'capability-knowledge',
+    },
+    {
+        icon: TableProperties,
+        title: '一堆表格，也能交付一份答案',
+        copy: '合并多份 Excel 明细，统一口径、核对异常，并生成可继续使用的分析报表。',
+        className: 'capability-analytics',
     },
     {
         icon: LockKeyhole,
@@ -100,6 +107,17 @@ const scenarios: Scenario[] = [
         tone: 'operations',
         image: scenarioOperations,
         imageAlt: '飞书对话演示：运营助手汇总昨日表现，识别异常并给出当天行动建议',
+    },
+    {
+        number: '05',
+        label: 'ANALYTICS',
+        title: '经营数据分析助手',
+        description: '交叉分析多份 Excel，核对口径与异常，直接交付可继续使用的经营报表。',
+        resultLabel: '工作变化',
+        result: '一次完成跨表分析、异常核对与报表交付',
+        tone: 'analytics',
+        image: scenarioAnalytics,
+        imageAlt: '飞书对话演示：经营数据分析助手读取多份 Excel，检查关联问题并生成分析报表',
     },
 ];
 
