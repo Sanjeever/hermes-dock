@@ -33,8 +33,15 @@ func TestEmbeddedRuntimeDependenciesMatchBuildArchitecture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(checksums), "paddlepaddle-3.1.1-cp313-cp313-linux_") {
-		t.Fatal("embedded wheelhouse is missing the architecture-specific PaddlePaddle wheel")
+	for _, required := range []string{"lark_oapi-1.5.3", "dingtalk_stream-0.24.3"} {
+		if !strings.Contains(string(checksums), required) {
+			t.Fatalf("embedded wheelhouse is missing %s", required)
+		}
+	}
+	for _, removed := range []string{"paddleocr-", "paddlepaddle-", "paddlex-", "opencv_contrib_python-"} {
+		if strings.Contains(string(checksums), removed) {
+			t.Fatalf("embedded wheelhouse still contains OCR dependency %s", removed)
+		}
 	}
 }
 

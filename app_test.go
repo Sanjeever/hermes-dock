@@ -141,7 +141,6 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"      - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
-		"      - ./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
@@ -163,7 +162,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 	if strings.Contains(compose, "entrypoint:") {
 		t.Fatalf("compose must not override entrypoint:\n%s", compose)
 	}
-	for _, forbidden := range []string{"127.0.0.1:8642", "127.0.0.1:9119", "HERMES_DASHBOARD_BASIC_AUTH_"} {
+	for _, forbidden := range []string{"127.0.0.1:8642", "127.0.0.1:9119", "HERMES_DASHBOARD_BASIC_AUTH_", "install-paddleocr-deps"} {
 		if strings.Contains(compose, forbidden) {
 			t.Fatalf("compose must not expose Hermes native service %q:\n%s", forbidden, compose)
 		}
@@ -336,7 +335,6 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
-		"./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
 			t.Fatalf("migrated compose missing %q:\n%s", want, migratedCompose)
@@ -352,7 +350,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v3-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v4-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 
@@ -418,8 +416,8 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *test
 	if !strings.Contains(migratedCompose, "./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro") {
 		t.Fatalf("migrated compose missing dingtalk helper:\n%s", migratedCompose)
 	}
-	if !strings.Contains(migratedCompose, "./launcher/helpers/install-paddleocr-deps:/etc/cont-init.d/021-install-paddleocr-deps:ro") {
-		t.Fatalf("migrated compose missing paddleocr helper:\n%s", migratedCompose)
+	if strings.Contains(migratedCompose, "install-paddleocr-deps") {
+		t.Fatalf("migrated compose retained paddleocr startup helper:\n%s", migratedCompose)
 	}
 }
 
@@ -445,10 +443,6 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(dingtalkHelper); err != nil {
 		t.Fatal(err)
 	}
-	paddleOCRHelper := filepath.Join(root, "launcher", "helpers", "install-paddleocr-deps")
-	if err := os.Remove(paddleOCRHelper); err != nil {
-		t.Fatal(err)
-	}
 	runtimeDepsVerifier := filepath.Join(root, "launcher", "helpers", "verify-runtime-deps")
 	if err := os.Remove(runtimeDepsVerifier); err != nil {
 		t.Fatal(err)
@@ -472,7 +466,6 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	assertRuntimeDepsVerifierHelper(t, root)
 	assertFeishuDepsHelper(t, root)
 	assertDingTalkDepsHelper(t, root)
-	assertPaddleOCRDepsHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
 	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
@@ -605,35 +598,6 @@ func assertDingTalkDepsHelper(t *testing.T, root string) {
 	}
 	if strings.Contains(content, "https://") {
 		t.Fatalf("install-dingtalk-deps must not use the network:\n%s", content)
-	}
-}
-
-func assertPaddleOCRDepsHelper(t *testing.T, root string) {
-	t.Helper()
-	helper := filepath.Join(root, "launcher", "helpers", "install-paddleocr-deps")
-	data, err := os.ReadFile(helper)
-	if err != nil {
-		t.Fatalf("expected install-paddleocr-deps helper: %v", err)
-	}
-	content := string(data)
-	assertUnixRuntimeHelper(t, "install-paddleocr-deps", content)
-	for _, want := range []string{
-		"version(\"paddleocr\") == \"3.7.0\"",
-		"version(\"paddlepaddle\") == \"3.1.1\"",
-		"version(\"paddlex\") == \"3.7.2\"",
-		"/opt/data/.dock/image-text-ocr-venv",
-		".hermes-dock-runtime-deps-sha256",
-		"sha256sum \"$DEPS/SHA256SUMS\"",
-		"--offline",
-		"--no-index",
-		"--requirements \"$DEPS/ocr.lock\"",
-	} {
-		if !strings.Contains(content, want) {
-			t.Fatalf("install-paddleocr-deps missing %q:\n%s", want, content)
-		}
-	}
-	if strings.Contains(content, "https://") {
-		t.Fatalf("install-paddleocr-deps must not use the network:\n%s", content)
 	}
 }
 

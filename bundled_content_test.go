@@ -8,6 +8,40 @@ import (
 	"testing"
 )
 
+func TestBundledImageTextOCRUsesOnDemandRuntime(t *testing.T) {
+	wrapper, err := seedData.ReadFile("templates/seed-data/skills/productivity/image-text-ocr/scripts/run_ocr.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"/opt/hermes/.venv/bin/python",
+		"/opt/data/.dock/image-text-ocr-venv",
+		"fcntl.LOCK_EX",
+		"--require-hashes",
+		"--only-binary",
+		"requirements.lock",
+	} {
+		if !strings.Contains(string(wrapper), want) {
+			t.Fatalf("OCR wrapper missing %q", want)
+		}
+	}
+
+	requirements, err := seedData.ReadFile("templates/seed-data/skills/productivity/image-text-ocr/scripts/requirements.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"paddleocr==3.7.0",
+		"paddlepaddle==3.1.1",
+		"paddlex==3.7.2",
+		"--hash=sha256:",
+	} {
+		if !strings.Contains(string(requirements), want) {
+			t.Fatalf("OCR requirements lock missing %q", want)
+		}
+	}
+}
+
 func TestSyncBundledContentRejectsTargetSkillSymlink(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink test is unix-only")

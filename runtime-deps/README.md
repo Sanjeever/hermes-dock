@@ -14,9 +14,8 @@ Top-level dependency inputs live in `requirements/`. Architecture-specific
 lock files and their complete transitive wheel sets live under the corresponding
 platform directory. The Feishu and DingTalk helpers intentionally resolve their
 pinned top-level packages against the local wheel set so compatible packages
-already provided by the shared Hermes environment are retained. PaddleOCR uses
-its complete lock in an isolated venv and records the verified bundle manifest
-hash so a changed wheelhouse cannot be mistaken for an already installed one.
-Interrupted extraction directories are removed before the next extraction. An
-obsolete bundle is removed only after Hermes has successfully started with the
-current version.
+already provided by the shared Hermes environment are retained. PaddleOCR is
+installed on demand by the bundled `image-text-ocr` skill and is not part of
+these wheelhouses. Interrupted extraction directories are removed before the
+next extraction. An obsolete bundle is removed only after Hermes has
+successfully started with the current version.

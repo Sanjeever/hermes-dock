@@ -1,23 +1,25 @@
 ---
 name: image-text-ocr
-description: Extract visible text from local screenshots, photos, and image attachments with bundled PP-OCRv6_small models. Use for explicit image-to-text requests and as a local OCR fallback when image auto-analysis or vision_analyze fails but the user's request can be completed from the image text alone. Do not use as a substitute for object, person, scene, color, chart, or other visual-semantic understanding.
+description: Extract visible text from local screenshots, photos, and image attachments with bundled PP-OCRv6_small models and an on-demand local PaddleOCR runtime. Use for explicit image-to-text requests and as a local OCR fallback when image auto-analysis or vision_analyze fails but the user's request can be completed from the image text alone. Do not use as a substitute for object, person, scene, color, chart, or other visual-semantic understanding.
 ---
 
 # Image Text OCR
 
-Use the bundled local models to extract text without sending the image to an external service or downloading model files.
+Use the bundled local models to extract text without sending the image to an external service or downloading model files. The first run downloads hash-locked Python dependencies; later runs reuse the persistent local environment.
 
 ## Run OCR
 
 Pass one local image under the current profile directory:
 
 ```bash
-/opt/data/.dock/image-text-ocr-venv/bin/python \
-  skills/productivity/image-text-ocr/scripts/ocr_image.py \
+/opt/hermes/.venv/bin/python \
+  skills/productivity/image-text-ocr/scripts/run_ocr.py \
   /opt/data/path/to/image.png
 ```
 
 For a non-default profile, run the same relative `skills/...` script from that profile's working directory and pass an image path inside that profile directory.
+
+Always use `run_ocr.py`; do not invoke `ocr_image.py` directly or install packages with an ad hoc command. If the managed OCR environment is missing, the wrapper creates it under `/opt/data/.dock/image-text-ocr-venv`, installs the pinned binary wheels, verifies the runtime, and then runs OCR. Preserve its stderr so dependency download or installation failures remain visible.
 
 The script prints one JSON object containing:
 
@@ -42,7 +44,7 @@ If the request still needs visual understanding after OCR, return the extracted 
 - Accept one local raster image readable by Pillow.
 - Reject URLs, PDFs, directories, files outside `HERMES_WRITE_SAFE_ROOT`, files larger than 25 MiB, images larger than 25 million pixels, and images with either dimension above 10,000 pixels.
 - Keep the original line order returned by PaddleOCR and preserve per-line confidence scores.
-- Do not install packages or download models from this skill. If the managed OCR environment is missing, return the error and ask the user to apply the latest Hermes Dock configuration.
+- Never download model files. Python dependencies may be downloaded only through `run_ocr.py` when its managed environment is missing or invalid.
 
 ## Bundled Models
 

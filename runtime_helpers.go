@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed scripts/hostctl.py scripts/install-dingtalk-deps.sh scripts/install-feishu-deps.sh scripts/install-paddleocr-deps.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh scripts/verify-runtime-deps.sh
+//go:embed scripts/hostctl.py scripts/install-dingtalk-deps.sh scripts/install-feishu-deps.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh scripts/verify-runtime-deps.sh
 var runtimeHelperFS embed.FS
 
 func (a *App) runtimeDepsVerifierHelperPath() string {
@@ -22,10 +22,6 @@ func (a *App) feishuDepsHelperPath() string {
 
 func (a *App) dingtalkDepsHelperPath() string {
 	return filepath.Join(a.hermesDockDir(), "helpers", "install-dingtalk-deps")
-}
-
-func (a *App) paddleOCRDepsHelperPath() string {
-	return filepath.Join(a.hermesDockDir(), "helpers", "install-paddleocr-deps")
 }
 
 func (a *App) wecomFilenamePatchHelperPath() string {
@@ -52,10 +48,6 @@ func (a *App) ensureDingTalkDepsHelper() error {
 	return a.ensureRuntimeHelper("scripts/install-dingtalk-deps.sh", a.dingtalkDepsHelperPath(), "钉钉依赖 helper")
 }
 
-func (a *App) ensurePaddleOCRDepsHelper() error {
-	return a.ensureRuntimeHelper("scripts/install-paddleocr-deps.sh", a.paddleOCRDepsHelperPath(), "OCR 依赖 helper")
-}
-
 func (a *App) ensureWecomFilenamePatchHelper() error {
 	return a.ensureRuntimeHelper("scripts/patch-wecom-filenames.sh", a.wecomFilenamePatchHelperPath(), "企业微信文件名修复 helper")
 }
@@ -79,9 +71,6 @@ func (a *App) ensureContainerInitHelpers() error {
 		return err
 	}
 	if err := a.ensureDingTalkDepsHelper(); err != nil {
-		return err
-	}
-	if err := a.ensurePaddleOCRDepsHelper(); err != nil {
 		return err
 	}
 	if err := a.ensureWecomFilenamePatchHelper(); err != nil {

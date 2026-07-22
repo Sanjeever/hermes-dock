@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-const runtimeDependencyBundleVersion = "cp313-v1"
+const runtimeDependencyBundleVersion = "cp313-v2"
 
 var runtimeDependencyMu sync.Mutex
 
