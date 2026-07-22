@@ -336,6 +336,7 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 - 设计应克制、清晰、密度适中。
 - 不要使用不必要的分隔线。
 - 操作按钮优先使用 lucide-react 图标。
+- 共享 Wails/Web 前端不得使用 `window.alert()`、`window.confirm()` 或 `window.prompt()`；确认操作使用应用内 React 交互，避免 macOS WKWebView 将未实现的 JavaScript 对话框静默按取消处理。
 - 不要把说明性大段文字塞进主界面；说明放 `README.md` 或 `AGENTS.md`。
 - 保证移动和桌面窗口下按钮文字不溢出、不重叠。
 - 不在普通导航中暴露环境变量编辑页；需要写入 `.env` 时优先走模型、部署或平台绑定等结构化表单，高级编辑可打开 `data/.env`。

@@ -52,6 +52,20 @@
         padding: 20px;
     }
 
+    .confirm-dialog-overlay {
+        align-items: end;
+        padding: 12px;
+    }
+
+    .confirm-dialog {
+        padding: 18px;
+        border-radius: 14px;
+    }
+
+    .confirm-dialog-actions button {
+        flex: 1;
+    }
+
     .batch-options {
         grid-template-columns: 1fr;
     }

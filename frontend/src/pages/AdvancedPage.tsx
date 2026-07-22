@@ -3,15 +3,19 @@ import {gotoLine, openSearchPanel} from '@codemirror/search';
 import {EditorView} from '@codemirror/view';
 import {CornerDownRight, Download, FileCode2, FileSearch, Save, Search, Trash2, Upload} from 'lucide-react';
 import {CodeEditor} from '../components/CodeEditor';
+import {ConfirmDialog} from '../components/ConfirmDialog';
 import {inspectedBackupMatchesInput} from '../backupPolicy';
 import type {InstanceBackupManifest} from '../types';
 
-export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; webRuntime: boolean; backupStatus: string; backupManifest: InstanceBackupManifest | null; onExportBackup: (targetPath: string) => Promise<void>; onInspectBackup: (path: string) => Promise<void>; onImportBackup: (path: string, confirm: string) => Promise<void>; onClearBackupManifest: () => void; onSave: () => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
+export function AdvancedPage(props: { options: Array<{ value: string; label: string }>; path: string; setPath: (value: string) => void; open: boolean; setOpen: (value: boolean) => void; content: string; setContent: (value: string) => void; status: string; dirty: boolean; busy: boolean; webRuntime: boolean; backupStatus: string; backupManifest: InstanceBackupManifest | null; onExportBackup: (targetPath: string) => Promise<void>; onInspectBackup: (path: string) => Promise<void>; onImportBackup: (path: string, confirm: string) => Promise<void>; onClearBackupManifest: () => void; onSave: (confirm?: string) => void; onFactoryReset: () => Promise<void>; resetConfirmPhrase: string }) {
     const [editorView, setEditorView] = useState<EditorView | null>(null);
     const [resetConfirmText, setResetConfirmText] = useState('');
     const [exportPath, setExportPath] = useState('');
     const [importPath, setImportPath] = useState('');
     const [importConfirmText, setImportConfirmText] = useState('');
+    const [pendingPath, setPendingPath] = useState('');
+    const [composeSaveConfirmOpen, setComposeSaveConfirmOpen] = useState(false);
+    const [composeSaveConfirmText, setComposeSaveConfirmText] = useState('');
     const languageLabel = props.path.endsWith('.env') ? '.env' : props.path.endsWith('.md') ? 'Markdown' : 'YAML';
     const resetConfirmed = resetConfirmText === props.resetConfirmPhrase;
     const importConfirmed = importConfirmText === '导入';
@@ -27,9 +31,20 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
 
     function selectFile(path: string) {
         if (path === props.path) return true;
-        if (props.dirty && !window.confirm('切换文件会放弃未保存修改，是否继续？')) return false;
+        if (props.dirty) {
+            setPendingPath(path);
+            return false;
+        }
         props.setPath(path);
         return true;
+    }
+
+    function requestSave() {
+        if (props.webRuntime && props.path === 'docker-compose.override.yaml') {
+            setComposeSaveConfirmOpen(true);
+            return;
+        }
+        props.onSave();
     }
 
     return (
@@ -69,13 +84,51 @@ export function AdvancedPage(props: { options: Array<{ value: string; label: str
                                     <CornerDownRight size={16}/>跳行
                                 </button>
                                 <button type="button" className="ghost" onClick={() => props.setOpen(false)} disabled={props.busy || props.dirty}>返回文件选择</button>
-                                <button className="primary" onClick={props.onSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
+                                <button className="primary" onClick={requestSave} disabled={props.busy || !props.dirty}><Save size={16}/>保存</button>
                             </div>
                         </div>
                         <CodeEditor path={props.path} value={props.content} onChange={props.setContent} onReady={setEditorView}/>
                     </>
                 )}
             </div>
+            <ConfirmDialog
+                open={!!pendingPath}
+                title="放弃未保存修改？"
+                description="切换配置文件会丢失当前编辑内容，此操作无法撤销。"
+                confirmLabel="放弃修改并切换"
+                tone="danger"
+                busy={props.busy}
+                onCancel={() => setPendingPath('')}
+                onConfirm={() => {
+                    const path = pendingPath;
+                    setPendingPath('');
+                    props.setPath(path);
+                }}
+            />
+            <ConfirmDialog
+                open={composeSaveConfirmOpen}
+                title="保存 Compose 覆盖文件"
+                description="错误配置可能导致服务无法启动。请输入“确认”后继续保存。"
+                confirmLabel="确认保存"
+                tone="danger"
+                busy={props.busy}
+                confirmDisabled={composeSaveConfirmText !== '确认'}
+                onCancel={() => {
+                    setComposeSaveConfirmOpen(false);
+                    setComposeSaveConfirmText('');
+                }}
+                onConfirm={() => {
+                    const confirm = composeSaveConfirmText;
+                    setComposeSaveConfirmOpen(false);
+                    setComposeSaveConfirmText('');
+                    props.onSave(confirm);
+                }}
+            >
+                <label>
+                    <span>输入“确认”</span>
+                    <input value={composeSaveConfirmText} onChange={(event) => setComposeSaveConfirmText(event.target.value)} disabled={props.busy} autoComplete="off"/>
+                </label>
+            </ConfirmDialog>
             <div className="panel backup-panel">
                 <div className="section-head">
                     <div>

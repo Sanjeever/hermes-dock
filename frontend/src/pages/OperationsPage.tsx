@@ -4,6 +4,7 @@ import {CheckCircle2, CircleAlert, Clipboard, Container, Download, Loader2, Play
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
+import {ConfirmDialog} from '../components/ConfirmDialog';
 import type {AppState, ComposeSettings, InstanceBackupManifest, OperationsTab, ProxySettings, UpdateInfo, UpdateStatus, WebSettingsRequest, WebStatus} from '../types';
 import {containerStatusText, isPortValue, profileStatusText, statusClassName} from '../utils';
 
@@ -59,7 +60,7 @@ export function OperationsPage(props: {
     channelActionStatus: Record<string, string>;
     onHomeChannel: (platform: string, id: string) => void;
     onTestChannel: (platform: string, id: string) => void;
-    onSaveAdvanced: () => void;
+    onSaveAdvanced: (confirm?: string) => void;
     onExportBackup: (targetPath: string) => Promise<void>;
     onInspectBackup: (path: string) => Promise<void>;
     onImportBackup: (path: string, confirm: string) => Promise<void>;
@@ -277,6 +278,7 @@ function RuntimePage(props: {
     onOpenDiagnostics: () => void;
 }) {
     const actionBusy = props.busy !== '';
+    const [forceRebuildConfirmOpen, setForceRebuildConfirmOpen] = useState(false);
     const profiles = props.state.profiles?.profiles || [];
     const profileStatuses = props.state.profileStatus?.profiles || {};
     const runningProfiles = profiles.filter((profile) => profileStatuses[profile.id]?.state === 'running').length;
@@ -304,7 +306,7 @@ function RuntimePage(props: {
                     {!props.needsRebuild && props.state.containerStatus !== 'running' && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
                     {!props.needsRebuild && props.state.containerStatus === 'running' && <button className="ghost" onClick={props.onRestart} disabled={actionBusy}><RefreshCcw size={16}/>重启服务</button>}
                     {props.needsRebuild && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
-                    <button className="ghost danger-text" onClick={props.onForceRebuild} disabled={actionBusy}><Container size={16}/>强制重建容器</button>
+                    <button className="ghost danger-text" onClick={() => setForceRebuildConfirmOpen(true)} disabled={actionBusy}><Container size={16}/>强制重建容器</button>
                     <button className="ghost danger-text" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止服务</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}
@@ -360,6 +362,19 @@ function RuntimePage(props: {
                     </div>
                 </div>
             </div>
+            <ConfirmDialog
+                open={forceRebuildConfirmOpen}
+                title="强制重建 Hermes 容器"
+                description="所有正在运行的助手会短暂中断，容器将重新创建并启动；用户数据不会被删除。"
+                confirmLabel="确认强制重建"
+                tone="danger"
+                busy={actionBusy}
+                onCancel={() => setForceRebuildConfirmOpen(false)}
+                onConfirm={() => {
+                    setForceRebuildConfirmOpen(false);
+                    props.onForceRebuild();
+                }}
+            />
         </section>
     );
 }
@@ -436,6 +451,7 @@ function WebManagementCard(props: {
     const [port, setPort] = useState(props.status.port || '9876');
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [resetPasswordConfirmOpen, setResetPasswordConfirmOpen] = useState(false);
     const host = scope === 'local' ? '127.0.0.1' : '0.0.0.0';
     const webAccessNote = !props.status.enabled ? '已关闭，保存后启动。' : !props.status.running ? '未运行，请检查桌面端状态。' : props.status.host === '0.0.0.0' ? '局域网可访问，地址可在首页“访问入口”复制。' : '仅可在这台电脑的浏览器访问。';
     const portValid = isPortValue(port);
@@ -459,8 +475,7 @@ function WebManagementCard(props: {
     }
 
     async function resetPassword() {
-        if (!window.confirm('确定重置为默认访问密码 123456？')) return;
-        await props.onResetPassword();
+        if (await props.onResetPassword()) setResetPasswordConfirmOpen(false);
     }
 
     return (
@@ -494,9 +509,19 @@ function WebManagementCard(props: {
                     <input type="password" placeholder="旧访问密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} autoComplete="current-password"/>
                     <input type="password" placeholder="新访问密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password"/>
                     <button className="ghost" onClick={changePassword} disabled={props.busy || !oldPassword || !newPassword}>修改密码</button>
-                    <button className="ghost danger-text" onClick={resetPassword} disabled={props.busy}>重置为默认密码</button>
+                    <button className="ghost danger-text" onClick={() => setResetPasswordConfirmOpen(true)} disabled={props.busy}>重置为默认密码</button>
                 </div>
             </details>
+            <ConfirmDialog
+                open={resetPasswordConfirmOpen}
+                title="重置 Web 管理密码"
+                description="访问密码将恢复为默认值 123456。所有使用旧密码的登录需要改用新密码。"
+                confirmLabel="重置为 123456"
+                tone="danger"
+                busy={props.busy}
+                onCancel={() => setResetPasswordConfirmOpen(false)}
+                onConfirm={resetPassword}
+            />
         </div>
     );
 }

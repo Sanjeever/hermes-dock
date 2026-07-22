@@ -75,6 +75,7 @@ import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlat
 import {useOperationRunner} from './hooks/useOperationRunner';
 import {useSkills} from './hooks/useSkills';
 import {useUpdates} from './hooks/useUpdates';
+import {ConfirmDialog} from './components/ConfirmDialog';
 
 function App() {
     const webRuntime = isWebRuntime();
@@ -145,6 +146,8 @@ function App() {
     const [channelActionStatus, setChannelActionStatus] = useState<Record<string, string>>({});
     const [lastOperationError, setLastOperationError] = useState('');
     const [assistantSkillsMode, setAssistantSkillsMode] = useState(false);
+    const [updateInstallConfirmOpen, setUpdateInstallConfirmOpen] = useState(false);
+    const [platformReplaceConfirm, setPlatformReplaceConfirm] = useState<'feishu' | 'dingtalk' | null>(null);
     const dirtyMessage = '当前有未保存修改，请先保存或放弃修改后再切换';
     const run = useOperationRunner({refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
 	const skills = useSkills({getProfileID: () => activeProfileRef.current || 'default', run, refresh, appendLog, setBusy, setNotice, setLastOperationError, setNeedsRebuild});
@@ -557,7 +560,7 @@ function App() {
         }
     }
 
-    async function saveAdvancedFile() {
+    async function saveAdvancedFile(confirm = '') {
 		const profileID = activeProfileRef.current || 'default';
 		const path = advancedPath;
 		const revision = advancedEditRevisionRef.current;
@@ -565,15 +568,6 @@ function App() {
         setNotice({type: 'info', message: '正在保存文件'});
         setAdvancedStatus('正在保存文件');
         try {
-            let confirm = '';
-            if (webRuntime && advancedPath === 'docker-compose.override.yaml') {
-                confirm = window.prompt('输入“确认”保存 Docker Compose 覆盖文件') || '';
-                if (confirm !== '确认') {
-                    setAdvancedStatus('已取消保存');
-                    setNotice({type: 'error', message: '已取消保存'});
-                    return;
-                }
-            }
 			await SaveTextFile(profileID, {path, content: advancedContent, reason: 'before-advanced-save', confirm});
 			if (revision === advancedEditRevisionRef.current && path === advancedPathRef.current) setAdvancedDirty(false);
             setNeedsRebuild(true);
@@ -708,7 +702,6 @@ function App() {
     }
 
     async function forceRebuildHermes() {
-        if (!window.confirm('强制重建会重新创建并启动 Hermes 容器，所有正在运行的助手会短暂中断；用户数据不会被删除。确定继续吗？')) return false;
         return startHermesApplyTask(true);
     }
 
@@ -816,14 +809,21 @@ function App() {
         setPlatformLoginProfile('');
     }
 
-    async function startFeishuLogin() {
+	function startFeishuLogin() {
+		return requestFeishuLogin(false);
+	}
+
+    async function requestFeishuLogin(replacementConfirmed: boolean) {
 		const profileID = activeProfileRef.current || 'default';
 		if (platformDirty) {
 			setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存或放弃后再扫码'});
 			return;
 		}
         const replacing = !!envValue(env, 'FEISHU_APP_ID') && !!envValue(env, 'FEISHU_APP_SECRET');
-        if (replacing && !window.confirm('扫码创建的新机器人会替换当前飞书 / Lark 绑定；旧飞书应用不会被自动删除。是否继续？')) return;
+        if (replacing && !replacementConfirmed) {
+            setPlatformReplaceConfirm('feishu');
+            return;
+        }
         setPlatformLoginProfile(profileID);
         setQrPlatform('feishu');
 		setQrData('');
@@ -841,14 +841,21 @@ function App() {
         setPlatformLoginProfile('');
     }
 
-    async function startDingTalkLogin() {
+	function startDingTalkLogin() {
+		return requestDingTalkLogin(false);
+	}
+
+    async function requestDingTalkLogin(replacementConfirmed: boolean) {
 		const profileID = activeProfileRef.current || 'default';
 		if (platformDirty) {
 			setNotice({type: 'error', message: '当前平台配置有未保存修改，请先保存或放弃后再扫码'});
 			return;
 		}
 		const replacing = !!envValue(env, 'DINGTALK_CLIENT_ID') && !!envValue(env, 'DINGTALK_CLIENT_SECRET');
-		if (replacing && !window.confirm('扫码创建的新钉钉机器人会替换当前钉钉绑定。是否继续？')) return;
+		if (replacing && !replacementConfirmed) {
+			setPlatformReplaceConfirm('dingtalk');
+			return;
+		}
 		setPlatformLoginProfile(profileID);
 		setQrPlatform('dingtalk');
 		setQrData('');
@@ -1323,7 +1330,7 @@ function App() {
                         </div>
                         <div className="update-actions">
                             <button className="primary" onClick={() => {
-                                if (window.confirm(`即将升级到 v${updateInfo.latestVersion}。安装期间启动器和 Web 管理会暂时不可用；新版本启动后会同步所有助手的内置内容，并用当前模板覆盖同名内置技能文件。如有变化且 Hermes 在升级前和应用前都正在运行，会自动应用并可能短暂重启；已停止或状态未知的服务不会自动启动。`)) updates.install();
+                                setUpdateInstallConfirmOpen(true);
                             }} disabled={updates.busy || !!blockingBusy || !updateInfo.assetUrl}><Download size={15}/>{updates.busy ? (updates.progress || '正在更新') : '立即更新'}</button>
                             <button onClick={updates.dismiss}>忽略</button>
                         </div>
@@ -1581,15 +1588,39 @@ function App() {
                         updateBusy={updates.busy || !!blockingBusy}
                         updateProgress={updates.progress}
                         onCheckUpdate={() => updates.check(true)}
-                        onInstallUpdate={() => {
-                            if (!updates.info) return;
-                            if (window.confirm(`即将升级到 v${updates.info.latestVersion}。安装期间启动器和 Web 管理会暂时不可用；新版本启动后会同步所有助手的内置内容，并用当前模板覆盖同名内置技能文件。如有变化且 Hermes 在升级前和应用前都正在运行，会自动应用并可能短暂重启；已停止或状态未知的服务不会自动启动。`)) updates.install();
-                        }}
+                        onInstallUpdate={() => setUpdateInstallConfirmOpen(true)}
                         onSetAutoUpdate={updates.setAutoUpdate}
                         onRetryPostUpdate={updates.retryPostUpdate}
                     />
                 )}
             </main>
+            <ConfirmDialog
+                open={updateInstallConfirmOpen && !!updates.info}
+                title={`升级到 v${updates.info?.latestVersion || ''}`}
+                description="安装期间启动器和 Web 管理会暂时不可用；新版本启动后会同步所有助手的内置内容，并用当前模板覆盖同名内置技能文件。如有变化且 Hermes 在升级前和应用前都正在运行，会自动应用并可能短暂重启；已停止或状态未知的服务不会自动启动。"
+                confirmLabel="安装并重启"
+                busy={updates.busy}
+                onCancel={() => setUpdateInstallConfirmOpen(false)}
+                onConfirm={() => {
+                    setUpdateInstallConfirmOpen(false);
+                    updates.install();
+                }}
+            />
+            <ConfirmDialog
+                open={!!platformReplaceConfirm}
+                title={platformReplaceConfirm === 'feishu' ? '替换飞书 / Lark 机器人' : '替换钉钉机器人'}
+                description={platformReplaceConfirm === 'feishu' ? '扫码创建的新机器人会替换当前绑定，旧飞书应用不会被自动删除。' : '扫码创建的新机器人会替换当前钉钉绑定。'}
+                confirmLabel="继续扫码替换"
+                tone="danger"
+                busy={!!blockingBusy}
+                onCancel={() => setPlatformReplaceConfirm(null)}
+                onConfirm={() => {
+                    const platform = platformReplaceConfirm;
+                    setPlatformReplaceConfirm(null);
+                    if (platform === 'feishu') requestFeishuLogin(true);
+                    if (platform === 'dingtalk') requestDingTalkLogin(true);
+                }}
+            />
         </div>
     );
 }
