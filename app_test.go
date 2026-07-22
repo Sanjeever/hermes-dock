@@ -351,7 +351,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v4-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v5-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 
