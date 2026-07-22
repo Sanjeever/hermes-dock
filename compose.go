@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -262,12 +263,24 @@ func validateComposeSettings(settings ComposeSettings) error {
 }
 
 const (
-	composeRuntimeMigrationID     = "compose-runtime-v5"
-	dufsComposeMigrationID        = "compose-dufs-v1"
-	fixedImageMigrationID         = "compose-fixed-image-v1"
-	privateHermesMigrationID      = "compose-private-hermes-services-v1"
-	bundledChromiumExecutablePath = "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"
+	composeRuntimeMigrationID          = "compose-runtime-v6"
+	dufsComposeMigrationID             = "compose-dufs-v1"
+	fixedImageMigrationID              = "compose-fixed-image-v1"
+	privateHermesMigrationID           = "compose-private-hermes-services-v1"
+	bundledChromiumExecutablePathARM64 = "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"
+	bundledChromiumExecutablePathAMD64 = "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell"
 )
+
+func bundledChromiumExecutablePath(goarch string) string {
+	switch goarch {
+	case "arm64":
+		return bundledChromiumExecutablePathARM64
+	case "amd64":
+		return bundledChromiumExecutablePathAMD64
+	default:
+		panic("unsupported Chromium architecture: " + goarch)
+	}
+}
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
 	settings = withComposeDefaults(settings)
@@ -369,6 +382,7 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		return err
 	}
 	content := string(data)
+	browserExecutablePath := bundledChromiumExecutablePath(runtime.GOARCH)
 	current := strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
 		!strings.Contains(content, "init-permissions") &&
@@ -382,9 +396,9 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/020-install-dingtalk-deps") &&
 		!strings.Contains(content, "/etc/cont-init.d/021-install-paddleocr-deps") &&
 		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") &&
-		strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+bundledChromiumExecutablePath+`"`)
+		strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+browserExecutablePath+`"`)
 	if !current {
-		if err := a.writeCompose(settings, "before-compose-runtime-v5-migration"); err != nil {
+		if err := a.writeCompose(settings, "before-compose-runtime-v6-migration"); err != nil {
 			return err
 		}
 	}
@@ -704,7 +718,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
         limits:
           memory: "%s"
           cpus: "%s"
-`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), yamlQuote(bundledChromiumExecutablePath), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), yamlQuote(bundledChromiumExecutablePath(runtime.GOARCH)), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
 }
 
 func renderDufsService(settings ComposeSettings) string {

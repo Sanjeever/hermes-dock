@@ -134,7 +134,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
 		"      HERMES_DASHBOARD: \"0\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
-		"      AGENT_BROWSER_EXECUTABLE_PATH: \"" + bundledChromiumExecutablePath + "\"",
+		"      AGENT_BROWSER_EXECUTABLE_PATH: \"" + bundledChromiumExecutablePath(runtime.GOARCH) + "\"",
 		"      - ./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
 		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
 		"      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro",
@@ -351,7 +351,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v5-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v6-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 

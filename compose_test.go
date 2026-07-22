@@ -3,11 +3,29 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+func TestBundledChromiumExecutablePathUsesImageArchitectureLayout(t *testing.T) {
+	tests := []struct {
+		goarch string
+		want   string
+	}{
+		{goarch: "arm64", want: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"},
+		{goarch: "amd64", want: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.goarch, func(t *testing.T) {
+			if got := bundledChromiumExecutablePath(tt.goarch); got != tt.want {
+				t.Fatalf("bundled Chromium path = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestValidateComposeSettingsRejectsInvalidValues(t *testing.T) {
 	base := defaultComposeSettings()
@@ -59,7 +77,7 @@ func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 			t.Fatalf("compose missing private service configuration %q:\n%s", want, content)
 		}
 	}
-	if !strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"`) {
+	if !strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+bundledChromiumExecutablePath(runtime.GOARCH)+`"`) {
 		t.Fatalf("compose missing bundled Chromium executable path:\n%s", content)
 	}
 }
@@ -76,14 +94,14 @@ func TestMigrateComposeAddsBundledChromiumExecutablePath(t *testing.T) {
 			migrations = append(migrations, migration)
 		}
 	}
-	state.Migrations = append(migrations, MigrationRecord{ID: "compose-runtime-v4"})
+	state.Migrations = append(migrations, MigrationRecord{ID: "compose-runtime-v5"})
 	state.NeedsRebuild = false
 	state.PendingDufsOnly = true
 	if err := app.writeState(state); err != nil {
 		t.Fatal(err)
 	}
 
-	const browserExecutable = `      AGENT_BROWSER_EXECUTABLE_PATH: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"` + "\n"
+	browserExecutable := `      AGENT_BROWSER_EXECUTABLE_PATH: "` + bundledChromiumExecutablePath(runtime.GOARCH) + `"` + "\n"
 	content, err := os.ReadFile(app.composePath())
 	if err != nil {
 		t.Fatal(err)
