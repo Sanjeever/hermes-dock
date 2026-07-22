@@ -59,6 +59,57 @@ func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 			t.Fatalf("compose missing private service configuration %q:\n%s", want, content)
 		}
 	}
+	if !strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"`) {
+		t.Fatalf("compose missing bundled Chromium executable path:\n%s", content)
+	}
+}
+
+func TestMigrateComposeAddsBundledChromiumExecutablePath(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations := state.Migrations[:0]
+	for _, migration := range state.Migrations {
+		if migration.ID != composeRuntimeMigrationID {
+			migrations = append(migrations, migration)
+		}
+	}
+	state.Migrations = append(migrations, MigrationRecord{ID: "compose-runtime-v4"})
+	state.NeedsRebuild = false
+	state.PendingDufsOnly = true
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	const browserExecutable = `      AGENT_BROWSER_EXECUTABLE_PATH: "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"` + "\n"
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.Replace(string(content), browserExecutable, "", 1)
+	if err := atomicWriteFile(app.composePath(), []byte(legacy), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migrateComposeIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), strings.TrimSpace(browserExecutable)) {
+		t.Fatalf("migrated compose missing bundled Chromium executable path:\n%s", migrated)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, composeRuntimeMigrationID) || !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("browser executable migration state = %+v", state)
+	}
 }
 
 func TestMigrateRuntimeDependencyComposeMarksHermesForRebuild(t *testing.T) {

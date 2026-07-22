@@ -262,10 +262,11 @@ func validateComposeSettings(settings ComposeSettings) error {
 }
 
 const (
-	composeRuntimeMigrationID = "compose-runtime-v4"
-	dufsComposeMigrationID    = "compose-dufs-v1"
-	fixedImageMigrationID     = "compose-fixed-image-v1"
-	privateHermesMigrationID  = "compose-private-hermes-services-v1"
+	composeRuntimeMigrationID     = "compose-runtime-v5"
+	dufsComposeMigrationID        = "compose-dufs-v1"
+	fixedImageMigrationID         = "compose-fixed-image-v1"
+	privateHermesMigrationID      = "compose-private-hermes-services-v1"
+	bundledChromiumExecutablePath = "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-linux/headless_shell"
 )
 
 func (a *App) syncComposeEnv(settings ComposeSettings) error {
@@ -380,9 +381,10 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
 		strings.Contains(content, "/etc/cont-init.d/020-install-dingtalk-deps") &&
 		!strings.Contains(content, "/etc/cont-init.d/021-install-paddleocr-deps") &&
-		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT")
+		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") &&
+		strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+bundledChromiumExecutablePath+`"`)
 	if !current {
-		if err := a.writeCompose(settings, "before-compose-runtime-v4-migration"); err != nil {
+		if err := a.writeCompose(settings, "before-compose-runtime-v5-migration"); err != nil {
 			return err
 		}
 	}
@@ -676,6 +678,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       HERMES_GATEWAY_BUSY_ACK_ENABLED: "%s"
       HERMES_BACKGROUND_NOTIFICATIONS: "%s"
       HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: "true"
+      AGENT_BROWSER_EXECUTABLE_PATH: "%s"
 %s
       UV_DEFAULT_INDEX: "https://mirrors.cloud.tencent.com/pypi/simple/"
       PIP_INDEX_URL: "https://mirrors.cloud.tencent.com/pypi/simple/"
@@ -701,7 +704,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
         limits:
           memory: "%s"
           cpus: "%s"
-`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), yamlQuote(bundledChromiumExecutablePath), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
 }
 
 func renderDufsService(settings ComposeSettings) string {

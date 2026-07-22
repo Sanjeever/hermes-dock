@@ -134,6 +134,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
 		"      HERMES_DASHBOARD: \"0\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
+		"      AGENT_BROWSER_EXECUTABLE_PATH: \"" + bundledChromiumExecutablePath + "\"",
 		"      - ./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
 		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
 		"      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro",
