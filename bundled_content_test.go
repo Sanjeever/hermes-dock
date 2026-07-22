@@ -15,7 +15,8 @@ func TestBundledImageTextOCRUsesOnDemandRuntime(t *testing.T) {
 	}
 	for _, want := range []string{
 		"/opt/hermes/.venv/bin/python",
-		"/opt/data/.dock/image-text-ocr-venv",
+		`RUNTIME_ROOT = Path("/opt/data/.dock")`,
+		`OCR_VENV = RUNTIME_ROOT / "image-text-ocr-venv"`,
 		"fcntl.LOCK_EX",
 		"--require-hashes",
 		"--only-binary",
