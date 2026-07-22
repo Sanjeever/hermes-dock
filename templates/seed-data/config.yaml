@@ -110,6 +110,7 @@ toolsets:
   - hermes-cli
   - messaging
   - kanban
+  - browser
 agent:
   max_turns: 100
   gateway_timeout: 1200
