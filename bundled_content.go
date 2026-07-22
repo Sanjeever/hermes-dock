@@ -127,8 +127,6 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 	if state.Files == nil {
 		state.Files = map[string]string{}
 	}
-	skippedSkillRoots := bundledSkillCollisionRoots(targetRoot, templates, state)
-	skillRoots := bundledTemplateSkillRoots(templates)
 	plans := make([]bundledSyncPlan, 0, len(templates))
 	soulNeedsBackup := false
 	skillsNeedBackup := false
@@ -143,9 +141,17 @@ func (a *App) syncBundledContentForProfile(profileID string, syncSoul bool, sync
 		if readErr == nil {
 			currentHash = contentHash(current)
 		}
-		action := ""
-		skillRoot := skillRoots[file.rel]
-		action = classifyBundledFile(!os.IsNotExist(readErr), currentHash, templateHash, state.Files[file.rel], skillRoot != "" && skippedSkillRoots[skillRoot])
+		action := classifyBundledFile(!os.IsNotExist(readErr), currentHash, templateHash, state.Files[file.rel])
+		if strings.HasPrefix(file.rel, "skills/") {
+			switch {
+			case os.IsNotExist(readErr):
+				action = "added"
+			case currentHash == templateHash:
+				action = "unchanged"
+			default:
+				action = "updated"
+			}
+		}
 		if forceSoul && file.rel == "SOUL.md" && readErr == nil && currentHash != templateHash {
 			action = "updated"
 		}
@@ -365,70 +371,6 @@ func bundledTemplateContent(profileID string, targetRoot string, includeSoul boo
 	return files, nil
 }
 
-func bundledSkillCollisionRoots(targetRoot string, templates []bundledTemplateFile, state bundledContentState) map[string]bool {
-	skipped := map[string]bool{}
-	for _, file := range templates {
-		if filepath.Base(file.rel) != "SKILL.md" || !strings.HasPrefix(file.rel, "skills/") {
-			continue
-		}
-		root := filepath.ToSlash(filepath.Dir(file.rel))
-		target := filepath.Join(targetRoot, filepath.FromSlash(file.rel))
-		current, err := os.ReadFile(target)
-		if os.IsNotExist(err) {
-			if fileExists(filepath.Dir(target)) && !hasBundledStateForRoot(state, root) {
-				skipped[root] = true
-			}
-			continue
-		}
-		if err != nil {
-			continue
-		}
-		currentHash := contentHash(current)
-		if currentHash == contentHash(file.data) {
-			continue
-		}
-		previous := state.Files[file.rel]
-		if previous == "" || currentHash != previous {
-			skipped[root] = true
-		}
-	}
-	return skipped
-}
-
-func hasBundledStateForRoot(state bundledContentState, root string) bool {
-	prefix := strings.TrimSuffix(root, "/") + "/"
-	for rel := range state.Files {
-		if strings.HasPrefix(rel, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-func bundledTemplateSkillRoots(templates []bundledTemplateFile) map[string]string {
-	rootSet := map[string]bool{}
-	for _, file := range templates {
-		if filepath.Base(file.rel) == "SKILL.md" && strings.HasPrefix(file.rel, "skills/") {
-			rootSet[filepath.ToSlash(filepath.Dir(file.rel))] = true
-		}
-	}
-	roots := make([]string, 0, len(rootSet))
-	for root := range rootSet {
-		roots = append(roots, root)
-	}
-	sort.Slice(roots, func(i, j int) bool { return len(roots[i]) > len(roots[j]) })
-	indexed := map[string]string{}
-	for _, file := range templates {
-		for _, root := range roots {
-			if file.rel == root+"/SKILL.md" || strings.HasPrefix(file.rel, root+"/") {
-				indexed[file.rel] = root
-				break
-			}
-		}
-	}
-	return indexed
-}
-
 func (a *App) recordBundledContentState(profileID string, targetRoot string) error {
 	files, err := bundledTemplateContent(profileID, targetRoot, true, true)
 	if err != nil {
@@ -497,10 +439,8 @@ func contentHash(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func classifyBundledFile(exists bool, currentHash string, templateHash string, previousHash string, skillCollision bool) string {
+func classifyBundledFile(exists bool, currentHash string, templateHash string, previousHash string) string {
 	switch {
-	case skillCollision:
-		return "skipped"
 	case !exists:
 		return "added"
 	case currentHash == templateHash:

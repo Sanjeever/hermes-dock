@@ -73,23 +73,21 @@ func TestSyncBundledContentRejectsTargetSkillSymlink(t *testing.T) {
 
 func TestClassifyBundledFile(t *testing.T) {
 	tests := []struct {
-		name      string
-		exists    bool
-		current   string
-		template  string
-		previous  string
-		collision bool
-		want      string
+		name     string
+		exists   bool
+		current  string
+		template string
+		previous string
+		want     string
 	}{
 		{name: "new", want: "added"},
 		{name: "latest", exists: true, current: "new", template: "new", want: "unchanged"},
 		{name: "safe update", exists: true, current: "old", template: "new", previous: "old", want: "updated"},
 		{name: "modified", exists: true, current: "local", template: "new", previous: "old", want: "skipped"},
-		{name: "custom collision", collision: true, want: "skipped"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := classifyBundledFile(tt.exists, tt.current, tt.template, tt.previous, tt.collision); got != tt.want {
+			if got := classifyBundledFile(tt.exists, tt.current, tt.template, tt.previous); got != tt.want {
 				t.Fatalf("classifyBundledFile() = %q, want %q", got, tt.want)
 			}
 		})
@@ -335,7 +333,7 @@ func TestAutomaticBundledContentSyncUpdatesSoulAtKnownBaseline(t *testing.T) {
 	}
 }
 
-func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *testing.T) {
+func TestSyncBundledContentAddsMissingAndOverwritesModifiedBundledSkills(t *testing.T) {
 	app := newTestApp(t)
 	modified := filepath.Join(app.profileDataDir(defaultProfileID), "skills", "hermes-dock", "SKILL.md")
 	if err := os.WriteFile(modified, []byte("local edit"), 0644); err != nil {
@@ -368,11 +366,15 @@ func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Added == 0 || result.Skipped == 0 {
+	if result.Added == 0 || result.Updated == 0 || result.Skipped != 0 {
 		t.Fatalf("unexpected sync result: %+v", result)
 	}
-	if data, _ := os.ReadFile(modified); string(data) != "local edit" {
-		t.Fatal("modified bundled skill was overwritten")
+	wantModified, err := seedData.ReadFile("templates/seed-data/skills/hermes-dock/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(modified); string(data) != string(wantModified) {
+		t.Fatal("modified bundled skill was not overwritten")
 	}
 	if !fileExists(missing) {
 		t.Fatal("missing bundled file was not added")
@@ -385,6 +387,39 @@ func TestSyncBundledContentAddsMissingAndPreservesModifiedAndCustomSkills(t *tes
 	}
 	if data, _ := os.ReadFile(oldSkill); string(data) != "old skill" {
 		t.Fatal("old skill was deleted or modified")
+	}
+}
+
+func TestAutomaticBundledContentSyncOverwritesModifiedBundledSkill(t *testing.T) {
+	app := newTestApp(t)
+	modified := filepath.Join(app.profileDataDir(defaultProfileID), "skills", "hermes-dock", "SKILL.md")
+	if err := os.WriteFile(modified, []byte("local edit"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(app.bundledContentStatePath(defaultProfileID)); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.syncBundledContent(BundledContentSyncRequest{
+		TargetProfileIDs: []string{defaultProfileID},
+		SyncSkills:       true,
+	}, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 1 || result.Skipped != 0 {
+		t.Fatalf("unexpected automatic sync result: %+v", result)
+	}
+	want, err := seedData.ReadFile("templates/seed-data/skills/hermes-dock/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(modified)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("automatic sync did not overwrite modified bundled skill")
 	}
 }
 

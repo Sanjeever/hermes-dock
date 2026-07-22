@@ -117,7 +117,7 @@ func TestBatchDeleteSkillsRejectsSymlinkComponents(t *testing.T) {
 	}
 }
 
-func TestSyncBundledSkillsPreservesModifiedBundledAndCustomFiles(t *testing.T) {
+func TestSyncBundledSkillsOverwritesModifiedBundledAndPreservesCustomFiles(t *testing.T) {
 	app := newTestApp(t)
 	skillPath := filepath.Join(app.currentProfileDataDir(), "skills", "hermes-dock", "SKILL.md")
 	if err := os.WriteFile(skillPath, []byte("local edit"), 0644); err != nil {
@@ -136,15 +136,19 @@ func TestSyncBundledSkillsPreservesModifiedBundledAndCustomFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SyncedFiles != 0 {
-		t.Fatalf("synced files = %d, want no unsafe overwrite", result.SyncedFiles)
+	if result.SyncedFiles != 1 {
+		t.Fatalf("synced files = %d, want 1", result.SyncedFiles)
 	}
 	synced, err := os.ReadFile(skillPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(synced) != "local edit" {
-		t.Fatalf("modified bundled skill was overwritten")
+	want, err := seedData.ReadFile("templates/seed-data/skills/hermes-dock/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(synced) != string(want) {
+		t.Fatalf("modified bundled skill was not overwritten")
 	}
 	data, err := os.ReadFile(customPath)
 	if err != nil {
@@ -152,6 +156,33 @@ func TestSyncBundledSkillsPreservesModifiedBundledAndCustomFiles(t *testing.T) {
 	}
 	if string(data) != string(customContent) {
 		t.Fatalf("custom skill was modified")
+	}
+}
+
+func TestSyncBundledSkillsDoesNotRewriteMatchingFiles(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.NeedsRebuild = false
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.SyncBundledSkills()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SyncedFiles != 0 {
+		t.Fatalf("synced files = %d, want 0", result.SyncedFiles)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.NeedsRebuild {
+		t.Fatal("matching bundled skills unexpectedly required rebuild")
 	}
 }
 

@@ -141,7 +141,7 @@ func (a *App) runPostUpdateTask(initial updateState) {
 	}
 	if err := a.updatePostUpdateState(func(state *updateState) {
 		state.PostUpdateState = postUpdateStateSyncing
-		state.PostUpdateMessage = "正在安全同步所有助手的内置人格和技能"
+		state.PostUpdateMessage = "正在同步所有助手的内置人格和技能"
 		state.PostUpdateError = ""
 		state.PostUpdateApplyID = ""
 	}); err != nil {

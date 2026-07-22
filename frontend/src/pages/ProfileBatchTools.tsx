@@ -151,7 +151,7 @@ export function ProfileBatchTools(props: {
         if (!result) return;
         setSyncResult(result);
         setCopyResult(null);
-        setResultText(`新增 ${result.added} 项，更新 ${result.updated} 项，保留 ${result.skipped} 项用户修改${result.failed ? `；${result.failed} 个助手失败` : ''}`);
+        setResultText(`新增 ${result.added} 项，更新 ${result.updated} 项${result.skipped ? `，${result.skipped} 项未写入` : ''}${result.failed ? `；${result.failed} 个助手失败` : ''}`);
     };
 
     return (
@@ -225,7 +225,7 @@ export function ProfileBatchTools(props: {
                                 <label className="mini-toggle"><input type="checkbox" checked={syncSoul} onChange={(event) => setSyncSoul(event.target.checked)} disabled={props.busy}/>内置人格</label>
                                 <label className="mini-toggle"><input type="checkbox" checked={syncSkills} onChange={(event) => setSyncSkills(event.target.checked)} disabled={props.busy}/>内置技能</label>
                             </div>
-                            <p className="field-hint">内置人格会先备份再重置；内置技能只安全更新未修改内容，自定义技能和旧技能会保留。</p>
+                            <p className="field-hint">内置人格会先备份再重置；内置技能会先备份，再用当前模板覆盖同名文件。自定义技能和旧技能会保留。</p>
                         </fieldset>
                     )}
 
@@ -254,7 +254,7 @@ export function ProfileBatchTools(props: {
                                     {syncResult.results.filter((item) => !item.success || item.skipped > 0).map((item, index) => (
                                         <li key={`${item.profileId}-${index}`}>
                                             <code>{item.profileId || '未知助手'}</code>
-                                            <span>{item.success ? `保留 ${item.skipped} 项用户修改` : item.error || '同步失败'}</span>
+                                            <span>{item.success ? (item.skipped ? `${item.skipped} 项未写入` : '同步完成') : item.error || '同步失败'}</span>
                                         </li>
                                     ))}
                                 </ul>

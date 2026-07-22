@@ -38,7 +38,7 @@ describe('ProfileBatchTools', () => {
             syncSoul: true,
             syncSkills: true,
         }));
-        expect(await screen.findByText(/保留 1 项用户修改/)).toBeInTheDocument();
+        expect(await screen.findByText(/1 项未写入/)).toBeInTheDocument();
     });
 
     it('excludes the source profile and never includes API keys by default', async () => {
