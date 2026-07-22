@@ -35,14 +35,21 @@ func (a *App) beginExclusiveOperation(action string) (func(), error) {
 }
 
 func (a *App) startApplyConfigTask() error {
-	return a.startApplyConfigTaskWithOperationID(false, "")
+	return a.startApplyConfigTaskWithOperationID(false, "", false)
+}
+
+func (a *App) startForceRebuildTask() error {
+	return a.startApplyConfigTaskWithOperationID(false, "", true)
 }
 
 // startApplyConfigTaskWithOperationID starts the task and transfers ownership
 // of operationMu to it. When operationLocked is true, the caller must hold the
 // mutex; this function releases it on every setup error.
-func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id string) error {
+func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id string, forceRecreate bool) error {
 	if !operationLocked && !a.operationMu.TryLock() {
+		if forceRecreate {
+			return fmt.Errorf("正在执行其他实例操作，暂时无法强制重建 Hermes 容器")
+		}
 		return fmt.Errorf("正在执行其他实例操作，暂时无法应用配置")
 	}
 	a.applyMu.Lock()
@@ -70,6 +77,9 @@ func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id strin
 		StartedAt: now,
 		UpdatedAt: now,
 	}
+	if forceRecreate {
+		status.Message = "正在准备强制重建 Hermes 容器"
+	}
 	if err := a.writeApplyConfigStatusUnlocked(status); err != nil {
 		a.applyMu.Unlock()
 		a.operationMu.Unlock()
@@ -81,11 +91,11 @@ func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id strin
 	a.applyOwnsOperation = true
 	a.applyMu.Unlock()
 	a.emit("apply:status", status)
-	go a.runApplyConfigTask(ctx, status.ID)
+	go a.runApplyConfigTask(ctx, status.ID, forceRecreate)
 	return nil
 }
 
-func (a *App) runApplyConfigTask(ctx context.Context, id string) {
+func (a *App) runApplyConfigTask(ctx context.Context, id string, forceRecreate bool) {
 	settings := a.readComposeSettings()
 	if err := ensureWritableDirectory(settings.SharedDirectory); err != nil {
 		a.failApplyConfigTask(id, err)
@@ -106,7 +116,7 @@ func (a *App) runApplyConfigTask(ctx context.Context, id string) {
 		a.failApplyConfigTask(id, err)
 		return
 	}
-	if state.PendingDufsOnly {
+	if state.PendingDufsOnly && !forceRecreate {
 		inputHash, err := a.applyRuntimeInputHash(composeHash, dufsHash)
 		if err != nil {
 			a.failApplyConfigTask(id, err)
@@ -159,12 +169,15 @@ func (a *App) runApplyConfigTask(ctx context.Context, id string) {
 		return
 	}
 	dufsRecreate := state.LastAppliedDufsHash != dufsHash
-	recreate := shouldRecreateComposeRuntime(state.LastAppliedComposeHash, composeHash, a.containerStatus(context.Background()))
+	recreate := forceRecreate || shouldRecreateComposeRuntime(state.LastAppliedComposeHash, composeHash, a.containerStatus(context.Background()))
 	strategy := "restart"
 	message := "正在快速重启 Hermes 服务"
 	if recreate {
 		strategy = "recreate"
 		message = "正在重建 Hermes 容器"
+	}
+	if forceRecreate {
+		message = "正在强制重建 Hermes 容器"
 	}
 	if err := a.updateApplyConfigStatus(id, func(status *ApplyConfigStatus) {
 		status.State = applyStateApplying

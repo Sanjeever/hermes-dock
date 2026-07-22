@@ -789,6 +789,7 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"StopHermes":                   a.webLocked(a.StopHermes),
 		"RestartHermes":                a.webLocked(a.RestartHermes),
 		"RebuildHermes":                a.webLocked(a.RebuildHermes),
+		"ForceRebuildHermes":           a.webLocked(a.ForceRebuildHermes),
 		"TailLogs":                     oneArg[string](a.webStartLogTail),
 		"StopTailLogs":                 oneArg[string](a.webStopLogTail),
 		"CancelWeixinLogin":            noResult(func() error { a.CancelWeixinLogin(); return nil }),

@@ -90,6 +90,10 @@ export function FetchProviderModelList(arg1) {
   return window['go']['main']['App']['FetchProviderModelList'](arg1);
 }
 
+export function ForceRebuildHermes() {
+  return window['go']['main']['App']['ForceRebuildHermes']();
+}
+
 export function GetAppState() {
   return window['go']['main']['App']['GetAppState']();
 }

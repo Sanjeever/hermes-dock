@@ -46,6 +46,8 @@ export function FetchProviderConfigModelListForProfile(arg1:string,arg2:main.Pro
 
 export function FetchProviderModelList(arg1:string):Promise<Array<main.ModelOption>>;
 
+export function ForceRebuildHermes():Promise<void>;
+
 export function GetAppState():Promise<main.AppState>;
 
 export function GetAppStateForProfile(arg1:string):Promise<main.AppState>;

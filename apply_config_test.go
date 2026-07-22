@@ -283,6 +283,40 @@ func TestApplyConfigStrategies(t *testing.T) {
 			t.Fatalf("force recreate command missing: %s", log)
 		}
 	})
+	t.Run("manual force recreate", func(t *testing.T) {
+		app := newTestApp(t)
+		installFakeDocker(t, true)
+		state, _ := app.readState()
+		hash, _ := app.composeRuntimeHash()
+		state.LastAppliedComposeHash = hash
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = true
+		if err := app.writeState(state); err != nil {
+			t.Fatal(err)
+		}
+		app.applyPollInterval = 5 * time.Millisecond
+		t.Cleanup(app.cancelApplyConfigTask)
+		if err := app.ForceRebuildHermes(); err != nil {
+			t.Fatal(err)
+		}
+		waiting := waitForApplyState(t, app, applyStateWaiting)
+		if waiting.Strategy != "recreate" {
+			t.Fatalf("strategy = %q", waiting.Strategy)
+		}
+		writeRuntimeStatusForApply(t, app, waiting.Generation)
+		waitForApplyState(t, app, applyStateSucceeded)
+		log, _ := os.ReadFile(fakeDockerLogPath(t))
+		if !strings.Contains(string(log), "compose up -d --force-recreate --remove-orphans hermes") {
+			t.Fatalf("manual force recreate command missing: %s", log)
+		}
+		state, err := app.readState()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state.NeedsRebuild || state.PendingDufsOnly || state.LastAppliedComposeHash != hash {
+			t.Fatalf("manual force recreate did not finalize applied state: %+v", state)
+		}
+	})
 	t.Run("dufs only", func(t *testing.T) {
 		app := newTestApp(t)
 		installFakeDocker(t, true)

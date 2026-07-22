@@ -818,6 +818,10 @@ func (a *App) RebuildHermes() error {
 	return a.startApplyConfigTask()
 }
 
+func (a *App) ForceRebuildHermes() error {
+	return a.startForceRebuildTask()
+}
+
 func (a *App) markRebuildApplied(composeHash string) error {
 	dufsHash, err := a.dufsRuntimeHash()
 	if err != nil {
@@ -922,7 +926,7 @@ func (a *App) applyComposeRuntime(recreate bool) error {
 
 func (a *App) applyComposeRuntimeContext(ctx context.Context, recreate bool) error {
 	if recreate {
-		a.emit("docker:progress", StreamEvent{Line: "检测到容器配置变化，正在重建 Hermes 容器"})
+		a.emit("docker:progress", StreamEvent{Line: "正在重建 Hermes 容器"})
 		return a.runComposeStreaming(ctx, "docker:progress", "up", "-d", "--force-recreate", "--remove-orphans", "hermes")
 	}
 	a.emit("docker:progress", StreamEvent{Line: "容器配置未变化，正在快速重启 Hermes 服务"})

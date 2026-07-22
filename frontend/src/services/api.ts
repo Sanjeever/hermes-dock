@@ -76,6 +76,7 @@ export const StartHermes = () => wailsOrRPC<void>('StartHermes');
 export const StopHermes = () => wailsOrRPC<void>('StopHermes');
 export const RestartHermes = () => wailsOrRPC<void>('RestartHermes');
 export const RebuildHermes = () => wailsOrRPC<void>('RebuildHermes');
+export const ForceRebuildHermes = () => wailsOrRPC<void>('ForceRebuildHermes');
 export const TailLogs = () => isWebRuntime() ? rpc<void>('TailLogs', [webClientID]) : wailsOrRPC<void>('TailLogs');
 export const StopTailLogs = () => isWebRuntime() ? rpc<void>('StopTailLogs', [webClientID]) : wailsOrRPC<void>('StopTailLogs');
 export const StartWeixinLogin = (profileID: string) => wailsOrRPC<void>('StartWeixinLoginForProfile', [profileID]);

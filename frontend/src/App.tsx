@@ -16,6 +16,7 @@ import {
     DeleteSkill,
     ExportInstanceBackup,
     FactoryResetInstance,
+    ForceRebuildHermes,
     FetchProviderConfigModelList,
     GetAppState,
     GetSkillDetail,
@@ -703,11 +704,20 @@ function App() {
     }
 
     async function startApplyConfiguration() {
-        setBusy('正在启动应用任务');
-        setNotice({type: 'info', message: '正在启动应用配置任务'});
+        return startHermesApplyTask(false);
+    }
+
+    async function forceRebuildHermes() {
+        if (!window.confirm('强制重建会重新创建并启动 Hermes 容器，所有正在运行的助手会短暂中断；用户数据不会被删除。确定继续吗？')) return false;
+        return startHermesApplyTask(true);
+    }
+
+    async function startHermesApplyTask(forceRecreate: boolean) {
+        setBusy(forceRecreate ? '正在启动强制重建任务' : '正在启动应用任务');
+        setNotice({type: 'info', message: forceRecreate ? '正在启动强制重建任务' : '正在启动应用配置任务'});
         setLastOperationError('');
         try {
-            await RebuildHermes();
+            await (forceRecreate ? ForceRebuildHermes() : RebuildHermes());
             await refresh();
             return true;
         } catch (error) {
@@ -1540,6 +1550,7 @@ function App() {
                         onStop={() => run('正在停止', StopHermes)}
                         onRestart={() => run('正在重启', RestartHermes)}
                         onRebuild={startApplyConfiguration}
+                        onForceRebuild={forceRebuildHermes}
                         onLogs={tailLogs}
                         onClearLogs={() => setLogs([])}
                         onCopyLogs={copyLogs}

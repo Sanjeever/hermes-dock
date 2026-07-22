@@ -1,6 +1,6 @@
 import type {RefObject} from 'react';
 import {useEffect, useState} from 'react';
-import {CheckCircle2, CircleAlert, Clipboard, Download, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
+import {CheckCircle2, CircleAlert, Clipboard, Container, Download, Loader2, Play, RefreshCcw, RotateCcw, Square, TerminalSquare, Trash2} from 'lucide-react';
 import {AdvancedPage} from './AdvancedPage';
 import {ChannelsPage} from './ChannelsPage';
 import {DeployPage} from './DeployPage';
@@ -47,6 +47,7 @@ export function OperationsPage(props: {
     onStop: () => void;
     onRestart: () => void;
     onRebuild: () => void;
+    onForceRebuild: () => void;
     onLogs: () => void;
     onClearLogs: () => void;
     onCopyLogs: () => void;
@@ -107,6 +108,7 @@ export function OperationsPage(props: {
                     onStop={props.onStop}
                     onRestart={props.onRestart}
                     onRebuild={props.onRebuild}
+                    onForceRebuild={props.onForceRebuild}
                     onOpenDiagnostics={() => props.setTab('diagnostics')}
                 />
             )}
@@ -271,6 +273,7 @@ function RuntimePage(props: {
     onStop: () => void;
     onRestart: () => void;
     onRebuild: () => void;
+    onForceRebuild: () => void;
     onOpenDiagnostics: () => void;
 }) {
     const actionBusy = props.busy !== '';
@@ -301,6 +304,7 @@ function RuntimePage(props: {
                     {!props.needsRebuild && props.state.containerStatus !== 'running' && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
                     {!props.needsRebuild && props.state.containerStatus === 'running' && <button className="ghost" onClick={props.onRestart} disabled={actionBusy}><RefreshCcw size={16}/>重启服务</button>}
                     {props.needsRebuild && <button className="ghost" onClick={props.onOpenDiagnostics} disabled={actionBusy}><TerminalSquare size={16}/>查看日志</button>}
+                    <button className="ghost danger-text" onClick={props.onForceRebuild} disabled={actionBusy}><Container size={16}/>强制重建容器</button>
                     <button className="ghost danger-text" onClick={props.onStop} disabled={actionBusy || props.state.containerStatus !== 'running'}><Square size={16}/>停止服务</button>
                 </div>
                 {props.busy && <div className="busy"><Loader2 size={16} className="spin"/>{props.busy}</div>}

@@ -191,6 +191,9 @@ func TestWebRPCProfileOperationsRequireExplicitProfile(t *testing.T) {
 			t.Fatalf("missing profile-scoped Web RPC handler %s", name)
 		}
 	}
+	if handlers["ForceRebuildHermes"] == nil {
+		t.Fatal("missing global Web RPC handler ForceRebuildHermes")
+	}
 	for _, name := range []string{"GetAppState", "SaveModelConfig", "SaveFeishuConfig", "ListProfileSkills"} {
 		if handlers[name] != nil {
 			t.Fatalf("legacy current-profile Web RPC handler remains exposed: %s", name)

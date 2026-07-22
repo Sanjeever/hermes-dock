@@ -229,7 +229,7 @@ func (a *App) runPostUpdateTask(initial updateState) {
 		a.failPostUpdateTask(err)
 		return
 	}
-	if err := a.startApplyConfigTaskWithOperationID(true, applyID); err != nil {
+	if err := a.startApplyConfigTaskWithOperationID(true, applyID, false); err != nil {
 		operationHeld = false
 		a.failPostUpdateTask(err)
 		return
