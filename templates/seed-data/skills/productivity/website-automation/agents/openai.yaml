@@ -1,0 +1,4 @@
+interface:
+  display_name: "网站自动化"
+  short_description: "登录网站后尽可能完成页面操作、API 调用、批量处理和报表导出"
+  default_prompt: "使用 $website-automation 登录网站，并尽可能完成指定操作或报表导出。"
