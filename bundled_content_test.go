@@ -43,6 +43,57 @@ func TestBundledImageTextOCRUsesOnDemandRuntime(t *testing.T) {
 	}
 }
 
+func TestBundledCaptchaOCRUsesOnDemandRuntime(t *testing.T) {
+	wrapper, err := seedData.ReadFile("templates/seed-data/skills/productivity/captcha-ocr/scripts/run_ocr.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"/opt/hermes/.venv/bin/python",
+		`RUNTIME_ROOT = Path("/opt/data/.dock")`,
+		`OCR_VENV = RUNTIME_ROOT / "captcha-ocr-venv"`,
+		`RUNTIME_MARKER = OCR_VENV / ".requirements.sha256"`,
+		"fcntl.LOCK_EX",
+		"hashlib.sha256(REQUIREMENTS.read_bytes()).hexdigest()",
+		"--require-hashes",
+		"--only-binary",
+		"requirements.lock",
+	} {
+		if !strings.Contains(string(wrapper), want) {
+			t.Fatalf("CAPTCHA OCR wrapper missing %q", want)
+		}
+	}
+
+	recognizer, err := seedData.ReadFile("templates/seed-data/skills/productivity/captcha-ocr/scripts/captcha_ocr.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`os.environ.get("HERMES_DOCK_PROFILE_HOME")`,
+		"beta=True",
+		"show_ad=False",
+		"png_fix=True",
+	} {
+		if !strings.Contains(string(recognizer), want) {
+			t.Fatalf("CAPTCHA OCR recognizer missing %q", want)
+		}
+	}
+
+	requirements, err := seedData.ReadFile("templates/seed-data/skills/productivity/captcha-ocr/scripts/requirements.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"ddddocr==1.6.1",
+		"onnxruntime==1.27.0",
+		"--hash=sha256:",
+	} {
+		if !strings.Contains(string(requirements), want) {
+			t.Fatalf("CAPTCHA OCR requirements lock missing %q", want)
+		}
+	}
+}
+
 func TestSyncBundledContentRejectsTargetSkillSymlink(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink test is unix-only")

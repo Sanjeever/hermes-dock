@@ -42,11 +42,39 @@ func TestSetEnvReplacesExactKey(t *testing.T) {
 	}
 }
 
-func TestRuntimeEnvPolicyDisablesDashboard(t *testing.T) {
-	got := applyRuntimeEnvPolicy([]string{"HERMES_DASHBOARD=1", "TOKEN=keep"})
-	if strings.Join(got, ",") != "HERMES_DASHBOARD=0,TOKEN=keep" {
-		t.Fatalf("unexpected environment: %#v", got)
+func TestRuntimeEnvPolicyProtectsReservedValues(t *testing.T) {
+	profile := RuntimeManifestProfile{ID: "sales", Home: "/opt/data/profiles/sales"}
+	got := applyRuntimeEnvPolicy([]string{
+		"HERMES_HOME=/tmp",
+		"HERMES_DOCK_PROFILE=other",
+		"HERMES_DOCK_PROFILE_HOME=/opt/data",
+		"HERMES_WRITE_SAFE_ROOT=/",
+		"HERMES_DASHBOARD=1",
+		"TOKEN=keep",
+	}, profile)
+	want := map[string]string{
+		"HERMES_HOME":              hermesHome,
+		"HERMES_DOCK_PROFILE":      profile.ID,
+		"HERMES_DOCK_PROFILE_HOME": profile.Home,
+		"HERMES_WRITE_SAFE_ROOT":   hermesHome,
+		"HERMES_DASHBOARD":         "0",
+		"TOKEN":                    "keep",
 	}
+	for key, value := range want {
+		if gotValue := envValue(got, key); gotValue != value {
+			t.Fatalf("%s = %q, want %q", key, gotValue, value)
+		}
+	}
+}
+
+func envValue(env []string, key string) string {
+	prefix := key + "="
+	for _, item := range env {
+		if strings.HasPrefix(item, prefix) {
+			return strings.TrimPrefix(item, prefix)
+		}
+	}
+	return ""
 }
 
 func TestPrefixLinesAddsProfileAndRedactsSecrets(t *testing.T) {

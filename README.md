@@ -226,6 +226,7 @@ Hermes Dock 接管标准 `~/.hermes-dock/docker-compose.yaml`，用于控制：
 - `launcher/helpers/verify-runtime-deps` 挂载到 `/etc/cont-init.d/016-verify-runtime-deps`，在安装前校验 Python 版本、容器架构和所有文件的 SHA-256；校验失败会明确中止，不会联网补包。
 - `launcher/helpers/install-feishu-deps` 和 `launcher/helpers/install-dingtalk-deps` 分别在 s6 初始化阶段从本地 wheelhouse 严格离线安装飞书、钉钉运行依赖。
 - `image-text-ocr` 技能直接捆绑 PP-OCRv6_small 模型；首次识别时由技能脚本联网下载经过版本和哈希锁定的 PaddleOCR 3.7.0 CPU 依赖，安装到 `data/.dock/image-text-ocr-venv`，后续识别和容器重建复用该环境。图片和模型始终在本地处理，运行时不下载模型。
+- `captcha-ocr` 技能使用 ddddocr beta 模型识别字符和基础算术静态图片验证码；首次识别时下载包含模型且经过版本和哈希锁定的依赖，安装到 `data/.dock/captcha-ocr-venv`，后续离线复用。验证码不会发送到外部服务，滑块、点选、拼图及其他反自动化验证不在处理范围内。
 - `launcher/helpers/patch-home-channel-prompt` 挂载到 `/etc/cont-init.d/019-patch-home-channel-prompt`，在固定 Hermes 镜像启动时关闭未设置 Home Channel 的首次对话提示，不影响 `/sethome` 和实际投递校验。
 - `launcher/helpers/hostctl` 挂载到 `/usr/local/bin/hostctl`，通过 `host.docker.internal:9877` 调用桌面主进程内的 Host Bridge。
 - 单 profile 版本使用 `./data/.env` 环境变量注入；多 profile runner 版本不使用全局 `env_file` 表达 profile 密钥。

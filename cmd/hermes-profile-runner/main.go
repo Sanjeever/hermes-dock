@@ -276,9 +276,6 @@ func (s *supervisor) runOnce(ctx context.Context, profile RuntimeManifestProfile
 
 func buildEnv(profile RuntimeManifestProfile) ([]string, error) {
 	env := os.Environ()
-	env = setEnv(env, "HERMES_HOME", hermesHome)
-	env = setEnv(env, "HERMES_DOCK_PROFILE", profile.ID)
-	env = setEnv(env, "HERMES_DOCK_PROFILE_HOME", profile.Home)
 	var envPath string
 	if profile.IsDefault {
 		envPath = filepath.Join(hermesHome, ".env")
@@ -292,10 +289,14 @@ func buildEnv(profile RuntimeManifestProfile) ([]string, error) {
 	for key, value := range vars {
 		env = setEnv(env, key, value)
 	}
-	return applyRuntimeEnvPolicy(env), nil
+	return applyRuntimeEnvPolicy(env, profile), nil
 }
 
-func applyRuntimeEnvPolicy(env []string) []string {
+func applyRuntimeEnvPolicy(env []string, profile RuntimeManifestProfile) []string {
+	env = setEnv(env, "HERMES_HOME", hermesHome)
+	env = setEnv(env, "HERMES_DOCK_PROFILE", profile.ID)
+	env = setEnv(env, "HERMES_DOCK_PROFILE_HOME", profile.Home)
+	env = setEnv(env, "HERMES_WRITE_SAFE_ROOT", hermesHome)
 	return setEnv(env, "HERMES_DASHBOARD", "0")
 }
 
