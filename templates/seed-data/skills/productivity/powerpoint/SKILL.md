@@ -1,15 +1,21 @@
 ---
 name: powerpoint
-description: "Create, read, edit .pptx decks, slides, notes, templates."
+description: "Create, read, or edit native .pptx decks, slides, notes, and templates. Use for modifying an existing PPTX, following a PowerPoint template, extracting PPTX content, or producing slides whose text, charts, and shapes must remain editable. For a net-new presentation where visual fidelity matters more than native PowerPoint editability, use slidev-presentations instead."
 license: Proprietary. LICENSE.txt has complete terms
 platforms: [linux, macos, windows]
 ---
 
 # Powerpoint Skill
 
+## Backend Routing
+
+- Use this skill for an existing `.pptx`, a native PowerPoint template, or a deliverable whose text, charts, and shapes must remain editable. Native editability takes priority even when the user also requests PDF or PNG exports.
+- For a net-new presentation that can be delivered as Slidev source, PDF, Web, PNG, or image-based PPTX, read `skills/creative/slidev-presentations/SKILL.md` and use that workflow instead.
+- Do not use both creation backends for the same deck unless the user explicitly requests two distinct deliverables.
+
 ## When to use
 
-Use this skill any time a .pptx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an email or summary); editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates, layouts, speaker notes, or comments. Trigger whenever the user mentions "deck," "slides," "presentation," or references a .pptx filename, regardless of what they plan to do with the content afterward. If a .pptx file needs to be opened, created, or touched, use this skill.
+Use this skill when an existing `.pptx` is an input, or when the output must be a native, editable PowerPoint file. This includes reading or extracting PPTX content; editing, combining, or splitting presentations; preserving templates and layouts; and working with speaker notes or comments. For a new deck that prioritizes visual fidelity and can use Slidev source or an image-based PPTX, use `slidev-presentations` instead.
 
 ## Quick Reference
 
@@ -17,7 +23,7 @@ Use this skill any time a .pptx file is involved in any way — as input, output
 |------|-------|
 | Read/analyze content | `python -m markitdown presentation.pptx` |
 | Edit or create from template | Read [editing.md](editing.md) |
-| Create from scratch | Read [pptxgenjs.md](pptxgenjs.md) |
+| Create an editable PPTX from scratch | Read [pptxgenjs.md](pptxgenjs.md) |
 
 ---
 
@@ -45,11 +51,11 @@ python scripts/office/unpack.py presentation.pptx unpacked/
 
 ---
 
-## Creating from Scratch
+## Creating an Editable PPTX from Scratch
 
 **Read [pptxgenjs.md](pptxgenjs.md) for full details.**
 
-Use when no template or reference presentation is available.
+Use only when no template is available and the user requires native editable PowerPoint elements. Otherwise route net-new visual presentations to `slidev-presentations`.
 
 ---
 
