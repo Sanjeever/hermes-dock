@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -32,8 +32,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
       - name: Test frontend
@@ -158,6 +156,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
           compression-level: 0
+          retention-days: 1
 
   build-macos:
     name: macOS arm64
@@ -212,6 +211,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
           compression-level: 0
+          retention-days: 1
 
   build-linux:
     name: Linux amd64 Debian 13
@@ -323,10 +323,14 @@ jobs:
           path: dist/*
           if-no-files-found: error
           compression-level: 0
+          retention-days: 1
 
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     needs:
       - verify
       - build-windows
@@ -367,3 +371,20 @@ jobs:
             --notes-file RELEASE_NOTES.md
         env:
           GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+
+      - name: Delete intermediate artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while true; do
+            artifact_id="$(
+              gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+                --jq '.artifacts[0].id // empty'
+            )"
+            if [[ -z "$artifact_id" ]]; then
+              break
+            fi
+            gh api --method DELETE \
+              "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+          done
