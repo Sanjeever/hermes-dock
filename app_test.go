@@ -142,7 +142,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"      - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"      - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
-		"      - ./launcher/helpers/patch-dingtalk-images:/etc/cont-init.d/021-patch-dingtalk-images:ro",
+		"      - ./launcher/helpers/patch-dingtalk-media:/etc/cont-init.d/021-patch-dingtalk-media:ro",
 		"      - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro",
 		"      - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro",
 		"      - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro",
@@ -258,8 +258,8 @@ func TestEnsureInstanceReadyMigratesLegacyCompose(t *testing.T) {
 	if !strings.Contains(string(actual), "/etc/cont-init.d/020-install-dingtalk-deps") {
 		t.Fatalf("migrated compose missing dingtalk dependency helper:\n%s", actual)
 	}
-	if !strings.Contains(string(actual), "/etc/cont-init.d/021-patch-dingtalk-images") {
-		t.Fatalf("migrated compose missing dingtalk image patch helper:\n%s", actual)
+	if !strings.Contains(string(actual), "/etc/cont-init.d/021-patch-dingtalk-media") {
+		t.Fatalf("migrated compose missing dingtalk media patch helper:\n%s", actual)
 	}
 	if strings.Contains(string(actual), "init-permissions") {
 		t.Fatalf("migrated compose still includes full data chown:\n%s", actual)
@@ -340,7 +340,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 		"./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro",
 		"./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro",
 		"./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro",
-		"./launcher/helpers/patch-dingtalk-images:/etc/cont-init.d/021-patch-dingtalk-images:ro",
+		"./launcher/helpers/patch-dingtalk-media:/etc/cont-init.d/021-patch-dingtalk-media:ro",
 	} {
 		if !strings.Contains(migratedCompose, want) {
 			t.Fatalf("migrated compose missing %q:\n%s", want, migratedCompose)
@@ -356,7 +356,7 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingRuntimeHelpers(t *testin
 	if len(state.Backups) != backupsBefore+1 {
 		t.Fatalf("backup count = %d, want %d", len(state.Backups), backupsBefore+1)
 	}
-	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v7-migration" {
+	if got := state.Backups[len(state.Backups)-1].Reason; got != "before-compose-runtime-v8-migration" {
 		t.Fatalf("backup reason = %q", got)
 	}
 
@@ -422,8 +422,8 @@ func TestEnsureInstanceReadyMigratesRunnerComposeMissingWecomPatchHelper(t *test
 	if !strings.Contains(migratedCompose, "./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro") {
 		t.Fatalf("migrated compose missing dingtalk helper:\n%s", migratedCompose)
 	}
-	if !strings.Contains(migratedCompose, "./launcher/helpers/patch-dingtalk-images:/etc/cont-init.d/021-patch-dingtalk-images:ro") {
-		t.Fatalf("migrated compose missing dingtalk image patch helper:\n%s", migratedCompose)
+	if !strings.Contains(migratedCompose, "./launcher/helpers/patch-dingtalk-media:/etc/cont-init.d/021-patch-dingtalk-media:ro") {
+		t.Fatalf("migrated compose missing dingtalk media patch helper:\n%s", migratedCompose)
 	}
 	if strings.Contains(migratedCompose, "install-paddleocr-deps") {
 		t.Fatalf("migrated compose retained paddleocr startup helper:\n%s", migratedCompose)
@@ -452,8 +452,8 @@ func TestEnsureInstanceReadyRestoresRuntimeHelpers(t *testing.T) {
 	if err := os.Remove(dingtalkHelper); err != nil {
 		t.Fatal(err)
 	}
-	dingtalkImagePatch := filepath.Join(root, "launcher", "helpers", "patch-dingtalk-images")
-	if err := os.Remove(dingtalkImagePatch); err != nil {
+	dingtalkMediaPatch := filepath.Join(root, "launcher", "helpers", "patch-dingtalk-media")
+	if err := os.Remove(dingtalkMediaPatch); err != nil {
 		t.Fatal(err)
 	}
 	runtimeDepsVerifier := filepath.Join(root, "launcher", "helpers", "verify-runtime-deps")
@@ -479,7 +479,7 @@ func assertRuntimeHelpers(t *testing.T, root string) {
 	assertRuntimeDepsVerifierHelper(t, root)
 	assertFeishuDepsHelper(t, root)
 	assertDingTalkDepsHelper(t, root)
-	assertDingTalkImagePatchHelper(t, root)
+	assertDingTalkMediaPatchHelper(t, root)
 	assertWecomFilenamePatchHelper(t, root)
 	assertHomeChannelPromptPatchHelper(t, root)
 	assertHostctlHelper(t, root)
@@ -615,28 +615,44 @@ func assertDingTalkDepsHelper(t *testing.T, root string) {
 	}
 }
 
-func assertDingTalkImagePatchHelper(t *testing.T, root string) {
+func assertDingTalkMediaPatchHelper(t *testing.T, root string) {
 	t.Helper()
-	helper := filepath.Join(root, "launcher", "helpers", "patch-dingtalk-images")
+	helper := filepath.Join(root, "launcher", "helpers", "patch-dingtalk-media")
 	data, err := os.ReadFile(helper)
 	if err != nil {
-		t.Fatalf("expected patch-dingtalk-images helper: %v", err)
+		t.Fatalf("expected patch-dingtalk-media helper: %v", err)
 	}
 	content := string(data)
-	assertUnixRuntimeHelper(t, "patch-dingtalk-images", content)
+	assertUnixRuntimeHelper(t, "patch-dingtalk-media", content)
 	for _, want := range []string{
 		"/opt/hermes/gateway/platforms/dingtalk.py",
 		"444915b052ae9c922fcc76708ad73acc8844e928a811b162f98e4a67b9f22d19",
-		"HERMES_DOCK_DINGTALK_IMAGE_PATCH_V1",
+		"842ee304cacec43ea3369c79d0bc10c73b7fdc207dfb5928e96183c0a5f0a04f",
+		"7f2dfd4044ef536d68742a39b57b3e4df6923bdbe2830b9afacaf1bc2679263c",
+		"HERMES_DOCK_DINGTALK_MEDIA_PATCH_V2",
+		"HERMES_WRITE_SAFE_ROOT",
+		"path.relative_to(root)",
 		"https://oapi.dingtalk.com/media/upload",
 		"https://api.dingtalk.com/v1.0/robot/groupMessages/send",
 		"https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend",
 		"sampleImageMsg",
-		`json.dumps({"photoURL": media_id})`,
+		`params={"access_token": token, "type": media_type}`,
+		"async def send_document(",
+		"sampleFile",
+		`"mediaId": media_id`,
+		`"fileName": display_name`,
+		`"fileType": file_type`,
+		"async def send_voice(",
+		"sampleAudio",
+		"async def send_video(",
+		"sampleVideo",
+		`"videoMediaId": video_media_id`,
+		`"picMediaId": cover_media_id`,
+		"发送失败，请稍后重试或改用共享文件下载。",
 		"py_compile",
 	} {
 		if !strings.Contains(content, want) {
-			t.Fatalf("patch-dingtalk-images missing %q:\n%s", want, content)
+			t.Fatalf("patch-dingtalk-media missing %q:\n%s", want, content)
 		}
 	}
 	if runtime.GOOS != "windows" {
@@ -645,9 +661,89 @@ func assertDingTalkImagePatchHelper(t *testing.T, root string) {
 			t.Fatal(err)
 		}
 		if info.Mode()&0111 == 0 {
-			t.Fatalf("patch-dingtalk-images mode = %v, want executable bit", info.Mode())
+			t.Fatalf("patch-dingtalk-media mode = %v, want executable bit", info.Mode())
 		}
 	}
+}
+
+func TestDingTalkMediaPatchUpgradePathsAndUploadOrdering(t *testing.T) {
+	data, err := runtimeHelperFS.ReadFile("scripts/patch-dingtalk-media.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(data)
+	importNeedle := pythonAssignment(t, script, "import_needle", `"""`)
+	importReplacement := pythonAssignment(t, script, "import_replacement", `"""`)
+	methodNeedle := pythonAssignment(t, script, "method_needle", `'''`)
+	methodReplacement := pythonAssignment(t, script, "method_replacement", `'''`)
+
+	const getChatInfo = "    async def get_chat_info("
+	base := importNeedle + "\nclass DingTalkAdapter:\n" + methodNeedle + "\n" + getChatInfo
+	basePatched := strings.Replace(base, importNeedle, importReplacement, 1)
+	basePatched = strings.Replace(basePatched, methodNeedle, methodReplacement, 1)
+	v1 := importReplacement + "\nclass DingTalkAdapter:\n    # HERMES_DOCK_DINGTALK_IMAGE_PATCH_V1\n    old_patch = True\n" + getChatInfo
+	v1Start := strings.Index(v1, "    # HERMES_DOCK_DINGTALK_IMAGE_PATCH_V1\n")
+	v1End := strings.Index(v1[v1Start:], getChatInfo)
+	if v1Start < 0 || v1End < 0 {
+		t.Fatal("invalid V1 patch fixture")
+	}
+	v1End += v1Start
+	v1Patched := v1[:v1Start] + methodReplacement + "\n" + v1[v1End:]
+	if basePatched != v1Patched {
+		t.Fatal("base and V1 upgrade paths produce different adapters")
+	}
+	if strings.Count(basePatched, "HERMES_DOCK_DINGTALK_MEDIA_PATCH_V2") != 1 {
+		t.Fatal("patched adapter does not contain exactly one V2 marker")
+	}
+
+	for _, item := range []struct {
+		name string
+		next string
+	}{
+		{name: "send_image_file", next: "_send_dingtalk_file"},
+		{name: "_send_dingtalk_file", next: "send_document"},
+		{name: "send_voice", next: "send_video"},
+		{name: "send_video"},
+	} {
+		section := pythonMethodSection(t, methodReplacement, item.name, item.next)
+		targetIndex := strings.Index(section, "destination = self._dingtalk_media_target(chat_id)")
+		uploadIndex := strings.Index(section, "await self._upload_dingtalk_media(")
+		if targetIndex < 0 || uploadIndex < 0 || targetIndex > uploadIndex {
+			t.Fatalf("%s must resolve the DingTalk target before uploading", item.name)
+		}
+	}
+}
+
+func pythonAssignment(t *testing.T, script string, name string, quote string) string {
+	t.Helper()
+	token := name + " = " + quote
+	start := strings.Index(script, token)
+	if start < 0 {
+		t.Fatalf("missing Python assignment %s", name)
+	}
+	start += len(token)
+	end := strings.Index(script[start:], quote)
+	if end < 0 {
+		t.Fatalf("unterminated Python assignment %s", name)
+	}
+	return script[start : start+end]
+}
+
+func pythonMethodSection(t *testing.T, source string, name string, next string) string {
+	t.Helper()
+	startToken := "    async def " + name + "("
+	start := strings.Index(source, startToken)
+	if start < 0 {
+		t.Fatalf("missing Python method %s", name)
+	}
+	if next == "" {
+		return source[start:]
+	}
+	end := strings.Index(source[start+len(startToken):], "\n    async def "+next+"(")
+	if end < 0 {
+		t.Fatalf("missing Python method %s after %s", next, name)
+	}
+	return source[start : start+len(startToken)+end]
 }
 
 func assertWecomFilenamePatchHelper(t *testing.T, root string) {

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed scripts/hostctl.py scripts/install-dingtalk-deps.sh scripts/install-feishu-deps.sh scripts/patch-dingtalk-images.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh scripts/verify-runtime-deps.sh
+//go:embed scripts/hostctl.py scripts/install-dingtalk-deps.sh scripts/install-feishu-deps.sh scripts/patch-dingtalk-media.sh scripts/patch-home-channel-prompt.sh scripts/patch-wecom-filenames.sh scripts/verify-runtime-deps.sh
 var runtimeHelperFS embed.FS
 
 func (a *App) runtimeDepsVerifierHelperPath() string {
@@ -24,8 +24,8 @@ func (a *App) dingtalkDepsHelperPath() string {
 	return filepath.Join(a.hermesDockDir(), "helpers", "install-dingtalk-deps")
 }
 
-func (a *App) dingtalkImagePatchHelperPath() string {
-	return filepath.Join(a.hermesDockDir(), "helpers", "patch-dingtalk-images")
+func (a *App) dingtalkMediaPatchHelperPath() string {
+	return filepath.Join(a.hermesDockDir(), "helpers", "patch-dingtalk-media")
 }
 
 func (a *App) wecomFilenamePatchHelperPath() string {
@@ -52,8 +52,8 @@ func (a *App) ensureDingTalkDepsHelper() error {
 	return a.ensureRuntimeHelper("scripts/install-dingtalk-deps.sh", a.dingtalkDepsHelperPath(), "钉钉依赖 helper")
 }
 
-func (a *App) ensureDingTalkImagePatchHelper() error {
-	return a.ensureRuntimeHelper("scripts/patch-dingtalk-images.sh", a.dingtalkImagePatchHelperPath(), "钉钉图片发送补丁 helper")
+func (a *App) ensureDingTalkMediaPatchHelper() error {
+	return a.ensureRuntimeHelper("scripts/patch-dingtalk-media.sh", a.dingtalkMediaPatchHelperPath(), "钉钉媒体发送补丁 helper")
 }
 
 func (a *App) ensureWecomFilenamePatchHelper() error {
@@ -81,7 +81,7 @@ func (a *App) ensureContainerInitHelpers() error {
 	if err := a.ensureDingTalkDepsHelper(); err != nil {
 		return err
 	}
-	if err := a.ensureDingTalkImagePatchHelper(); err != nil {
+	if err := a.ensureDingTalkMediaPatchHelper(); err != nil {
 		return err
 	}
 	if err := a.ensureWecomFilenamePatchHelper(); err != nil {
