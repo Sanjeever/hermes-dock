@@ -13,6 +13,7 @@ type AppState struct {
 	Environment      []EnvVar                   `json:"environment"`
 	Model            ModelConfig                `json:"model"`
 	Providers        ProviderConfig             `json:"providers"`
+	DingTalk         DingTalkSettings           `json:"dingtalk"`
 	Channels         ChannelFile                `json:"channels"`
 	DockerAvailable  bool                       `json:"dockerAvailable"`
 	ComposeAvailable bool                       `json:"composeAvailable"`
@@ -581,4 +582,10 @@ type DingTalkConfig struct {
 	ClientID       string `json:"clientId"`
 	ClientSecret   string `json:"clientSecret"`
 	RequireMention bool   `json:"requireMention"`
+	CardTemplateID string `json:"cardTemplateId"`
+}
+
+type DingTalkSettings struct {
+	CardTemplateID             string `json:"cardTemplateId"`
+	RecommendedSettingsApplied bool   `json:"recommendedSettingsApplied"`
 }

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestSaveWeComConfigNormalizesPoliciesAndClearsAllowlists(t *testing.T) {
@@ -152,6 +155,116 @@ func TestSaveDingTalkConfigUsesOpenAccessAndPreservesMaskedSecret(t *testing.T) 
 	}
 }
 
+func TestSaveDingTalkConfigStoresOptionalCardTemplateID(t *testing.T) {
+	app := newTestApp(t)
+
+	if err := app.SaveDingTalkConfig(DingTalkConfig{
+		ClientID:       "app-key",
+		ClientSecret:   "secret",
+		RequireMention: true,
+		CardTemplateID: "  card-template-1  ",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := app.readDingTalkSettingsForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.CardTemplateID != "card-template-1" {
+		t.Fatalf("card template ID = %q", settings.CardTemplateID)
+	}
+	if !settings.RecommendedSettingsApplied {
+		t.Fatal("saving a card template should preserve recommended settings")
+	}
+}
+
+func TestSaveDingTalkConfigStoresCardTemplateWithoutCredentials(t *testing.T) {
+	app := newTestApp(t)
+
+	if err := app.SaveDingTalkConfig(DingTalkConfig{
+		RequireMention: true,
+		CardTemplateID: "card-template-only",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := app.readDingTalkSettingsForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.CardTemplateID != "card-template-only" {
+		t.Fatalf("card template ID = %q", settings.CardTemplateID)
+	}
+}
+
+func TestApplyRecommendedDingTalkSettingsBacksUpAndPreservesCardTemplate(t *testing.T) {
+	app := newTestApp(t)
+	configPath := app.profileConfigPath(defaultProfileID)
+	cfg, err := app.readConfigMapForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg["group_sessions_per_user"] = true
+	cfg["custom_setting"] = "keep"
+	display := asMap(cfg["display"])
+	platforms := asMap(display["platforms"])
+	delete(platforms, "dingtalk")
+	display["platforms"] = platforms
+	cfg["display"] = display
+	dingTalk := asMap(asMap(cfg["platforms"])["dingtalk"])
+	extra := asMap(dingTalk["extra"])
+	extra["card_template_id"] = "card-template-1"
+	dingTalk["extra"] = extra
+	configPlatforms := asMap(cfg["platforms"])
+	configPlatforms["dingtalk"] = dingTalk
+	cfg["platforms"] = configPlatforms
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteFile(configPath, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	stateBefore, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.ApplyRecommendedDingTalkSettingsForProfile(defaultProfileID); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := app.readDingTalkSettingsForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.RecommendedSettingsApplied {
+		t.Fatal("recommended settings were not applied")
+	}
+	if settings.CardTemplateID != "card-template-1" {
+		t.Fatalf("card template ID = %q", settings.CardTemplateID)
+	}
+	updated, err := app.readConfigMapForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asString(updated["custom_setting"]) != "keep" {
+		t.Fatal("custom config was not preserved")
+	}
+	stateAfter, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stateAfter.Backups) != len(stateBefore.Backups)+1 {
+		t.Fatalf("backups = %d, want %d", len(stateAfter.Backups), len(stateBefore.Backups)+1)
+	}
+	backupPath := filepath.Join(app.instanceRoot, stateAfter.Backups[len(stateAfter.Backups)-1].Path)
+	if _, err := os.Stat(backupPath); err != nil {
+		t.Fatalf("recommended settings backup missing: %v", err)
+	}
+}
+
 func TestUnbindPlatformClearsWeixinBinding(t *testing.T) {
 	app := newTestAppWithDefaultEnv(t, []EnvVar{
 		{Key: "WEIXIN_ACCOUNT_ID", Value: "wx-account"},
@@ -239,12 +352,19 @@ func TestUnbindPlatformClearsFeishuBinding(t *testing.T) {
 }
 
 func TestUnbindPlatformClearsDingTalkBinding(t *testing.T) {
-	app := newTestAppWithDefaultEnv(t, []EnvVar{
-		{Key: "DINGTALK_CLIENT_ID", Value: "app-key"},
-		{Key: "DINGTALK_CLIENT_SECRET", Value: "secret"},
-		{Key: "DINGTALK_ALLOWED_USERS", Value: "user-a"},
-		{Key: "DINGTALK_REQUIRE_MENTION", Value: "false"},
-	})
+	app := newTestApp(t)
+	if err := app.SaveDingTalkConfig(DingTalkConfig{
+		ClientID:       "app-key",
+		ClientSecret:   "secret",
+		RequireMention: false,
+		CardTemplateID: "card-template-1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := app.UnbindPlatform("dingtalk"); err != nil {
 		t.Fatal(err)
@@ -264,6 +384,30 @@ func TestUnbindPlatformClearsDingTalkBinding(t *testing.T) {
 		if got := envValue(env, key); got != want {
 			t.Fatalf("%s = %q, want %q", key, got, want)
 		}
+	}
+	settings, err := app.readDingTalkSettingsForProfile(defaultProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.CardTemplateID != "" {
+		t.Fatalf("card template ID = %q, want empty", settings.CardTemplateID)
+	}
+	stateAfter, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	configBackupFound := false
+	for _, backup := range stateAfter.Backups[len(stateBefore.Backups):] {
+		if backup.Reason != "before-dingtalk-card-template-save" {
+			continue
+		}
+		configBackupFound = true
+		if _, err := os.Stat(filepath.Join(app.instanceRoot, backup.Path)); err != nil {
+			t.Fatalf("dingtalk config backup missing: %v", err)
+		}
+	}
+	if !configBackupFound {
+		t.Fatal("dingtalk unbind did not record a config backup")
 	}
 }
 

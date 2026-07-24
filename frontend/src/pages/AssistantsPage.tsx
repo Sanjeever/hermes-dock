@@ -4,7 +4,7 @@ import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
-import type {AppState, AuxModel, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
+import type {AppState, AuxModel, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, DingTalkSettings, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
 import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, providerReferenceLabels, slugProfileID} from '../utils';
 import {assistantStatusClass, assistantStatusLabel, createProfileValidationMessage, formatBytes, skillSummaryLabel, suggestProfileID, wizardStepHelp} from './assistantUtils';
 import {AssistantWizard} from './AssistantWizard';
@@ -17,6 +17,8 @@ export function AssistantsPage(props: {
     state: AppState;
     env: EnvVar[];
     setEnv: (value: EnvVar[]) => void;
+    dingTalkSettings: DingTalkSettings;
+    setDingTalkSettings: (value: DingTalkSettings) => void;
     providers: ProviderConfig;
     setProviders: (value: ProviderConfig) => void;
     selectedProvider: string;
@@ -86,6 +88,7 @@ export function AssistantsPage(props: {
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
 	onSaveDingTalk: () => Promise<boolean>;
+    onApplyRecommendedDingTalkSettings: () => Promise<boolean>;
     onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
@@ -384,6 +387,8 @@ export function AssistantsPage(props: {
                         profileID={activeProfile.id}
                         profileName={activeProfile.name || activeProfile.id}
                         env={props.env}
+                        dingTalkSettings={props.dingTalkSettings}
+                        setDingTalkSettings={props.setDingTalkSettings}
                         providers={props.providers}
                         setProviders={props.setProviders}
                         selectedProvider={props.selectedProvider}
@@ -426,6 +431,7 @@ export function AssistantsPage(props: {
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
 						onSaveDingTalk={props.onSaveDingTalk}
+                        onApplyRecommendedDingTalkSettings={props.onApplyRecommendedDingTalkSettings}
                         onUnbindPlatform={props.onUnbindPlatform}
                         onSaveCurrentPlatform={props.onSaveCurrentPlatform}
                         onFinishSetup={props.onFinishSetup}

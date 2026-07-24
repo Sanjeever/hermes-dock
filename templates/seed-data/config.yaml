@@ -232,6 +232,7 @@ streaming:
   edit_interval: 0.8
   buffer_threshold: 24
   cursor: " ▉"
+group_sessions_per_user: false
 display:
   language: zh
   interface: cli
@@ -246,6 +247,11 @@ display:
       streaming: false
     wecom:
       streaming: false
+    dingtalk:
+      show_reasoning: true
+      streaming: true
+      tool_progress: off
+      interim_assistant_messages: false
 dashboard:
   theme: default
 privacy:

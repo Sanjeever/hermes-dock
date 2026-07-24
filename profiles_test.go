@@ -221,6 +221,22 @@ func TestCreateProfileRewritesProfileHomeHints(t *testing.T) {
 	if asBool(asMap(platforms["wecom"])["streaming"]) {
 		t.Fatal("wecom streaming should be disabled")
 	}
+	if groupSessionsPerUser, ok := configMap["group_sessions_per_user"].(bool); !ok || groupSessionsPerUser {
+		t.Fatal("group sessions should be shared by default")
+	}
+	dingTalkDisplay := asMap(platforms["dingtalk"])
+	if !asBool(dingTalkDisplay["show_reasoning"]) {
+		t.Fatal("dingtalk reasoning should be shown")
+	}
+	if !asBool(dingTalkDisplay["streaming"]) {
+		t.Fatal("dingtalk streaming should be enabled")
+	}
+	if asString(dingTalkDisplay["tool_progress"]) != "off" {
+		t.Fatal("dingtalk tool progress should be disabled")
+	}
+	if interim, ok := dingTalkDisplay["interim_assistant_messages"].(bool); !ok || interim {
+		t.Fatal("dingtalk interim assistant messages should be disabled")
+	}
 	soul, err := os.ReadFile(filepath.Join(dir, "SOUL.md"))
 	if err != nil {
 		t.Fatal(err)

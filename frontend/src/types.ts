@@ -247,6 +247,7 @@ export type AppState = {
     environment: EnvVar[];
     model: ModelConfig;
     providers: ProviderConfig;
+    dingtalk: DingTalkSettings;
     channels: ChannelFile;
     dockerAvailable: boolean;
     composeAvailable: boolean;
@@ -257,6 +258,11 @@ export type AppState = {
     update: UpdateStatus;
     applyConfig: ApplyConfigStatus;
     bundledContent: BundledContentAvailability;
+};
+
+export type DingTalkSettings = {
+    cardTemplateId: string;
+    recommendedSettingsApplied: boolean;
 };
 
 export type DufsStatus = {

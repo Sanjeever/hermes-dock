@@ -61,7 +61,7 @@ func TestEnsureInstanceReadyDoesNotRewriteExistingProfileConfigs(t *testing.T) {
 	}
 
 	configs := map[string][]byte{
-		defaultProfileID: []byte("# 保留用户原始格式\nstreaming:\n  enabled: false\ncustom_setting: keep\n"),
+		defaultProfileID: []byte("# 保留用户原始格式\ngroup_sessions_per_user: true\nstreaming:\n  enabled: false\ndisplay:\n  platforms:\n    dingtalk:\n      show_reasoning: false\n      streaming: false\ncustom_setting: keep\n"),
 		"sales":          []byte("display:\n  platforms:\n    feishu:\n      streaming: false\n"),
 	}
 	for id, content := range configs {

@@ -3,12 +3,15 @@ import {CheckCircle2, MessageSquare, QrCode, Save, Square, Unlink} from 'lucide-
 import {QRCodeSVG} from 'qrcode.react';
 import {FeishuGroupPolicySelect, Field, PolicySelect, SecretField} from '../components/fields';
 import {IconButton} from '../components/primitives';
-import type {EnvVar, PlatformKey} from '../types';
+import type {DingTalkSettings, EnvVar, PlatformKey} from '../types';
 import {enumValue, envValue, setEnvValue} from '../utils';
 
 export function PlatformsPage(props: {
     env: EnvVar[];
     setEnv: (value: EnvVar[]) => void;
+    dingTalkSettings: DingTalkSettings;
+    setDingTalkSettings: (value: DingTalkSettings) => void;
+    dirty: boolean;
     qrData: string;
     qrStatus: string;
     qrPlatform: PlatformKey | '';
@@ -24,6 +27,7 @@ export function PlatformsPage(props: {
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
     onSaveDingTalk: () => Promise<boolean>;
+    onApplyRecommendedDingTalkSettings: () => Promise<boolean>;
     onUnbind: (platform: PlatformKey) => void;
 }) {
     const [confirmUnbind, setConfirmUnbind] = useState<PlatformKey | null>(null);
@@ -61,7 +65,7 @@ export function PlatformsPage(props: {
             {props.selected === 'weixin' && <WeixinPanel env={props.env} qrData={props.qrPlatform === 'weixin' ? props.qrData : ''} qrStatus={props.qrPlatform === 'weixin' ? props.qrStatus : ''} busy={props.busy} onWeixinLogin={props.onWeixinLogin} onCancelWeixin={props.onCancelWeixin} onUnbind={() => requestUnbind('weixin')}/>}
             {props.selected === 'wecom' && <WeComPanel env={props.env} set={set} busy={props.busy} onSave={props.onSaveWeCom} onUnbind={() => requestUnbind('wecom')}/>}
             {props.selected === 'feishu' && <FeishuPanel env={props.env} set={set} qrData={props.qrPlatform === 'feishu' ? props.qrData : ''} qrStatus={props.qrPlatform === 'feishu' ? props.qrStatus : ''} busy={props.busy} onLogin={props.onFeishuLogin} onCancel={props.onCancelFeishu} onSave={props.onSaveFeishu} onUnbind={() => requestUnbind('feishu')}/>}
-            {props.selected === 'dingtalk' && <DingTalkPanel env={props.env} set={set} qrData={props.qrPlatform === 'dingtalk' ? props.qrData : ''} qrStatus={props.qrPlatform === 'dingtalk' ? props.qrStatus : ''} busy={props.busy} onLogin={props.onDingTalkLogin} onCancel={props.onCancelDingTalk} onSave={props.onSaveDingTalk} onUnbind={() => requestUnbind('dingtalk')}/>}
+            {props.selected === 'dingtalk' && <DingTalkPanel env={props.env} set={set} settings={props.dingTalkSettings} setSettings={props.setDingTalkSettings} dirty={props.dirty} qrData={props.qrPlatform === 'dingtalk' ? props.qrData : ''} qrStatus={props.qrPlatform === 'dingtalk' ? props.qrStatus : ''} busy={props.busy} onLogin={props.onDingTalkLogin} onCancel={props.onCancelDingTalk} onSave={props.onSaveDingTalk} onApplyRecommended={props.onApplyRecommendedDingTalkSettings} onUnbind={() => requestUnbind('dingtalk')}/>}
         </section>
     );
 }
@@ -169,14 +173,16 @@ function FeishuPanel(props: { env: EnvVar[]; set: (key: string, value: string) =
     );
 }
 
-function DingTalkPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; qrData: string; qrStatus: string; busy: boolean; onLogin: () => void; onCancel: () => void; onSave: () => Promise<boolean>; onUnbind: () => void }) {
+function DingTalkPanel(props: { env: EnvVar[]; set: (key: string, value: string) => void; settings: DingTalkSettings; setSettings: (value: DingTalkSettings) => void; dirty: boolean; qrData: string; qrStatus: string; busy: boolean; onLogin: () => void; onCancel: () => void; onSave: () => Promise<boolean>; onApplyRecommended: () => Promise<boolean>; onUnbind: () => void }) {
     const clientID = envValue(props.env, 'DINGTALK_CLIENT_ID');
     const clientSecret = envValue(props.env, 'DINGTALK_CLIENT_SECRET');
     const requireMention = envValue(props.env, 'DINGTALK_REQUIRE_MENTION') !== 'false';
-    const canSave = clientID.trim() !== '' && clientSecret.trim() !== '';
-    const bound = canSave;
+    const bound = clientID.trim() !== '' && clientSecret.trim() !== '';
+    const credentialsPartial = (clientID.trim() === '') !== (clientSecret.trim() === '');
+    const canSave = !credentialsPartial && (bound || props.dirty);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [secretVisible, setSecretVisible] = useState(false);
+    const [confirmRecommended, setConfirmRecommended] = useState(false);
     return (
         <div className="panel">
             <p className="eyebrow">钉钉 Stream 机器人</p>
@@ -195,11 +201,29 @@ function DingTalkPanel(props: { env: EnvVar[]; set: (key: string, value: string)
                     <Field label="AppKey" value={clientID} onChange={(value) => props.set('DINGTALK_CLIENT_ID', value)}/>
                     <SecretField label="AppSecret" value={clientSecret} visible={secretVisible} setVisible={setSecretVisible} onChange={(value) => props.set('DINGTALK_CLIENT_SECRET', value)}/>
                     <label className="mini-toggle"><input type="checkbox" checked={requireMention} onChange={(event) => props.set('DINGTALK_REQUIRE_MENTION', event.target.checked ? 'true' : 'false')}/>群聊仅在 @机器人时回复</label>
+                    <Field label="AI 卡片模板 ID（选填）" value={props.settings.cardTemplateId} onChange={(value) => props.setSettings({...props.settings, cardTemplateId: value})}/>
                 </div>
-                <div className="setting-note">默认允许所有钉钉用户访问；扫码页可能显示 openClaw，这是钉钉授权页的来源标识。</div>
-                {!canSave && <div className="form-warning">请填写 AppKey 和 AppSecret 后再保存。</div>}
+                <div className="setting-note">填写模板 ID 后使用流式 AI 卡片回复；留空时使用 Markdown。默认允许所有钉钉用户访问。</div>
+                {props.settings.recommendedSettingsApplied ? (
+                    <div className="setting-note"><CheckCircle2 size={16}/>已应用推荐行为：群共享会话、显示推理、流式回复，并隐藏工具进度和中间注释。</div>
+                ) : confirmRecommended ? (
+                    <div className="danger-confirm platform-unbind-confirm">
+                        <span>这会先备份当前 config.yaml，再开启流式总开关并让整个群共享一个会话。这两项全局设置也可能影响当前助手绑定的其他消息平台。</span>
+                        <button className="primary no-margin" onClick={async () => {
+                            if (await props.onApplyRecommended()) setConfirmRecommended(false);
+                        }} disabled={props.busy}>确认应用</button>
+                        <button className="ghost" onClick={() => setConfirmRecommended(false)} disabled={props.busy}>取消</button>
+                    </div>
+                ) : (
+                    <div className="actions">
+                        <button className="ghost" onClick={() => setConfirmRecommended(true)} disabled={props.busy || props.dirty}>应用推荐钉钉设置</button>
+                        {props.dirty && <span className="form-warning">请先保存当前修改。</span>}
+                    </div>
+                )}
+                <div className="setting-note">扫码页可能显示 openClaw，这是钉钉授权页的来源标识。</div>
+                {credentialsPartial && <div className="form-warning">AppKey 和 AppSecret 必须同时填写。</div>}
                 <div className="actions">
-                    <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>保存钉钉配置</button>
+                    <button className="primary" onClick={props.onSave} disabled={props.busy || !canSave}><Save size={16}/>{bound ? '保存钉钉配置' : '保存高级设置'}</button>
                 </div>
             </>}
         </div>

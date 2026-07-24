@@ -783,7 +783,7 @@ func writeJSON(w http.ResponseWriter, status int, value interface{}) {
 }
 
 func (a *App) webRPCHandlers() map[string]webRPCHandler {
-	return map[string]webRPCHandler{
+	handlers := map[string]webRPCHandler{
 		"GetAppStateForProfile":        oneArgValue[string, AppState](a.GetAppStateForProfile),
 		"StartHermes":                  a.webLocked(a.StartHermes),
 		"StopHermes":                   a.webLocked(a.StopHermes),
@@ -866,6 +866,8 @@ func (a *App) webRPCHandlers() map[string]webRPCHandler {
 		"OpenUpdateURL":        oneArg[string](a.OpenUpdateURL),
 		"OpenWebManagement":    noResult(a.OpenWebManagement),
 	}
+	handlers["ApplyRecommendedDingTalkSettingsForProfile"] = oneArg[string](a.ApplyRecommendedDingTalkSettingsForProfile)
+	return handlers
 }
 
 func (a *App) webStartLogTail(clientID string) error {

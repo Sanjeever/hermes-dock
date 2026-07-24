@@ -108,6 +108,7 @@ export const SaveProviderConfig = (profileID: string, providers: ProviderConfig)
 export const SaveWeComConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveWeComConfigForProfile', [profileID, config]);
 export const SaveFeishuConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveFeishuConfigForProfile', [profileID, config]);
 export const SaveDingTalkConfig = (profileID: string, config: unknown) => wailsOrRPC<void>('SaveDingTalkConfigForProfile', [profileID, config]);
+export const ApplyRecommendedDingTalkSettings = (profileID: string) => wailsOrRPC<void>('ApplyRecommendedDingTalkSettingsForProfile', [profileID]);
 export const UnbindPlatform = (profileID: string, platform: string) => wailsOrRPC<void>('UnbindPlatformForProfile', [profileID, platform]);
 export const FetchProviderConfigModelList = (profileID: string, provider: ProviderEntry) => wailsOrRPC<unknown[]>('FetchProviderConfigModelListForProfile', [profileID, provider]);
 export const SetHomeChannel = (profileID: string, platform: string, id: string) => wailsOrRPC<void>('SetHomeChannelForProfile', [profileID, platform, id]);

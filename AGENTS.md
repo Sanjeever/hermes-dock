@@ -326,6 +326,9 @@ Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 
 
 - 只支持 Stream 模式。支持扫码创建并绑定机器人，或在“使用已有应用（高级）”中手动填写 AppKey 和 AppSecret；不做 webhook。
 - 默认 `DINGTALK_ALLOW_ALL_USERS=true`，默认 `DINGTALK_REQUIRE_MENTION=true`，`DINGTALK_ALLOWED_USERS` 保持为空。
+- 新 profile 默认设置 `group_sessions_per_user=false`，使整个群共享一份对话历史；该字段是 profile 级全局设置，也会影响同一 profile 的其他群聊平台。
+- 新 profile 默认在钉钉回复中显示模型推理、启用流式响应、关闭工具执行进度并关闭中间注释消息。钉钉推荐设置会开启 profile 级流式总开关，可能同时启用其他已配置为流式的平台，UI 确认时必须披露。
+- 钉钉 AI 卡片模板 ID 按 profile 选填，可在未绑定时独立保存；填写后使用流式 AI 卡片，留空时使用 Markdown。取消绑定时备份并清除模板 ID，避免新应用继承旧配置。已有 profile 只能通过显式操作应用推荐设置，写入 `config.yaml` 前必须备份，不做静默迁移。
 - 扫码成功后才替换当前 profile 凭据，AppSecret 不返回 UI 或日志。
 - 多 profile 版本中 `DINGTALK_CLIENT_ID` 在 enabled profiles 中必须唯一。
 - 钉钉 Python 依赖由 `/etc/cont-init.d/020-install-dingtalk-deps` 自动安装 `dingtalk-stream==0.24.3`、`alibabacloud-dingtalk==2.2.42` 和 `qrcode==7.4.2`，不读取或输出 AppSecret。

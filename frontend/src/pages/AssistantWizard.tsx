@@ -2,7 +2,7 @@ import {CheckCircle2, ChevronLeft, ChevronRight, RefreshCcw} from 'lucide-react'
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
 import {ModelServiceStep} from './ModelServiceStep';
-import type {EnvVar, ModelConfig, ModelOption, PlatformKey, ProviderConfig, WizardStep} from '../types';
+import type {DingTalkSettings, EnvVar, ModelConfig, ModelOption, PlatformKey, ProviderConfig, WizardStep} from '../types';
 import {wizardStepHelp} from './assistantUtils';
 
 export function AssistantWizard(props: {
@@ -11,6 +11,8 @@ export function AssistantWizard(props: {
     profileID: string;
     profileName: string;
     env: EnvVar[];
+    dingTalkSettings: DingTalkSettings;
+    setDingTalkSettings: (value: DingTalkSettings) => void;
     providers: ProviderConfig;
     setProviders: (value: ProviderConfig) => void;
     selectedProvider: string;
@@ -53,6 +55,7 @@ export function AssistantWizard(props: {
     onSaveWeCom: () => Promise<boolean>;
     onSaveFeishu: () => Promise<boolean>;
 	onSaveDingTalk: () => Promise<boolean>;
+    onApplyRecommendedDingTalkSettings: () => Promise<boolean>;
     onUnbindPlatform: (platform: PlatformKey) => void;
     onSaveCurrentPlatform: () => Promise<boolean>;
     onFinishSetup: (apply: boolean) => Promise<boolean>;
@@ -137,6 +140,9 @@ export function AssistantWizard(props: {
                     <PlatformsPage
                         env={props.env}
                         setEnv={props.setEnv}
+                        dingTalkSettings={props.dingTalkSettings}
+                        setDingTalkSettings={props.setDingTalkSettings}
+                        dirty={props.platformDirty}
                         qrData={props.qrData}
                         qrStatus={props.qrStatus}
 						qrPlatform={props.qrPlatform}
@@ -152,6 +158,7 @@ export function AssistantWizard(props: {
                         onSaveWeCom={props.onSaveWeCom}
                         onSaveFeishu={props.onSaveFeishu}
 						onSaveDingTalk={props.onSaveDingTalk}
+                        onApplyRecommendedDingTalkSettings={props.onApplyRecommendedDingTalkSettings}
                         onUnbind={props.onUnbindPlatform}
                     />
                     <WizardNav previous={previous} next={next} busy={props.busy} onPrevious={(step) => step && goToStep(step)} onNext={async () => {

@@ -180,6 +180,7 @@ func TestWebRPCProfileOperationsRequireExplicitProfile(t *testing.T) {
 		"SaveModelConfigForProfile",
 		"SaveFeishuConfigForProfile",
 		"SaveDingTalkConfigForProfile",
+		"ApplyRecommendedDingTalkSettingsForProfile",
 		"StartDingTalkLoginForProfile",
 		"ListProfileSkillsForProfile",
 		"BatchDeleteSkillsForProfile",

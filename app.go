@@ -141,6 +141,10 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 	if err != nil {
 		return AppState{}, err
 	}
+	dingTalk, err := a.readDingTalkSettingsForProfile(profileID)
+	if err != nil {
+		return AppState{}, err
+	}
 	channels, err := a.GetChannelsForProfile(profileID)
 	if err != nil {
 		return AppState{}, err
@@ -160,6 +164,7 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 		Environment:      env,
 		Model:            model,
 		Providers:        providers,
+		DingTalk:         dingTalk,
 		Channels:         channels,
 		DockerAvailable:  commandExists("docker"),
 		ComposeAvailable: a.composeAvailable(context.Background()),

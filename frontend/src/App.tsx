@@ -9,6 +9,7 @@ import {
     CancelWeixinLogin,
     CancelFeishuLogin,
 	CancelDingTalkLogin,
+    ApplyRecommendedDingTalkSettings,
     BatchCopyProfileConfig,
     CompleteProfileSetup,
     CreateProfile,
@@ -69,7 +70,7 @@ import {AssistantsPage} from './pages/AssistantsPage';
 import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
-import type {ApplyConfigStatus, AppState, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, ComposeSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
+import type {ApplyConfigStatus, AppState, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, ComposeSettings, DingTalkSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
 import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, shouldPollRuntimeStatus, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
@@ -96,6 +97,7 @@ function App() {
 	const deployEditRevisionRef = useRef(0);
     const firstRunWizardCheckedRef = useRef(false);
     const [env, setEnv] = useState<EnvVar[]>([]);
+    const [dingTalkSettings, setDingTalkSettings] = useState<DingTalkSettings>({cardTemplateId: '', recommendedSettingsApplied: false});
     const [compose, setCompose] = useState<ComposeSettings | null>(null);
     const [proxy, setProxy] = useState<ProxySettings | null>(null);
     const [model, setModel] = useState<ModelConfig | null>(null);
@@ -362,6 +364,7 @@ function App() {
         const nextEnv = nextState.environment || [];
         if (!platformDirtyRef.current) {
             setEnv(nextEnv);
+            setDingTalkSettings(nextState.dingtalk || {cardTemplateId: '', recommendedSettingsApplied: false});
         }
         if (!deployDirtyRef.current) {
             setCompose(nextState.compose);
@@ -928,8 +931,10 @@ function App() {
 			setNotice({type: 'error', message: '平台扫码绑定进行中，请先完成或取消'});
 			return false;
 		}
-		if (envValue(env, 'DINGTALK_CLIENT_ID').trim() === '' || envValue(env, 'DINGTALK_CLIENT_SECRET').trim() === '') {
-			const message = '请填写钉钉 AppKey 和 AppSecret 后再保存';
+        const clientID = envValue(env, 'DINGTALK_CLIENT_ID').trim();
+        const clientSecret = envValue(env, 'DINGTALK_CLIENT_SECRET').trim();
+		if ((clientID === '') !== (clientSecret === '')) {
+			const message = '钉钉 AppKey 和 AppSecret 必须同时填写';
 			setNotice({type: 'error', message});
 			setLastOperationError(message);
 			return false;
@@ -940,10 +945,24 @@ function App() {
 			clientId: envValue(env, 'DINGTALK_CLIENT_ID'),
 			clientSecret: envValue(env, 'DINGTALK_CLIENT_SECRET'),
 			requireMention: envValue(env, 'DINGTALK_REQUIRE_MENTION') !== 'false',
+            cardTemplateId: dingTalkSettings.cardTemplateId,
 		}), {rebuildRequired: true, beforeRefresh: () => {
 			if (revision === platformEditRevisionRef.current) markPlatformDirty(false);
 		}});
 	}
+
+    async function applyRecommendedDingTalkSettings() {
+        if (platformDirty) {
+            const message = '当前钉钉配置有未保存修改，请先保存后再应用推荐设置';
+            setNotice({type: 'error', message});
+            setLastOperationError(message);
+            return false;
+        }
+        const profileID = activeProfileRef.current || 'default';
+        return await run('正在应用钉钉推荐设置', () => ApplyRecommendedDingTalkSettings(profileID), {
+            rebuildRequired: true,
+        });
+    }
 
     async function unbindPlatform(platform: PlatformKey) {
         const label = platformLabel(platform);
@@ -1401,6 +1420,11 @@ function App() {
                             setEnv(value);
                             markPlatformDirty(true);
                         }}
+                        dingTalkSettings={dingTalkSettings}
+                        setDingTalkSettings={(value) => {
+                            setDingTalkSettings(value);
+                            markPlatformDirty(true);
+                        }}
                         providers={providers}
                         setProviders={(value) => {
                             setProviders(value);
@@ -1485,6 +1509,7 @@ function App() {
                         onSaveWeCom={saveWeComConfig}
                         onSaveFeishu={saveFeishuConfig}
 						onSaveDingTalk={saveDingTalkConfig}
+                        onApplyRecommendedDingTalkSettings={applyRecommendedDingTalkSettings}
                         onUnbindPlatform={unbindPlatform}
                         onSaveCurrentPlatform={saveCurrentPlatform}
                         onFinishSetup={finishProfileSetup}

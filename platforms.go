@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 func (a *App) SaveWeComConfig(config WeComConfig) error {
@@ -83,6 +85,9 @@ func (a *App) SaveDingTalkConfigForProfile(profileID string, config DingTalkConf
 	if err != nil {
 		return err
 	}
+	if err := a.saveDingTalkCardTemplateID(profileID, config.CardTemplateID); err != nil {
+		return err
+	}
 	env, err := readEnvFile(a.profileEnvPath(profileID))
 	if err != nil {
 		return err
@@ -95,6 +100,117 @@ func (a *App) SaveDingTalkConfigForProfile(profileID string, config DingTalkConf
 		{Key: "DINGTALK_REQUIRE_MENTION", Value: fmt.Sprintf("%t", config.RequireMention)},
 	}
 	return a.SaveEnvironmentForProfile(profileID, mergeEnv(env, updates))
+}
+
+func (a *App) ApplyRecommendedDingTalkSettings() error {
+	return a.ApplyRecommendedDingTalkSettingsForProfile(a.currentProfileID())
+}
+
+func (a *App) ApplyRecommendedDingTalkSettingsForProfile(profileID string) error {
+	profileID, err := a.resolveProfileID(profileID)
+	if err != nil {
+		return err
+	}
+	cfg, err := a.readConfigMapForProfile(profileID)
+	if err != nil {
+		return fmt.Errorf("读取 config.yaml 失败：%w", err)
+	}
+	if dingTalkRecommendedSettingsApplied(cfg) {
+		return nil
+	}
+
+	cfg["group_sessions_per_user"] = false
+	streaming := asMap(cfg["streaming"])
+	streaming["enabled"] = true
+	cfg["streaming"] = streaming
+
+	display := asMap(cfg["display"])
+	displayPlatforms := asMap(display["platforms"])
+	dingTalkDisplay := asMap(displayPlatforms["dingtalk"])
+	dingTalkDisplay["show_reasoning"] = true
+	dingTalkDisplay["streaming"] = true
+	dingTalkDisplay["tool_progress"] = "off"
+	dingTalkDisplay["interim_assistant_messages"] = false
+	displayPlatforms["dingtalk"] = dingTalkDisplay
+	display["platforms"] = displayPlatforms
+	cfg["display"] = display
+
+	if err := a.writeDingTalkConfigMap(profileID, cfg, "before-dingtalk-recommended-settings"); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
+}
+
+func (a *App) readDingTalkSettingsForProfile(profileID string) (DingTalkSettings, error) {
+	cfg, err := a.readConfigMapForProfile(profileID)
+	if err != nil {
+		return DingTalkSettings{}, fmt.Errorf("读取 config.yaml 失败：%w", err)
+	}
+	extra := asMap(asMap(asMap(cfg["platforms"])["dingtalk"])["extra"])
+	return DingTalkSettings{
+		CardTemplateID:             strings.TrimSpace(asString(extra["card_template_id"])),
+		RecommendedSettingsApplied: dingTalkRecommendedSettingsApplied(cfg),
+	}, nil
+}
+
+func (a *App) saveDingTalkCardTemplateID(profileID, cardTemplateID string) error {
+	cardTemplateID = strings.TrimSpace(cardTemplateID)
+	configPath := a.profileConfigPath(profileID)
+	if _, err := os.Stat(configPath); os.IsNotExist(err) && cardTemplateID == "" {
+		return nil
+	}
+	cfg, err := a.readConfigMapForProfile(profileID)
+	if err != nil {
+		return fmt.Errorf("读取 config.yaml 失败：%w", err)
+	}
+	platforms := asMap(cfg["platforms"])
+	dingTalk := asMap(platforms["dingtalk"])
+	extra := asMap(dingTalk["extra"])
+	if strings.TrimSpace(asString(extra["card_template_id"])) == cardTemplateID {
+		return nil
+	}
+	if cardTemplateID == "" {
+		delete(extra, "card_template_id")
+	} else {
+		extra["card_template_id"] = cardTemplateID
+	}
+	dingTalk["extra"] = extra
+	platforms["dingtalk"] = dingTalk
+	cfg["platforms"] = platforms
+	if err := a.writeDingTalkConfigMap(profileID, cfg, "before-dingtalk-card-template-save"); err != nil {
+		return err
+	}
+	return a.markRebuildRequired()
+}
+
+func (a *App) writeDingTalkConfigMap(profileID string, cfg map[string]interface{}, reason string) error {
+	configPath := a.profileConfigPath(profileID)
+	if err := a.backupFile(configPath, reason); err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return atomicWriteFile(configPath, data, 0644)
+}
+
+func dingTalkRecommendedSettingsApplied(cfg map[string]interface{}) bool {
+	groupSessionsPerUser, hasGroupSetting := cfg["group_sessions_per_user"].(bool)
+	streamingEnabled := asBool(asMap(cfg["streaming"])["enabled"])
+	dingTalkDisplay := asMap(asMap(asMap(cfg["display"])["platforms"])["dingtalk"])
+	toolProgress := dingTalkDisplay["tool_progress"]
+	toolProgressBool, toolProgressIsBool := toolProgress.(bool)
+	toolProgressOff := (toolProgressIsBool && !toolProgressBool) || strings.EqualFold(asString(toolProgress), "off")
+	interimMessages, hasInterimSetting := dingTalkDisplay["interim_assistant_messages"].(bool)
+	return hasGroupSetting &&
+		!groupSessionsPerUser &&
+		streamingEnabled &&
+		asBool(dingTalkDisplay["show_reasoning"]) &&
+		asBool(dingTalkDisplay["streaming"]) &&
+		toolProgressOff &&
+		hasInterimSetting &&
+		!interimMessages
 }
 
 func (a *App) UnbindPlatform(platform string) error {
@@ -149,6 +265,9 @@ func (a *App) UnbindPlatformForProfile(profileID string, platform string) error 
 		}
 	case "dingtalk":
 		if err := a.cancelProfileLoginSessionAndWait(profileID); err != nil {
+			return err
+		}
+		if err := a.saveDingTalkCardTemplateID(profileID, ""); err != nil {
 			return err
 		}
 		updates = []EnvVar{

@@ -186,6 +186,20 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class DingTalkSettings {
+	    cardTemplateId: string;
+	    recommendedSettingsApplied: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new DingTalkSettings(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cardTemplateId = source["cardTemplateId"];
+	        this.recommendedSettingsApplied = source["recommendedSettingsApplied"];
+	    }
+	}
 	export class ProviderConfigEntry {
 	    label: string;
 	    provider: string;
@@ -631,6 +645,7 @@ export namespace main {
 	    environment: EnvVar[];
 	    model: ModelConfig;
 	    providers: ProviderConfig;
+	    dingtalk: DingTalkSettings;
 	    channels: ChannelFile;
 	    dockerAvailable: boolean;
 	    composeAvailable: boolean;
@@ -660,6 +675,7 @@ export namespace main {
 	        this.environment = this.convertValues(source["environment"], EnvVar);
 	        this.model = this.convertValues(source["model"], ModelConfig);
 	        this.providers = this.convertValues(source["providers"], ProviderConfig);
+	        this.dingtalk = this.convertValues(source["dingtalk"], DingTalkSettings);
 	        this.channels = this.convertValues(source["channels"], ChannelFile);
 	        this.dockerAvailable = source["dockerAvailable"];
 	        this.composeAvailable = source["composeAvailable"];
@@ -898,6 +914,7 @@ export namespace main {
 	    clientId: string;
 	    clientSecret: string;
 	    requireMention: boolean;
+	    cardTemplateId: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DingTalkConfig(source);
@@ -908,10 +925,12 @@ export namespace main {
 	        this.clientId = source["clientId"];
 	        this.clientSecret = source["clientSecret"];
 	        this.requireMention = source["requireMention"];
+	        this.cardTemplateId = source["cardTemplateId"];
 	    }
 	}
-	
-	
+
+
+
 	export class FeishuConfig {
 	    appId: string;
 	    appSecret: string;
@@ -1677,4 +1696,3 @@ export namespace main {
 	}
 
 }
-
