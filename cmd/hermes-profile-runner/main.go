@@ -68,21 +68,26 @@ type supervisor struct {
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 	manifest, err := readManifest()
 	if err != nil {
 		fmt.Printf("[runner] %s\n", err)
-		select {}
+		<-ctx.Done()
+		return
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
 	ctx, cancel := context.WithCancel(ctx)
 	s := &supervisor{
 		cancel:   cancel,
 		profiles: manifest.Profiles,
 		status:   initialRuntimeStatus(manifest),
 	}
-	s.writeStatus()
+	if err := s.writeStatus(); err != nil {
+		fmt.Printf("[runner] write initial status failed: %s\n", redact(err.Error()))
+		<-ctx.Done()
+		return
+	}
 
 	var wg sync.WaitGroup
 	runnable := 0
@@ -383,23 +388,27 @@ func (s *supervisor) update(id string, next RuntimeProfileStatus) {
 	current.RestartCount = next.RestartCount
 	current.Message = next.Message
 	s.status.Profiles[id] = current
-	s.writeStatusLocked()
+	if err := s.writeStatusLocked(); err != nil {
+		fmt.Printf("[runner] write status failed: %s\n", redact(err.Error()))
+	}
 }
 
-func (s *supervisor) writeStatus() {
+func (s *supervisor) writeStatus() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.writeStatusLocked()
+	return s.writeStatusLocked()
 }
 
-func (s *supervisor) writeStatusLocked() {
+func (s *supervisor) writeStatusLocked() error {
 	s.status.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	_ = os.MkdirAll(filepath.Dir(statusPath), 0755)
+	if err := os.MkdirAll(filepath.Dir(statusPath), 0755); err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(s.status, "", "  ")
 	if err != nil {
-		return
+		return err
 	}
-	_ = atomicWriteStatus(append(data, '\n'))
+	return atomicWriteStatus(append(data, '\n'))
 }
 
 func atomicWriteStatus(data []byte) error {
@@ -439,7 +448,9 @@ func (s *supervisor) markStopped() {
 			s.status.Profiles[profile.ID] = status
 		}
 	}
-	s.writeStatusLocked()
+	if err := s.writeStatusLocked(); err != nil {
+		fmt.Printf("[runner] write stopped status failed: %s\n", redact(err.Error()))
+	}
 }
 
 func firstNonEmpty(values ...string) string {

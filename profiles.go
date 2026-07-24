@@ -46,12 +46,18 @@ func (a *App) ensureProfileRegistry() error {
 		return err
 	}
 	if len(registry.Profiles) == 0 {
-		state, _ := a.readState()
+		state, err := a.readStateAllowMissing()
+		if err != nil {
+			return err
+		}
 		registry = defaultProfileRegistry(firstNonEmpty(state.InitializedAt, time.Now().UTC().Format(time.RFC3339)), state.ModelAuxiliaryMode)
 		needsWrite = true
 	}
 	if !profileExists(registry, defaultProfileID) {
-		state, _ := a.readState()
+		state, err := a.readStateAllowMissing()
+		if err != nil {
+			return err
+		}
 		registry.Profiles = append([]ProfileEntry{defaultProfileRegistry(time.Now().UTC().Format(time.RFC3339), state.ModelAuxiliaryMode).Profiles[0]}, registry.Profiles...)
 		needsWrite = true
 	}
@@ -65,7 +71,10 @@ func (a *App) readProfileRegistry() (ProfileRegistry, error) {
 	var registry ProfileRegistry
 	data, err := os.ReadFile(a.profilesPath())
 	if err != nil {
-		state, _ := a.readState()
+		state, stateErr := a.readStateAllowMissing()
+		if stateErr != nil {
+			return ProfileRegistry{}, fmt.Errorf("读取 profile 默认状态失败：%w", stateErr)
+		}
 		return defaultProfileRegistry(firstNonEmpty(state.InitializedAt, time.Now().UTC().Format(time.RFC3339)), state.ModelAuxiliaryMode), err
 	}
 	if err := json.Unmarshal(data, &registry); err != nil {
@@ -75,7 +84,10 @@ func (a *App) readProfileRegistry() (ProfileRegistry, error) {
 		registry.SchemaVersion = 1
 	}
 	if len(registry.Profiles) == 0 {
-		state, _ := a.readState()
+		state, err := a.readStateAllowMissing()
+		if err != nil {
+			return ProfileRegistry{}, err
+		}
 		registry = defaultProfileRegistry(firstNonEmpty(state.InitializedAt, time.Now().UTC().Format(time.RFC3339)), state.ModelAuxiliaryMode)
 	}
 	for i := range registry.Profiles {
@@ -216,13 +228,11 @@ func (a *App) SelectProfile(id string) error {
 	if !profileExists(registry, id) {
 		return fmt.Errorf("profile 不存在：%s", id)
 	}
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
-	state.UI.LastProfile = id
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.updateState(func(state *LauncherState) error {
+		state.UI.LastProfile = id
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	})
 }
 
 func (a *App) CreateProfile(req CreateProfileRequest) (err error) {
@@ -409,11 +419,9 @@ func (a *App) DeleteProfile(id string) (err error) {
 			return fmt.Errorf("备份 profile 失败：%w", err)
 		}
 	}
-	state, err := a.readState()
-	if err != nil {
+	if _, err := a.readState(); err != nil {
 		return err
 	}
-	originalState := state
 	quarantine := ""
 	if fileExists(dir) {
 		quarantine = filepath.Join(a.hermesDockDir(), "backups", ".profile-delete-"+id+"-"+uuid.NewString())
@@ -430,20 +438,24 @@ func (a *App) DeleteProfile(id string) (err error) {
 		}
 		return os.Rename(quarantine, dir)
 	}
+	originalRegistry := registry
+	originalRegistry.Profiles = append([]ProfileEntry(nil), registry.Profiles...)
 	next := append([]ProfileEntry{}, registry.Profiles[:idx]...)
 	next = append(next, registry.Profiles[idx+1:]...)
 	registry.Profiles = next
-	if state.UI.LastProfile == id {
-		state.UI.LastProfile = defaultProfileID
-	}
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := a.writeState(state); err != nil {
+	if err := a.writeProfileRegistry(registry); err != nil {
 		return errors.Join(err, restoreDirectory())
 	}
-	if err := a.writeProfileRegistry(registry); err != nil {
-		rollbackErr := a.writeState(originalState)
+	if err := a.updateState(func(state *LauncherState) error {
+		if state.UI.LastProfile == id {
+			state.UI.LastProfile = defaultProfileID
+		}
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	}); err != nil {
+		rollbackErr := a.writeProfileRegistry(originalRegistry)
 		return errors.Join(err, rollbackErr, restoreDirectory())
 	}
 	if quarantine != "" {
@@ -459,7 +471,10 @@ func (a *App) DeleteProfile(id string) (err error) {
 
 func (a *App) ensureProfileEnvMarkers(profileID string) error {
 	path := filepath.Join(a.profileDataDir(profileID), ".env")
-	existing, _ := readEnvFile(path)
+	existing, err := readEnvFileAllowMissing(path)
+	if err != nil {
+		return err
+	}
 	home := "/opt/data"
 	if profileID != defaultProfileID {
 		home = "/opt/data/profiles/" + profileID
@@ -558,7 +573,10 @@ func (a *App) syncAllProfileProviderEnv(registry ProfileRegistry) error {
 			continue
 		}
 		envPath := filepath.Join(a.profileDataDir(profile.ID), ".env")
-		existing, _ := readEnvFile(envPath)
+		existing, err := readEnvFileAllowMissing(envPath)
+		if err != nil {
+			return fmt.Errorf("读取 %s 的 .env 失败：%w", profile.Name, err)
+		}
 		changed := false
 		for _, item := range updates {
 			if envValue(existing, item.Key) != item.Value {
@@ -666,7 +684,13 @@ type platformBinding struct {
 }
 
 func (a *App) profilePlatformBinding(profileID string) (platformBinding, error) {
-	env, _ := readEnvFile(filepath.Join(a.profileDataDir(profileID), ".env"))
+	env, err := readEnvFile(filepath.Join(a.profileDataDir(profileID), ".env"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return platformBinding{}, nil
+		}
+		return platformBinding{}, fmt.Errorf("读取 .env 失败：%w", err)
+	}
 	wecomID := strings.TrimSpace(envValue(env, "WECOM_BOT_ID"))
 	wecomSecret := strings.TrimSpace(envValue(env, "WECOM_SECRET"))
 	weixinID := strings.TrimSpace(envValue(env, "WEIXIN_ACCOUNT_ID"))
@@ -797,17 +821,21 @@ func (a *App) derivedRuntimeProfileStatus(profile ProfileEntry, containerStatus 
 	return status
 }
 
-func (a *App) backupDirectory(path string, reason string) error {
+func (a *App) backupDirectory(path string, reason string) (err error) {
 	if !fileExists(path) {
 		return nil
 	}
-	id := time.Now().UTC().Format("20060102T150405Z")
+	id := newBackupID()
 	reason = sanitizeName(firstNonEmpty(reason, "backup"))
 	rel, err := filepath.Rel(a.instanceRoot, path)
 	if err != nil {
 		rel = filepath.Base(path)
 	}
-	target := filepath.Join(a.hermesDockDir(), "backups", id+"-"+reason, rel+".tar.gz")
+	backupRoot, err := a.createBackupRoot(id, reason)
+	if err != nil {
+		return err
+	}
+	target := filepath.Join(backupRoot, rel+".tar.gz")
 	if err := ensureDir(filepath.Dir(target)); err != nil {
 		return err
 	}
@@ -821,6 +849,7 @@ func (a *App) backupDirectory(path string, reason string) error {
 		_ = file.Close()
 		if !committed {
 			_ = os.Remove(tmpPath)
+			_ = os.RemoveAll(backupRoot)
 		}
 	}()
 	gz := gzip.NewWriter(file)
@@ -879,18 +908,19 @@ func (a *App) backupDirectory(path string, reason string) error {
 	if err := os.Rename(tmpPath, target); err != nil {
 		return err
 	}
-	committed = true
-	state, err := a.readState()
-	if err != nil && !os.IsNotExist(err) {
+	if err := a.updateStateAllowMissing(func(state *LauncherState) error {
+		state.Backups = append(state.Backups, BackupRecord{
+			ID:     id,
+			Reason: reason,
+			Path:   strings.TrimPrefix(target, a.instanceRoot+string(os.PathSeparator)),
+		})
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	}); err != nil {
 		return err
 	}
-	state.Backups = append(state.Backups, BackupRecord{
-		ID:     id,
-		Reason: reason,
-		Path:   strings.TrimPrefix(target, a.instanceRoot+string(os.PathSeparator)),
-	})
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	committed = true
+	return nil
 }
 
 func copyDir(source string, target string) error {

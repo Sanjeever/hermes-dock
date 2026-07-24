@@ -63,6 +63,16 @@ func TestValidateProfileID(t *testing.T) {
 	}
 }
 
+func TestProfilePlatformBindingReturnsEnvReadError(t *testing.T) {
+	app := newTestApp(t)
+	if err := os.WriteFile(app.defaultEnvPath(), []byte("VALUE="+strings.Repeat("x", 128*1024)+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.profilePlatformBinding(defaultProfileID); err == nil {
+		t.Fatal("oversized .env line should be reported")
+	}
+}
+
 func TestRuntimeManifestUsesUniqueGeneration(t *testing.T) {
 	app := newTestApp(t)
 	registry, err := app.readProfileRegistry()

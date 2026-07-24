@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const feishuResponseLimit = 1 << 20
+
 const (
 	feishuRegistrationPath = "/oauth/v1/app/registration"
 	feishuLoginTimeout     = 10 * time.Minute
@@ -167,7 +169,10 @@ func (a *App) persistFeishuCredentials(profileID string, credentials feishuCrede
 		return err
 	}
 	path := filepath.Join(a.profileDataDir(profileID), ".env")
-	env, _ := readEnvFile(path)
+	env, err := readEnvFileAllowMissing(path)
+	if err != nil {
+		return fmt.Errorf("读取飞书 profile .env 失败：%w", err)
+	}
 	updates := []EnvVar{
 		{Key: "FEISHU_APP_ID", Value: credentials.AppID},
 		{Key: "FEISHU_APP_SECRET", Value: credentials.AppSecret},
@@ -202,7 +207,7 @@ func postFeishuForm(ctx context.Context, endpoint string, form url.Values) (map[
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	body, err := readFeishuResponseBody(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +237,7 @@ func probeFeishuBot(ctx context.Context, appID string, appSecret string, domain 
 		return "", err
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	body, err := readFeishuResponseBody(response.Body)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +259,7 @@ func probeFeishuBot(ctx context.Context, appID string, appSecret string, domain 
 		return "", err
 	}
 	defer response.Body.Close()
-	body, err = io.ReadAll(response.Body)
+	body, err = readFeishuResponseBody(response.Body)
 	if err != nil {
 		return "", err
 	}
@@ -264,6 +269,17 @@ func probeFeishuBot(ctx context.Context, appID string, appSecret string, domain 
 	}
 	bot, _ := botResult["bot"].(map[string]interface{})
 	return firstNonEmpty(feishuStringValue(bot["app_name"]), feishuStringValue(bot["bot_name"])), nil
+}
+
+func readFeishuResponseBody(reader io.Reader) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(reader, feishuResponseLimit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > feishuResponseLimit {
+		return nil, fmt.Errorf("飞书服务响应超过大小限制")
+	}
+	return body, nil
 }
 
 func appendFeishuQRTracking(rawURL string) string {

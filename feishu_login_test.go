@@ -6,8 +6,15 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestReadFeishuResponseBodyRejectsOversizedResponse(t *testing.T) {
+	if _, err := readFeishuResponseBody(strings.NewReader(strings.Repeat("x", feishuResponseLimit+1))); err == nil {
+		t.Fatal("oversized Feishu response should be rejected")
+	}
+}
 
 func TestRegisterFeishuBotUsesLarkDomainAndProbesBot(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
