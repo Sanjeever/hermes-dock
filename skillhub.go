@@ -22,6 +22,8 @@ const (
 	skillHubAPIBase         = "https://api.skillhub.cn"
 	skillHubDownloadLimit   = 20 * 1024 * 1024
 	skillHubMaxFileCount    = 200
+	skillHubMaxFileBytes    = int64(16 * 1024 * 1024)
+	skillHubMaxTotalBytes   = int64(64 * 1024 * 1024)
 	skillHubHTTPTimeout     = 20 * time.Second
 	skillHubInstallSubdir   = "skillhub"
 	skillHubMetadataFile    = ".hermes-dock-skillhub.json"
@@ -522,11 +524,43 @@ func extractSkillHubZip(zipPath string, target string, expected []SkillHubFile) 
 	if len(reader.File) > skillHubMaxFileCount {
 		return fmt.Errorf("SkillHub 技能包文件过多")
 	}
-	expectedHashes := map[string]string{}
+	if len(expected) == 0 {
+		return fmt.Errorf("SkillHub 文件清单为空")
+	}
+	expectedFiles := map[string]SkillHubFile{}
+	expectedCanonicalPaths := map[string]string{}
+	var expectedTotal int64
 	for _, file := range expected {
-		expectedHashes[filepath.ToSlash(file.Path)] = strings.ToLower(file.SHA256)
+		name := filepath.ToSlash(file.Path)
+		if err := validateSkillHubZipPath(name, false); err != nil {
+			return err
+		}
+		canonicalName := strings.ToLower(name)
+		if existing := expectedCanonicalPaths[canonicalName]; existing != "" {
+			return fmt.Errorf("SkillHub 文件清单包含重复路径：%s", name)
+		}
+		if file.Size < 0 || file.Size > skillHubMaxFileBytes {
+			return fmt.Errorf("SkillHub 文件超过大小限制：%s", name)
+		}
+		if expectedTotal > skillHubMaxTotalBytes-file.Size {
+			return fmt.Errorf("SkillHub 技能包展开总大小超过限制")
+		}
+		expectedTotal += file.Size
+		file.Path = name
+		file.SHA256 = strings.ToLower(file.SHA256)
+		if len(file.SHA256) != sha256.Size*2 {
+			return fmt.Errorf("SkillHub 文件 SHA-256 格式无效：%s", name)
+		}
+		if _, err := hex.DecodeString(file.SHA256); err != nil {
+			return fmt.Errorf("SkillHub 文件 SHA-256 格式无效：%s", name)
+		}
+		expectedFiles[name] = file
+		expectedCanonicalPaths[canonicalName] = name
 	}
 	hasSkill := false
+	extracted := map[string]bool{}
+	seenArchivePaths := map[string]string{}
+	var totalBytes int64
 	for _, file := range reader.File {
 		name := filepath.ToSlash(file.Name)
 		isDir := file.FileInfo().IsDir()
@@ -539,21 +573,44 @@ func extractSkillHubZip(zipPath string, target string, expected []SkillHubFile) 
 		if isDir {
 			continue
 		}
+		canonicalName := strings.ToLower(name)
+		if existing := seenArchivePaths[canonicalName]; existing != "" {
+			return fmt.Errorf("SkillHub 技能包包含重复路径：%s", name)
+		}
+		seenArchivePaths[canonicalName] = name
 		if file.FileInfo().Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("SkillHub 技能包不能包含符号链接：%s", name)
 		}
-		if len(expectedHashes) > 0 && expectedHashes[name] == "" {
+		if file.UncompressedSize64 > uint64(skillHubMaxFileBytes) {
+			return fmt.Errorf("SkillHub 文件超过大小限制：%s", name)
+		}
+		uncompressedSize := int64(file.UncompressedSize64)
+		if totalBytes > skillHubMaxTotalBytes-uncompressedSize {
+			return fmt.Errorf("SkillHub 技能包展开总大小超过限制")
+		}
+		totalBytes += uncompressedSize
+		expectedFile, declared := expectedFiles[name]
+		if !declared {
 			if isSkillHubPackageMetaFile(name) {
 				continue
 			}
 			return fmt.Errorf("SkillHub 技能包包含未声明文件：%s", name)
 		}
-		if err := extractSkillHubZipFile(file, target, expectedHashes[name]); err != nil {
+		if uncompressedSize != expectedFile.Size {
+			return fmt.Errorf("SkillHub 文件大小与清单不一致：%s", name)
+		}
+		if err := extractSkillHubZipFile(file, target, expectedFile); err != nil {
 			return err
 		}
+		extracted[name] = true
 	}
 	if !hasSkill {
 		return fmt.Errorf("SkillHub 技能包缺少 SKILL.md")
+	}
+	for name := range expectedFiles {
+		if !extracted[name] {
+			return fmt.Errorf("SkillHub 技能包缺少清单文件：%s", name)
+		}
 	}
 	return nil
 }
@@ -577,7 +634,7 @@ func validateSkillHubZipPath(name string, isDir bool) error {
 	return nil
 }
 
-func extractSkillHubZipFile(file *zip.File, target string, expectedSHA string) error {
+func extractSkillHubZipFile(file *zip.File, target string, expected SkillHubFile) error {
 	src, err := file.Open()
 	if err != nil {
 		return err
@@ -592,19 +649,27 @@ func extractSkillHubZipFile(file *zip.File, target string, expectedSHA string) e
 		return err
 	}
 	hash := sha256.New()
-	_, copyErr := io.Copy(dst, io.TeeReader(src, hash))
+	written, copyErr := io.CopyN(dst, io.TeeReader(src, hash), expected.Size)
 	closeErr := dst.Close()
 	if copyErr != nil {
 		return copyErr
 	}
+	if written != expected.Size {
+		return fmt.Errorf("SkillHub 文件大小与清单不一致：%s", file.Name)
+	}
+	var extra [1]byte
+	if count, err := src.Read(extra[:]); err != io.EOF || count != 0 {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("SkillHub 文件大小与清单不一致：%s", file.Name)
+	}
 	if closeErr != nil {
 		return closeErr
 	}
-	if expectedSHA != "" {
-		actual := hex.EncodeToString(hash.Sum(nil))
-		if actual != expectedSHA {
-			return fmt.Errorf("SkillHub 文件校验失败：%s", file.Name)
-		}
+	actual := hex.EncodeToString(hash.Sum(nil))
+	if actual != expected.SHA256 {
+		return fmt.Errorf("SkillHub 文件校验失败：%s", file.Name)
 	}
 	return nil
 }

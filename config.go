@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -280,7 +281,19 @@ func (a *App) SaveProviderConfigForProfile(profileID string, providers ProviderC
 	if err != nil {
 		return err
 	}
+	if _, err := a.readState(); err != nil {
+		return fmt.Errorf("读取启动器状态失败：%w", err)
+	}
 	configPath := a.profileConfigPath(profileID)
+	envPath := a.profileEnvPath(profileID)
+	previousConfig, configExisted, err := readFileSnapshot(configPath)
+	if err != nil {
+		return err
+	}
+	previousEnv, envExisted, err := readFileSnapshot(envPath)
+	if err != nil {
+		return err
+	}
 	cfg, err := a.readConfigMapForProfile(profileID)
 	if err != nil {
 		return fmt.Errorf("读取 config.yaml 失败：%w", err)
@@ -319,14 +332,23 @@ func (a *App) SaveProviderConfigForProfile(profileID string, providers ProviderC
 	if err := atomicWriteFile(configPath, data, 0644); err != nil {
 		return err
 	}
-	if err := a.syncReferencedProviderEnvForProfile(profileID, normalized); err != nil {
-		return err
+	rollback := func(cause error) error {
+		configErr := restoreFileSnapshot(configPath, previousConfig, configExisted, 0644)
+		envErr := restoreFileSnapshot(envPath, previousEnv, envExisted, 0600)
+		return errors.Join(cause, configErr, envErr)
 	}
-	state, _ := a.readState()
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	if err := a.syncReferencedProviderEnvForProfile(profileID, normalized); err != nil {
+		return rollback(err)
+	}
+	if err := a.updateState(func(state *LauncherState) error {
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	}); err != nil {
+		return rollback(err)
+	}
+	return nil
 }
 
 func preserveExistingMaskedProviderSecrets(existing ProviderConfig, next ProviderConfig) ProviderConfig {
@@ -819,7 +841,10 @@ func (a *App) syncModelProviderEnv(model ModelConfig) error {
 	if len(updates) == 0 {
 		return nil
 	}
-	existing, _ := readEnvFile(a.envPath())
+	existing, err := readEnvFileAllowMissing(a.envPath())
+	if err != nil {
+		return err
+	}
 	changed := false
 	for _, item := range updates {
 		if envValue(existing, item.Key) != item.Value {
@@ -1054,7 +1079,7 @@ func applyVolcengineAgentPlanServices(cfg map[string]interface{}, providers Prov
 }
 
 func compactBody(body []byte) string {
-	text := strings.TrimSpace(string(body))
+	text := redact(strings.TrimSpace(string(body)))
 	if text == "" {
 		return ""
 	}

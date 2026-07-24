@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -9,6 +10,9 @@ func TestSaveProviderConfigPreservesExistingAPIKeyWhenRequestIsMasked(t *testing
 	app := NewApp()
 	app.instanceRoot = t.TempDir()
 	if err := ensureDir(app.defaultDataDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.writeState(defaultState()); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(app.configPath(), []byte(`model:
@@ -435,5 +439,12 @@ func TestAgnesProviderAPIKeyEnv(t *testing.T) {
 	key := modelProviderAPIKeyEnv("custom", "https://apihub.agnes-ai.com/v1")
 	if key != "AGNES_API_KEY" {
 		t.Fatalf("env key = %q, want AGNES_API_KEY", key)
+	}
+}
+
+func TestCompactBodyRedactsSecrets(t *testing.T) {
+	got := compactBody([]byte(`{"error":"failed","api_key":"secret-value"}`))
+	if strings.Contains(got, "secret-value") {
+		t.Fatalf("response body was not redacted: %s", got)
 	}
 }

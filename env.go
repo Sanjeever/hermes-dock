@@ -35,6 +35,14 @@ func readEnvFile(path string) ([]EnvVar, error) {
 	return mergeDefaultEnvVars(vars), scanner.Err()
 }
 
+func readEnvFileAllowMissing(path string) ([]EnvVar, error) {
+	vars, err := readEnvFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	return vars, nil
+}
+
 func (a *App) SaveEnvironment(vars []EnvVar) error {
 	return a.SaveEnvironmentForProfile(a.currentProfileID(), vars)
 }

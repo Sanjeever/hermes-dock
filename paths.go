@@ -211,6 +211,9 @@ func (a *App) safePath(path string) (string, error) {
 	if resolved != root && !strings.HasPrefix(resolved, root+string(os.PathSeparator)) {
 		return "", errors.New("路径不能超出实例目录")
 	}
+	if err := ensureNoSymlinkComponents(root, resolved); err != nil {
+		return "", err
+	}
 	return resolved, nil
 }
 
@@ -256,9 +259,41 @@ func (a *App) readState() (LauncherState, error) {
 	return state, nil
 }
 
+func (a *App) readStateAllowMissing() (LauncherState, error) {
+	state, err := a.readState()
+	if errors.Is(err, os.ErrNotExist) {
+		return defaultState(), nil
+	}
+	return state, err
+}
+
 func (a *App) writeState(state LauncherState) error {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
+	return a.writeStateUnlocked(state)
+}
+
+func (a *App) updateState(update func(*LauncherState) error) error {
+	return a.updateStateLocked(false, update)
+}
+
+func (a *App) updateStateAllowMissing(update func(*LauncherState) error) error {
+	return a.updateStateLocked(true, update)
+}
+
+func (a *App) updateStateLocked(allowMissing bool, update func(*LauncherState) error) error {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	state, err := a.readState()
+	if err != nil {
+		if !allowMissing || !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		state = defaultState()
+	}
+	if err := update(&state); err != nil {
+		return err
+	}
 	return a.writeStateUnlocked(state)
 }
 
@@ -275,19 +310,15 @@ func (a *App) writeStateUnlocked(state LauncherState) error {
 }
 
 func (a *App) markRebuildRequired() error {
-	a.stateMu.Lock()
-	defer a.stateMu.Unlock()
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
-	if state.NeedsRebuild && !state.PendingDufsOnly {
+	return a.updateState(func(state *LauncherState) error {
+		if state.NeedsRebuild && !state.PendingDufsOnly {
+			return nil
+		}
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 		return nil
-	}
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeStateUnlocked(state)
+	})
 }
 
 func defaultState() LauncherState {

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,8 +49,19 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	if settings.Enabled && settings.HTTPProxy == "" && settings.HTTPSProxy == "" && settings.ALLProxy == "" {
 		return errors.New("启用容器代理时，请至少填写一个代理地址")
 	}
+	if _, err := a.readState(); err != nil {
+		return fmt.Errorf("读取启动器状态失败：%w", err)
+	}
 	if settings == a.readProxySettings() {
 		return nil
+	}
+	previousProxy, proxyExisted, err := readFileSnapshot(a.proxyPath())
+	if err != nil {
+		return err
+	}
+	previousCompose, composeExisted, err := readFileSnapshot(a.composePath())
+	if err != nil {
+		return err
 	}
 	if err := ensureDir(filepath.Dir(a.proxyPath())); err != nil {
 		return err
@@ -66,14 +78,44 @@ func (a *App) SaveProxySettings(settings ProxySettings) error {
 	if err := atomicWriteFile(a.proxyPath(), append(data, '\n'), 0600); err != nil {
 		return err
 	}
-	compose := a.readComposeSettings()
+	rollback := func(cause error) error {
+		proxyErr := restoreFileSnapshot(a.proxyPath(), previousProxy, proxyExisted, 0600)
+		composeErr := restoreFileSnapshot(a.composePath(), previousCompose, composeExisted, 0644)
+		return errors.Join(cause, proxyErr, composeErr)
+	}
+	compose, err := a.readComposeSettings()
+	if err != nil {
+		return rollback(err)
+	}
 	if err := a.writeCompose(compose, "before-proxy-compose-save"); err != nil {
+		return rollback(err)
+	}
+	if err := a.updateState(func(state *LauncherState) error {
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	}); err != nil {
+		return rollback(err)
+	}
+	return nil
+}
+
+func readFileSnapshot(path string) ([]byte, bool, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, nil
+	}
+	return data, err == nil, err
+}
+
+func restoreFileSnapshot(path string, data []byte, existed bool, mode os.FileMode) error {
+	if existed {
+		return atomicWriteFile(path, data, mode)
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	state, _ := a.readState()
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return nil
 }

@@ -20,8 +20,8 @@ func TestExtractSkillHubZipIgnoresUndeclaredPackageMeta(t *testing.T) {
 	})
 
 	err := extractSkillHubZip(zipPath, target, []SkillHubFile{
-		{Path: "SKILL.md", SHA256: sha256Hex(skill)},
-		{Path: "references.md", SHA256: sha256Hex([]byte("extra"))},
+		{Path: "SKILL.md", SHA256: sha256Hex(skill), Size: int64(len(skill))},
+		{Path: "references.md", SHA256: sha256Hex([]byte("extra")), Size: int64(len("extra"))},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -43,10 +43,32 @@ func TestExtractSkillHubZipRejectsOtherUndeclaredFiles(t *testing.T) {
 	})
 
 	err := extractSkillHubZip(zipPath, target, []SkillHubFile{
-		{Path: "SKILL.md", SHA256: sha256Hex(skill)},
+		{Path: "SKILL.md", SHA256: sha256Hex(skill), Size: int64(len(skill))},
 	})
 	if err == nil || !strings.Contains(err.Error(), "未声明文件：extra.md") {
 		t.Fatalf("expected undeclared file error, got %v", err)
+	}
+}
+
+func TestExtractSkillHubZipRejectsDeclaredSizeMismatch(t *testing.T) {
+	target := t.TempDir()
+	skill := []byte("# Skill\n")
+	zipPath := writeSkillHubTestZip(t, map[string][]byte{"SKILL.md": skill})
+
+	err := extractSkillHubZip(zipPath, target, []SkillHubFile{
+		{Path: "SKILL.md", SHA256: sha256Hex(skill), Size: int64(len(skill) - 1)},
+	})
+	if err == nil || !strings.Contains(err.Error(), "大小") {
+		t.Fatalf("expected declared size error, got %v", err)
+	}
+}
+
+func TestExtractSkillHubZipRejectsMissingChecksum(t *testing.T) {
+	skill := []byte("# Skill\n")
+	zipPath := writeSkillHubTestZip(t, map[string][]byte{"SKILL.md": skill})
+	err := extractSkillHubZip(zipPath, t.TempDir(), []SkillHubFile{{Path: "SKILL.md", Size: int64(len(skill))}})
+	if err == nil || !strings.Contains(err.Error(), "SHA-256") {
+		t.Fatalf("expected checksum validation error, got %v", err)
 	}
 }
 
