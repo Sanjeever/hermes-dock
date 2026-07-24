@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react';
 import {CheckSquare2, ChevronLeft, Download, FolderOpen, ListChecks, RefreshCcw, RotateCcw, Search, Square, Trash2} from 'lucide-react';
-import type {SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState} from '../types';
+import type {LoadState, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState} from '../types';
 import {formatBytes} from './assistantUtils';
 
 export function SkillsPanel(props: {
@@ -8,9 +8,13 @@ export function SkillsPanel(props: {
     skillsState: SkillsState | null;
     detail: SkillDetail | null;
     status: string;
+    loadState: LoadState;
+    loadError: string;
     hubState: SkillHubState | null;
     hubDetail: SkillHubDetail | null;
     hubStatus: string;
+    hubLoadState: LoadState;
+    hubLoadError: string;
     busy: boolean;
     onBack: () => void;
     onRefresh: () => void;
@@ -84,9 +88,9 @@ export function SkillsPanel(props: {
     }, [allPaths]);
 
     useEffect(() => {
-        if (view !== 'hub' || props.hubState) return;
+        if (view !== 'hub' || props.hubState || props.hubLoadState !== 'idle') return;
         props.onSearchHub(makeHubQuery());
-    }, [view]);
+    }, [view, props.hubLoadState]);
 
     useEffect(() => {
         if (view !== 'hub' || hubSkills.length === 0) return;
@@ -229,7 +233,14 @@ export function SkillsPanel(props: {
                 {view === 'local' ? (
                     <div className="skills-workspace">
                         <aside className="skill-list-pane">
-                            {filtered.length === 0 ? (
+                            {props.loadState === 'loading' && !props.skillsState ? (
+                                <div className="skill-list-empty">正在读取当前助手的技能。</div>
+                            ) : props.loadState === 'error' && !props.skillsState ? (
+                                <div className="skill-list-empty">
+                                    <span>技能读取失败：{props.loadError}</span>
+                                    <button className="ghost" onClick={props.onRefresh} disabled={props.busy}>重新读取</button>
+                                </div>
+                            ) : filtered.length === 0 ? (
                                 <div className="skill-list-empty">{skills.length === 0 ? '当前助手还没有技能。' : '没有匹配的技能。'}</div>
                             ) : (
                                 <div className="skill-list">
@@ -335,8 +346,15 @@ export function SkillsPanel(props: {
                 ) : (
                     <div className="skills-workspace">
                         <aside className="skill-list-pane">
-                            {hubSkills.length === 0 ? (
-                                <div className="skill-list-empty">{props.hubStatus ? '正在读取技能中心。' : '没有匹配的技能。'}</div>
+                            {props.hubLoadState === 'loading' && !props.hubState ? (
+                                <div className="skill-list-empty">正在读取技能中心。</div>
+                            ) : props.hubLoadState === 'error' && !props.hubState ? (
+                                <div className="skill-list-empty">
+                                    <span>技能中心读取失败：{props.hubLoadError}</span>
+                                    <button className="ghost" onClick={() => searchHub()} disabled={props.busy}>重新读取</button>
+                                </div>
+                            ) : hubSkills.length === 0 ? (
+                                <div className="skill-list-empty">没有匹配的技能。</div>
                             ) : (
                                 <div className="skill-list">
                                     {hubSkills.map((skill) => (

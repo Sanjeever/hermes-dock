@@ -19,8 +19,12 @@ vi.mock('../services/api', () => ({
 
 function deferred<T>() {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>((next) => { resolve = next; });
-    return {promise, resolve};
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((next, fail) => {
+        resolve = next;
+        reject = fail;
+    });
+    return {promise, resolve, reject};
 }
 
 function skillsState(profileID: string): SkillsState {
@@ -69,5 +73,31 @@ describe('useSkills', () => {
             await oldLoad;
         });
         expect(result.current.skillsState?.activeProfile).toBe('new');
+    });
+
+    it('does not report an async failure after unmount', async () => {
+        const pending = deferred<SkillsState>();
+        vi.mocked(ListProfileSkills).mockReturnValue(pending.promise);
+        const appendLog = vi.fn();
+        const {result, unmount} = renderHook(() => useSkills({
+            getProfileID: () => 'default',
+            run: vi.fn(),
+            refresh: vi.fn(async () => ''),
+            appendLog,
+            setBusy: vi.fn(),
+            setNotice: vi.fn(),
+            setLastOperationError: vi.fn(),
+            setNeedsRebuild: vi.fn(),
+        }));
+
+        let load!: Promise<void>;
+        act(() => { load = result.current.loadSkills(); });
+        unmount();
+        await act(async () => {
+            pending.reject(new Error('late failure'));
+            await load;
+        });
+
+        expect(appendLog).not.toHaveBeenCalled();
     });
 });

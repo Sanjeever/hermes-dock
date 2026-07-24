@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {AlertTriangle, CheckCircle2, Clipboard, FileText, FolderOpen, Globe2, Play, Plus, RotateCcw, Settings, Square} from 'lucide-react';
 import type {AppState} from '../types';
 import {containerStatusText, profileStatusText, statusClassName} from '../utils';
@@ -158,6 +158,7 @@ function AccessEntrances(props: {
     onOpenFiles: () => void;
 }) {
     const [copied, setCopied] = useState('');
+    const copiedTimer = useRef(0);
     const webReady = props.state.web.enabled && props.state.web.running;
     const filesReady = props.state.dufs.enabled && props.state.containerStatus === 'running';
     const webLANURL = webReady && props.state.web.host === '0.0.0.0' ? (props.state.web.lanUrls?.[0] || '') : '';
@@ -165,14 +166,17 @@ function AccessEntrances(props: {
     const webAccessNote = !props.state.web.enabled ? '未开启' : !props.state.web.running ? '未运行' : '仅本机可访问';
     const filesAccessNote = !props.state.dufs.enabled ? '未开启' : props.state.containerStatus !== 'running' ? '服务未运行' : '仅本机可访问';
 
+    useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
+
     async function copyAddress(id: string, value: string) {
+        window.clearTimeout(copiedTimer.current);
         try {
             await navigator.clipboard.writeText(value);
             setCopied(id);
         } catch {
             setCopied(`${id}-failed`);
         }
-        window.setTimeout(() => setCopied(''), 1200);
+        copiedTimer.current = window.setTimeout(() => setCopied(''), 1200);
     }
 
     return (

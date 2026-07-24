@@ -85,6 +85,7 @@ function App() {
     const [wizardStep, setWizardStep] = useState<WizardStep | null>(null);
     const [state, setState] = useState<AppState | null>(null);
     const stateRef = useRef<AppState | null>(null);
+    const mountedRef = useRef(true);
     const refreshSequenceRef = useRef(0);
 	const activeProfileRef = useRef('');
 	const advancedPathRef = useRef('data/config.yaml');
@@ -108,6 +109,7 @@ function App() {
     const [statusRefreshing, setStatusRefreshing] = useState(false);
     const [notice, setNotice] = useState<Notice | null>(null);
     const [refreshError, setRefreshError] = useState('');
+    const [initialLoading, setInitialLoading] = useState(true);
     const [needsRebuild, setNeedsRebuild] = useState(false);
     const [qrData, setQrData] = useState('');
     const [qrStatus, setQrStatus] = useState('');
@@ -161,7 +163,8 @@ function App() {
     });
 
     useEffect(() => {
-        refresh();
+        mountedRef.current = true;
+        void refresh();
         const offDocker = EventsOn('docker:progress', (event: { line?: string; done?: boolean; code?: number }) => {
             if (event.line) appendLog(event.line);
             if (event.done) {
@@ -252,6 +255,10 @@ function App() {
         });
         const offDingTalkError = EventsOn('dingtalk-login:error', showPlatformLoginError);
         return () => {
+            mountedRef.current = false;
+            refreshSequenceRef.current++;
+            advancedLoadSequenceRef.current++;
+            soulLoadSequenceRef.current++;
             offDocker();
             offApply();
             offBackup();
@@ -342,17 +349,19 @@ function App() {
 
     async function refresh() {
         const sequence = ++refreshSequenceRef.current;
+        if (!stateRef.current) setInitialLoading(true);
         let next: unknown;
         try {
 			next = await GetAppState(activeProfileRef.current);
         } catch (error) {
-            if (sequence !== refreshSequenceRef.current) return '';
+            if (!mountedRef.current || sequence !== refreshSequenceRef.current) return '';
             const message = String(error);
             setRefreshError(message);
+            setInitialLoading(false);
             appendLog(message);
             return message;
         }
-        if (sequence !== refreshSequenceRef.current) return '';
+        if (!mountedRef.current || sequence !== refreshSequenceRef.current) return '';
         const nextState = next as AppState;
         const firstRefresh = !stateRef.current;
         const previousProfile = stateRef.current?.activeProfile;
@@ -390,6 +399,7 @@ function App() {
             }
         }
         setRefreshError('');
+        setInitialLoading(false);
         return '';
     }
 
@@ -1174,14 +1184,14 @@ function App() {
     }
 
     async function tailLogs() {
-        if (logsFollowing) {
-            await StopTailLogs();
-            setLogsFollowing(false);
-            setNotice({type: 'ok', message: '已停止跟随日志'});
-            return;
-        }
-        setNotice({type: 'info', message: '正在跟随日志'});
         try {
+            if (logsFollowing) {
+                await StopTailLogs();
+                setLogsFollowing(false);
+                setNotice({type: 'ok', message: '已停止跟随日志'});
+                return;
+            }
+            setNotice({type: 'info', message: '正在跟随日志'});
             await TailLogs();
             setLogsFollowing(true);
         } catch (error) {
@@ -1372,6 +1382,15 @@ function App() {
                         <button className="ghost" onClick={() => openOperations('diagnostics')}>查看日志</button>
                     </div>
                 )}
+                {!state && initialLoading && (
+                    <div className="panel startup-loading" role="status">
+                        <RefreshCcw size={20} className="spin"/>
+                        <div>
+                            <h2>正在加载 Hermes Dock</h2>
+                            <p>正在读取助手、容器和运行配置。</p>
+                        </div>
+                    </div>
+                )}
                 {!state && refreshError && (
                     <div className="panel startup-error">
                         <p className="eyebrow">启动器状态读取失败</p>
@@ -1486,9 +1505,13 @@ function App() {
                         skillsState={skills.skillsState}
                         skillDetail={skills.skillDetail}
                         skillsStatus={skills.skillsStatus}
+                        skillsLoadState={skills.skillsLoadState}
+                        skillsLoadError={skills.skillsLoadError}
                         skillHubState={skills.skillHubState}
                         skillHubDetail={skills.skillHubDetail}
                         skillHubStatus={skills.skillHubStatus}
+                        skillHubLoadState={skills.skillHubLoadState}
+                        skillHubLoadError={skills.skillHubLoadError}
                         onSelect={selectProfile}
                         onCreate={createProfile}
                         onRename={(id, name) => run('正在更新助手', () => UpdateProfileName(id, name))}

@@ -1,4 +1,6 @@
 export type Page = 'overview' | 'assistants' | 'operations' | 'settings';
+
+export type LoadState = 'idle' | 'loading' | 'success' | 'error';
 export type WizardStep = 'model' | 'soul' | 'platforms' | 'finish';
 export type OperationsTab = 'runtime' | 'diagnostics' | 'basic' | 'access' | 'update' | 'advanced';
 export type PlatformKey = 'weixin' | 'wecom' | 'feishu' | 'dingtalk';

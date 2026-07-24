@@ -4,7 +4,7 @@ import {Field, SecretField} from '../components/fields';
 import {auxLabels} from '../constants';
 import {PlatformsPage} from './PlatformsPage';
 import {SoulPage} from './SoulPage';
-import type {AppState, AuxModel, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, DingTalkSettings, EnvVar, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
+import type {AppState, AuxModel, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, DingTalkSettings, EnvVar, LoadState, ModelConfig, ModelOption, OperationsTab, PlatformKey, ProviderConfig, ProviderEntry, RuntimeProfileStatus, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WizardStep} from '../types';
 import {ensureCurrentModelOption, firstProviderID, modelOptionKey, nextProviderID, profileStatusText, providerIDs, providerReferenceLabels, slugProfileID} from '../utils';
 import {assistantStatusClass, assistantStatusLabel, createProfileValidationMessage, formatBytes, skillSummaryLabel, suggestProfileID, wizardStepHelp} from './assistantUtils';
 import {AssistantWizard} from './AssistantWizard';
@@ -62,9 +62,13 @@ export function AssistantsPage(props: {
     skillsState: SkillsState | null;
     skillDetail: SkillDetail | null;
     skillsStatus: string;
+    skillsLoadState: LoadState;
+    skillsLoadError: string;
     skillHubState: SkillHubState | null;
     skillHubDetail: SkillHubDetail | null;
     skillHubStatus: string;
+    skillHubLoadState: LoadState;
+    skillHubLoadError: string;
     onSelect: (id: string) => Promise<boolean>;
     onCreate: () => Promise<boolean>;
     onRename: (id: string, name: string) => Promise<boolean>;
@@ -327,9 +331,13 @@ export function AssistantsPage(props: {
                         skillsState={props.skillsState}
                         detail={props.skillDetail}
                         status={props.skillsStatus}
+                        loadState={props.skillsLoadState}
+                        loadError={props.skillsLoadError}
                         hubState={props.skillHubState}
                         hubDetail={props.skillHubDetail}
                         hubStatus={props.skillHubStatus}
+                        hubLoadState={props.skillHubLoadState}
+                        hubLoadError={props.skillHubLoadError}
                         busy={props.busy}
                         onBack={() => setShowSkills(false)}
                         onRefresh={props.onRefreshSkills}

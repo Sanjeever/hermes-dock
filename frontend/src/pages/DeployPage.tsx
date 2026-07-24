@@ -21,6 +21,8 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
 }) {
     const [dufsPasswordVisible, setDufsPasswordVisible] = useState(false);
     const [copiedDufsURL, setCopiedDufsURL] = useState(false);
+    const [copyDufsError, setCopyDufsError] = useState('');
+    const copyDufsTimer = useRef(0);
     const [resourceRecommendation, setResourceRecommendation] = useState<{ dockerMemoryGB: number; dockerCPU: number } | null>(null);
     const [resourceRecommendationBusy, setResourceRecommendationBusy] = useState(false);
     const [resourceRecommendationError, setResourceRecommendationError] = useState('');
@@ -48,6 +50,8 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
     useEffect(() => {
         composeRef.current = compose;
     }, [compose]);
+
+    useEffect(() => () => window.clearTimeout(copyDufsTimer.current), []);
 
     useEffect(() => {
         if (!isAdvanced) return;
@@ -100,9 +104,16 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
 
     async function copyDufsURL() {
         if (!dufs.primaryUrl) return;
-        await navigator.clipboard.writeText(dufs.primaryUrl);
-        setCopiedDufsURL(true);
-        window.setTimeout(() => setCopiedDufsURL(false), 1200);
+        window.clearTimeout(copyDufsTimer.current);
+        setCopyDufsError('');
+        try {
+            await navigator.clipboard.writeText(dufs.primaryUrl);
+            setCopiedDufsURL(true);
+            copyDufsTimer.current = window.setTimeout(() => setCopiedDufsURL(false), 1200);
+        } catch (error) {
+            setCopiedDufsURL(false);
+            setCopyDufsError(errorMessage(error) || '复制失败，请手动复制访问地址');
+        }
     }
 
     async function chooseSharedDirectory() {
@@ -198,10 +209,13 @@ export function DeployPage({section = 'basic', compose, proxy, hostBridge, dufs,
                                         {compose.dufsUsingDefaultPassword && !compose.dufsPassword && <div className="form-warning">文件管理仍使用默认密码 123456，建议修改后再供局域网使用。</div>}
                                         <div className="form-warning">仅限可信局域网使用。</div>
                                         {dufs.enabled && dufs.primaryUrl && (
-                                            <div className="actions compact">
-                                                <button className="ghost no-margin" type="button" onClick={onOpenFileManagement} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
-                                                <button className="ghost no-margin" type="button" onClick={copyDufsURL} disabled={busy}><Clipboard size={16}/>{copiedDufsURL ? '已复制' : '复制访问地址'}</button>
-                                            </div>
+                                            <>
+                                                <div className="actions compact">
+                                                    <button className="ghost no-margin" type="button" onClick={onOpenFileManagement} disabled={busy}><ExternalLink size={16}/>打开文件管理</button>
+                                                    <button className="ghost no-margin" type="button" onClick={copyDufsURL} disabled={busy}><Clipboard size={16}/>{copiedDufsURL ? '已复制' : '复制访问地址'}</button>
+                                                </div>
+                                                {copyDufsError && <div className="form-warning">{copyDufsError}</div>}
+                                            </>
                                         )}
                                     </>
                                 )}

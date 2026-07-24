@@ -1,4 +1,4 @@
-import type {Dispatch, SetStateAction} from 'react';
+import {useEffect, useRef, type Dispatch, type SetStateAction} from 'react';
 import type {Notice, RunOptions} from '../types';
 import {doneLabel} from '../utils';
 
@@ -10,14 +10,23 @@ export function useOperationRunner(options: {
     setLastOperationError: Dispatch<SetStateAction<string>>;
     setNeedsRebuild: Dispatch<SetStateAction<boolean>>;
 }) {
+    const mounted = useRef(true);
+
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+
     return async function run(label: string, action: () => Promise<unknown>, runOptions: RunOptions = {}) {
         options.setBusy(label);
         options.setNotice({type: 'info', message: label});
         options.setLastOperationError('');
         try {
             await action();
+            if (!mounted.current) return false;
             runOptions.beforeRefresh?.();
             const refreshMessage = await options.refresh();
+            if (!mounted.current) return false;
             if (runOptions.rebuildRequired) options.setNeedsRebuild(true);
             runOptions.afterSuccess?.();
             if (refreshMessage) {
@@ -29,15 +38,17 @@ export function useOperationRunner(options: {
             options.setNotice({type: 'ok', message: doneLabel(label)});
             return true;
         } catch (error) {
+            if (!mounted.current) return false;
             const message = String(error);
             options.appendLog(message);
             options.setNotice({type: 'error', message});
             options.setLastOperationError(message);
 			const refreshMessage = await options.refresh();
+			if (!mounted.current) return false;
 			if (refreshMessage) options.appendLog(`操作失败后刷新状态失败：${refreshMessage}`);
             return false;
         } finally {
-            options.setBusy('');
+            if (mounted.current) options.setBusy('');
         }
     };
 }
