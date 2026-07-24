@@ -189,11 +189,11 @@ export namespace main {
 	export class DingTalkSettings {
 	    cardTemplateId: string;
 	    recommendedSettingsApplied: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new DingTalkSettings(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.cardTemplateId = source["cardTemplateId"];
@@ -928,9 +928,9 @@ export namespace main {
 	        this.cardTemplateId = source["cardTemplateId"];
 	    }
 	}
-
-
-
+	
+	
+	
 	export class FeishuConfig {
 	    appId: string;
 	    appSecret: string;
@@ -1696,3 +1696,4 @@ export namespace main {
 	}
 
 }
+
