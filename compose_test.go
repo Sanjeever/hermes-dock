@@ -10,6 +10,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func mustRenderCompose(t *testing.T, settings ComposeSettings, proxy ProxySettings) string {
+	t.Helper()
+	content, err := renderCompose(settings, proxy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}
+
+func mustReadComposeSettings(t *testing.T, app *App) ComposeSettings {
+	t.Helper()
+	settings, err := app.readComposeSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return settings
+}
+
+func mustBundledChromiumExecutablePath(t *testing.T, goarch string) string {
+	t.Helper()
+	path, err := bundledChromiumExecutablePath(goarch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func TestBundledChromiumExecutablePathUsesImageArchitectureLayout(t *testing.T) {
 	tests := []struct {
 		goarch string
@@ -20,10 +47,27 @@ func TestBundledChromiumExecutablePathUsesImageArchitectureLayout(t *testing.T) 
 	}
 	for _, tt := range tests {
 		t.Run(tt.goarch, func(t *testing.T) {
-			if got := bundledChromiumExecutablePath(tt.goarch); got != tt.want {
+			got, err := bundledChromiumExecutablePath(tt.goarch)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
 				t.Fatalf("bundled Chromium path = %q, want %q", got, tt.want)
 			}
 		})
+	}
+	if _, err := bundledChromiumExecutablePath("riscv64"); err == nil {
+		t.Fatal("unsupported architecture should return an error")
+	}
+}
+
+func TestReadComposeSettingsReturnsStateAndEnvErrors(t *testing.T) {
+	app := newTestApp(t)
+	if err := os.WriteFile(app.statePath(), []byte("{"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.readComposeSettings(); err == nil {
+		t.Fatal("corrupt state should be reported")
 	}
 }
 
@@ -52,7 +96,10 @@ func TestValidateComposeSettingsRejectsInvalidValues(t *testing.T) {
 
 func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 	settings := defaultComposeSettings()
-	content := renderCompose(settings, defaultProxySettings())
+	content, err := renderCompose(settings, defaultProxySettings())
+	if err != nil {
+		t.Fatal(err)
+	}
 	var parsed map[string]interface{}
 	if err := yaml.Unmarshal([]byte(content), &parsed); err != nil {
 		t.Fatalf("rendered compose is invalid YAML: %v\n%s", err, content)
@@ -77,7 +124,11 @@ func TestRenderComposeQuotesUserControlledScalarValues(t *testing.T) {
 			t.Fatalf("compose missing private service configuration %q:\n%s", want, content)
 		}
 	}
-	if !strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+bundledChromiumExecutablePath(runtime.GOARCH)+`"`) {
+	browserExecutablePath, err := bundledChromiumExecutablePath(runtime.GOARCH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+browserExecutablePath+`"`) {
 		t.Fatalf("compose missing bundled Chromium executable path:\n%s", content)
 	}
 }
@@ -101,7 +152,11 @@ func TestMigrateComposeAddsBundledChromiumExecutablePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	browserExecutable := `      AGENT_BROWSER_EXECUTABLE_PATH: "` + bundledChromiumExecutablePath(runtime.GOARCH) + `"` + "\n"
+	browserExecutablePath, err := bundledChromiumExecutablePath(runtime.GOARCH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	browserExecutable := `      AGENT_BROWSER_EXECUTABLE_PATH: "` + browserExecutablePath + `"` + "\n"
 	content, err := os.ReadFile(app.composePath())
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +166,7 @@ func TestMigrateComposeAddsBundledChromiumExecutablePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := app.migrateComposeIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migrateComposeIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	migrated, err := os.ReadFile(app.composePath())
@@ -159,7 +214,7 @@ func TestMigrateComposeAddsDingTalkImagePatchMount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := app.migrateComposeIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migrateComposeIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	migrated, err := os.ReadFile(app.composePath())
@@ -200,7 +255,7 @@ func TestMigrateRuntimeDependencyComposeMarksHermesForRebuild(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := app.migrateRuntimeDependencyComposeIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migrateRuntimeDependencyComposeIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	migrated, err := os.ReadFile(app.composePath())
@@ -237,7 +292,7 @@ func TestMigrateRuntimeDependencyComposeRepairsInterruptedStateWrite(t *testing.
 		t.Fatal(err)
 	}
 
-	if err := app.migrateRuntimeDependencyComposeIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migrateRuntimeDependencyComposeIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	state, err = app.readState()
@@ -267,13 +322,13 @@ func TestMigratePrivateHermesServicesRemovesPublishedPorts(t *testing.T) {
 	if err := app.writeState(state); err != nil {
 		t.Fatal(err)
 	}
-	legacy := strings.Replace(renderCompose(app.readComposeSettings(), app.readProxySettings()), "    environment:\n", "    ports:\n      - target: 8642\n        published: 8642\n      - target: 9119\n        published: 9119\n    environment:\n", 1)
+	legacy := strings.Replace(mustRenderCompose(t, mustReadComposeSettings(t, app), app.readProxySettings()), "    environment:\n", "    ports:\n      - target: 8642\n        published: 8642\n      - target: 9119\n        published: 9119\n    environment:\n", 1)
 	legacy = strings.Replace(legacy, `HERMES_DASHBOARD: "0"`, `HERMES_DASHBOARD: "1"`, 1)
 	if err := atomicWriteFile(app.composePath(), []byte(legacy), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := app.migratePrivateHermesServicesIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migratePrivateHermesServicesIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	state, err = app.readState()
@@ -293,7 +348,7 @@ func TestMigratePrivateHermesServicesRemovesPublishedPorts(t *testing.T) {
 }
 
 func TestPrivateHermesServicesCurrentRequiresIsolatedNetworks(t *testing.T) {
-	current := renderCompose(defaultComposeSettings(), defaultProxySettings())
+	current := mustRenderCompose(t, defaultComposeSettings(), defaultProxySettings())
 	if !privateHermesServicesCurrent([]byte(current), true) {
 		t.Fatal("rendered compose should keep Hermes services private")
 	}
@@ -320,12 +375,12 @@ func TestPrivateHermesServicesMigrationRepairsLaterManagedComposeDrift(t *testin
 	if err := app.writeState(state); err != nil {
 		t.Fatal(err)
 	}
-	drifted := strings.Replace(renderCompose(app.readComposeSettings(), app.readProxySettings()), "    environment:\n", "    ports:\n      - \"127.0.0.1:9119:9119\"\n    environment:\n", 1)
+	drifted := strings.Replace(mustRenderCompose(t, mustReadComposeSettings(t, app), app.readProxySettings()), "    environment:\n", "    ports:\n      - \"127.0.0.1:9119:9119\"\n    environment:\n", 1)
 	if err := atomicWriteFile(app.composePath(), []byte(drifted), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := app.migratePrivateHermesServicesIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migratePrivateHermesServicesIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	state, err = app.readState()
@@ -384,7 +439,7 @@ func TestCalculateRecommendedResourceLimitsRejectsInvalidResources(t *testing.T)
 func TestSaveComposeSettingsMountsSharedDirectory(t *testing.T) {
 	app := newTestApp(t)
 	sharedDirectory := filepath.Join(t.TempDir(), "team files")
-	settings := app.readComposeSettings()
+	settings := mustReadComposeSettings(t, app)
 	settings.SharedDirectory = sharedDirectory
 
 	if err := app.SaveComposeSettings(settings); err != nil {
@@ -417,7 +472,7 @@ func TestSaveComposeSettingsMountsSharedDirectory(t *testing.T) {
 
 func TestSaveComposeSettingsLocksHermesImage(t *testing.T) {
 	app := newTestApp(t)
-	settings := app.readComposeSettings()
+	settings := mustReadComposeSettings(t, app)
 	settings.Image = "example/hermes:custom"
 
 	if err := app.SaveComposeSettings(settings); err != nil {
@@ -464,7 +519,7 @@ func TestMigrateFixedHermesImageRewritesOnlyHermesService(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := app.migrateFixedHermesImageIfNeeded(app.readComposeSettings()); err != nil {
+	if err := app.migrateFixedHermesImageIfNeeded(mustReadComposeSettings(t, app)); err != nil {
 		t.Fatal(err)
 	}
 	state, err = app.readState()
@@ -503,7 +558,7 @@ func TestSaveTextFileRejectsHermesImageOverride(t *testing.T) {
 
 func TestSaveComposeSettingsRejectsRelativeSharedDirectory(t *testing.T) {
 	app := newTestApp(t)
-	settings := app.readComposeSettings()
+	settings := mustReadComposeSettings(t, app)
 	settings.SharedDirectory = "relative/shared"
 	if err := app.SaveComposeSettings(settings); err == nil || !strings.Contains(err.Error(), "绝对路径") {
 		t.Fatalf("expected absolute path error, got %v", err)

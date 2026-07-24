@@ -79,7 +79,11 @@ func (b *cappedBuffer) String() string {
 }
 
 func (a *App) startHostBridge() error {
-	if a.readComposeSettings().HostControlEnabled != "true" {
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return err
+	}
+	if settings.HostControlEnabled != "true" {
 		return nil
 	}
 	a.hostBridgeMu.Lock()
@@ -167,22 +171,33 @@ func (a *App) syncHostBridge(enabled bool) error {
 }
 
 func (a *App) hostBridgeStatus() HostBridgeStatus {
+	settings, settingsErr := a.readComposeSettings()
 	a.hostBridgeMu.RLock()
 	defer a.hostBridgeMu.RUnlock()
 	status := HostBridgeStatus{
-		Enabled: a.readComposeSettings().HostControlEnabled == "true",
+		Enabled: settingsErr == nil && settings.HostControlEnabled == "true",
 		Address: a.hostBridgeAddr,
+	}
+	if settingsErr != nil {
+		status.Error = settingsErr.Error()
 	}
 	if a.hostBridge != nil {
 		status.Running = a.hostBridge.running
-		status.Error = a.hostBridge.err
+		if a.hostBridge.err != "" {
+			status.Error = a.hostBridge.err
+		}
 	}
 	return status
 }
 
 func (a *App) requireHostBridgeToken(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if a.readComposeSettings().HostControlEnabled != "true" {
+		settings, err := a.readComposeSettings()
+		if err != nil {
+			writeHostJSON(w, http.StatusInternalServerError, map[string]string{"error": "host bridge settings unavailable"})
+			return
+		}
+		if settings.HostControlEnabled != "true" {
 			writeHostJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "host bridge disabled"})
 			return
 		}

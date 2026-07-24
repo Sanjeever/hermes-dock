@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -28,11 +29,14 @@ const (
 	defaultWebPort     = "9876"
 	defaultWebPassword = "123456"
 	sessionCookieName  = "hermes_dock_session"
+	webMaxRequestBody  = 2 << 20
 )
 
 type webRuntime struct {
 	mu            sync.Mutex
 	server        *http.Server
+	serverCancel  context.CancelFunc
+	serverDone    chan struct{}
 	running       bool
 	err           string
 	clients       map[*webClient]bool
@@ -47,10 +51,17 @@ type loginFailure struct {
 }
 
 type webClient struct {
-	id     string
-	conn   *websocket.Conn
-	send   chan webEvent
-	closed bool
+	id          string
+	conn        *websocket.Conn
+	send        chan webEvent
+	closed      bool
+	stopContext func() bool
+}
+
+type webClientCleanup struct {
+	conn        *websocket.Conn
+	stopContext func() bool
+	stopLogs    bool
 }
 
 type webConfig struct {
@@ -117,7 +128,7 @@ func (a *App) webLogf(format string, args ...interface{}) {
 		return
 	}
 	defer file.Close()
-	line := time.Now().Format(time.RFC3339) + " " + fmt.Sprintf(format, args...) + "\n"
+	line := time.Now().Format(time.RFC3339) + " " + redact(fmt.Sprintf(format, args...)) + "\n"
 	_, _ = file.WriteString(line)
 }
 
@@ -218,6 +229,15 @@ func (a *App) startWebServer() {
 }
 
 func (a *App) startWebServerChecked() error {
+	a.webLifecycleMu.Lock()
+	defer a.webLifecycleMu.Unlock()
+	return a.startWebServerCheckedLocked()
+}
+
+func (a *App) startWebServerCheckedLocked() error {
+	if a.web == nil {
+		a.web = newWebRuntime()
+	}
 	cfg, err := a.readWebConfig()
 	if err != nil {
 		a.webLogf("server start failed error=%s", err.Error())
@@ -226,18 +246,16 @@ func (a *App) startWebServerChecked() error {
 	}
 	if !cfg.Enabled {
 		a.webLogf("server disabled")
-		a.stopWebServer(context.Background())
+		a.stopWebServerLocked(context.Background())
 		return nil
 	}
-	if a.web == nil {
-		a.web = newWebRuntime()
-	}
-	a.web.mu.Lock()
-	if a.web.running {
-		a.web.mu.Unlock()
+	web := a.web
+	web.mu.Lock()
+	if web.running {
+		web.mu.Unlock()
 		return nil
 	}
-	a.web.mu.Unlock()
+	web.mu.Unlock()
 
 	dist, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {
@@ -246,57 +264,81 @@ func (a *App) startWebServerChecked() error {
 		return err
 	}
 	mux := http.NewServeMux()
-	a.registerWebRoutes(mux, http.FileServer(http.FS(dist)))
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	a.registerWebRoutesWithContext(mux, http.FileServer(http.FS(dist)), serverCtx)
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		serverCancel()
 		a.webLogf("server start failed addr=%s error=%s", addr, err.Error())
 		a.setWebError(err.Error())
 		return err
 	}
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := newWebHTTPServer(addr, mux, serverCtx)
+	done := make(chan struct{})
 
-	a.web.mu.Lock()
-	a.web.server = server
-	a.web.running = true
-	a.web.err = ""
-	a.web.mu.Unlock()
+	web.mu.Lock()
+	web.server = server
+	web.serverCancel = serverCancel
+	web.serverDone = done
+	web.running = true
+	web.err = ""
+	web.mu.Unlock()
 	a.webLogf("server started addr=%s", addr)
 
 	go func() {
-		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		defer close(done)
+		err := server.Serve(ln)
+		if web.finishServer(server, err) && err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.webLogf("server error addr=%s error=%s", addr, err.Error())
-			a.setWebError(err.Error())
 		}
-		a.web.mu.Lock()
-		a.web.running = false
-		a.web.mu.Unlock()
 		a.webLogf("server stopped addr=%s", addr)
 	}()
 	return nil
 }
 
 func (a *App) stopWebServer(ctx context.Context) {
-	if a.web == nil {
+	a.webLifecycleMu.Lock()
+	defer a.webLifecycleMu.Unlock()
+	a.stopWebServerLocked(ctx)
+}
+
+func (a *App) stopWebServerLocked(ctx context.Context) {
+	web := a.web
+	if web == nil {
 		return
 	}
-	a.web.mu.Lock()
-	server := a.web.server
-	a.web.server = nil
-	a.web.running = false
-	hadLogTailRefs := len(a.web.logTailRefs) > 0
-	a.web.logTailRefs = map[string]bool{}
-	for client := range a.web.clients {
-		if !client.closed {
-			client.closed = true
-			close(client.send)
-		}
-		_ = client.conn.Close()
-		delete(a.web.clients, client)
+	web.mu.Lock()
+	server := web.server
+	serverCancel := web.serverCancel
+	done := web.serverDone
+	web.server = nil
+	web.serverCancel = nil
+	web.serverDone = nil
+	web.running = false
+	hadLogTailRefs := len(web.logTailRefs) > 0
+	var clientCleanups []webClientCleanup
+	for client := range web.clients {
+		cleanup := detachWebClientLocked(web, client)
+		cleanup.stopLogs = false
+		clientCleanups = append(clientCleanups, cleanup)
 	}
-	a.web.mu.Unlock()
+	web.logTailRefs = map[string]bool{}
+	web.mu.Unlock()
+	for _, cleanup := range clientCleanups {
+		a.finishWebClientCleanup(cleanup)
+	}
+	if serverCancel != nil {
+		serverCancel()
+	}
 	if server != nil {
 		_ = server.Shutdown(ctx)
+	}
+	if done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+		}
 	}
 	if hadLogTailRefs {
 		a.StopTailLogs()
@@ -306,12 +348,40 @@ func (a *App) stopWebServer(ctx context.Context) {
 
 func (a *App) setWebError(message string) {
 	if a.web == nil {
-		a.web = newWebRuntime()
+		return
 	}
 	a.web.mu.Lock()
 	a.web.err = message
 	a.web.running = false
 	a.web.mu.Unlock()
+}
+
+func (web *webRuntime) finishServer(server *http.Server, serveErr error) bool {
+	web.mu.Lock()
+	defer web.mu.Unlock()
+	if web.server != server {
+		return false
+	}
+	web.server = nil
+	web.serverCancel = nil
+	web.serverDone = nil
+	web.running = false
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		web.err = serveErr.Error()
+	}
+	return true
+}
+
+func newWebHTTPServer(addr string, handler http.Handler, baseCtx context.Context) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		BaseContext:       func(net.Listener) context.Context { return baseCtx },
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       60 * time.Second,
+	}
 }
 
 func (a *App) webStatus() WebStatus {
@@ -405,6 +475,10 @@ func isVirtualNetworkInterface(name string) bool {
 }
 
 func (a *App) registerWebRoutes(mux *http.ServeMux, static http.Handler) {
+	a.registerWebRoutesWithContext(mux, static, context.Background())
+}
+
+func (a *App) registerWebRoutesWithContext(mux *http.ServeMux, static http.Handler, serverCtx context.Context) {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -412,7 +486,9 @@ func (a *App) registerWebRoutes(mux *http.ServeMux, static http.Handler) {
 	mux.HandleFunc("/api/login", a.handleWebLogin)
 	mux.HandleFunc("/api/logout", a.requireWebSession(a.handleWebLogout))
 	mux.HandleFunc("/api/rpc", a.requireWebSession(a.handleWebRPC))
-	mux.HandleFunc("/ws/events", a.requireWebSession(a.handleWebSocket))
+	mux.HandleFunc("/ws/events", a.requireWebSession(func(w http.ResponseWriter, r *http.Request) {
+		a.handleWebSocket(serverCtx, w, r)
+	}))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		static.ServeHTTP(w, r)
 	})
@@ -447,7 +523,7 @@ func (a *App) handleWebLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeWebRequest(w, r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, rpcResponse{OK: false, Error: "请求格式错误"})
 		return
 	}
@@ -557,7 +633,7 @@ func (a *App) handleWebRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req rpcRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeWebRequest(w, r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, rpcResponse{OK: false, Error: "请求格式错误"})
 		return
 	}
@@ -577,7 +653,24 @@ func (a *App) handleWebRPC(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rpcResponse{OK: true, Result: result})
 }
 
-func (a *App) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+func decodeWebRequest(w http.ResponseWriter, r *http.Request, out interface{}) error {
+	r.Body = http.MaxBytesReader(w, r.Body, webMaxRequestBody)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(out); err != nil {
+		return err
+	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("请求包含多余 JSON")
+		}
+		return err
+	}
+	return nil
+}
+
+func (a *App) handleWebSocket(serverCtx context.Context, w http.ResponseWriter, r *http.Request) {
 	if !sameOrigin(r) {
 		http.Error(w, "origin rejected", http.StatusForbidden)
 		return
@@ -588,9 +681,20 @@ func (a *App) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := &webClient{id: strings.TrimSpace(r.URL.Query().Get("client_id")), conn: conn, send: make(chan webEvent, 32)}
-	a.web.mu.Lock()
-	a.web.clients[client] = true
-	a.web.mu.Unlock()
+	web := a.web
+	if web == nil {
+		_ = conn.Close()
+		return
+	}
+	web.mu.Lock()
+	if serverCtx.Err() != nil {
+		web.mu.Unlock()
+		_ = conn.Close()
+		return
+	}
+	client.stopContext = context.AfterFunc(serverCtx, func() { a.closeWebClient(client) })
+	web.clients[client] = true
+	web.mu.Unlock()
 	go func() {
 		for event := range client.send {
 			if err := conn.WriteJSON(event); err != nil {
@@ -610,49 +714,68 @@ func (a *App) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) closeWebClient(client *webClient) {
-	if a.web == nil {
+	web := a.web
+	if web == nil {
+		if client != nil && client.conn != nil {
+			_ = client.conn.Close()
+		}
 		return
 	}
-	a.web.mu.Lock()
-	if client.closed {
-		a.web.mu.Unlock()
-		return
-	}
-	client.closed = true
-	close(client.send)
-	_ = client.conn.Close()
-	delete(a.web.clients, client)
-	shouldStopLogs := false
-	if client.id != "" {
-		hadLogRef := a.web.logTailRefs[client.id]
-		delete(a.web.logTailRefs, client.id)
-		shouldStopLogs = hadLogRef && len(a.web.logTailRefs) == 0
-	}
-	a.web.mu.Unlock()
-	if shouldStopLogs {
-		a.StopTailLogs()
-	}
+	web.mu.Lock()
+	cleanup := detachWebClientLocked(web, client)
+	web.mu.Unlock()
+	a.finishWebClientCleanup(cleanup)
 }
 
 func (a *App) emitWeb(event string, payload interface{}) {
-	if a.web == nil {
+	web := a.web
+	if web == nil {
 		return
 	}
-	a.web.mu.Lock()
-	defer a.web.mu.Unlock()
-	for client := range a.web.clients {
+	web.mu.Lock()
+	var cleanups []webClientCleanup
+	for client := range web.clients {
 		if client.closed {
-			delete(a.web.clients, client)
+			cleanups = append(cleanups, detachWebClientLocked(web, client))
 			continue
 		}
 		select {
 		case client.send <- webEvent{Event: event, Payload: payload}:
 		default:
-			client.closed = true
-			close(client.send)
-			_ = client.conn.Close()
-			delete(a.web.clients, client)
+			cleanups = append(cleanups, detachWebClientLocked(web, client))
 		}
+	}
+	web.mu.Unlock()
+	for _, cleanup := range cleanups {
+		a.finishWebClientCleanup(cleanup)
+	}
+}
+
+func detachWebClientLocked(web *webRuntime, client *webClient) webClientCleanup {
+	if !client.closed {
+		client.closed = true
+		close(client.send)
+	}
+	delete(web.clients, client)
+	cleanup := webClientCleanup{conn: client.conn, stopContext: client.stopContext}
+	client.stopContext = nil
+	if client.id != "" {
+		hadLogRef := web.logTailRefs[client.id]
+		delete(web.logTailRefs, client.id)
+		cleanup.stopLogs = hadLogRef && len(web.logTailRefs) == 0
+	}
+	return cleanup
+}
+
+func (a *App) finishWebClientCleanup(cleanup webClientCleanup) {
+	if cleanup.conn != nil {
+		_ = cleanup.conn.Close()
+	}
+	if cleanup.stopContext != nil {
+		cleanup.stopContext()
+	}
+	if cleanup.stopLogs {
+		a.StopTailLogs()
 	}
 }
 
@@ -985,11 +1108,18 @@ func (a *App) webTextFilePath(profileID string, kind string) (string, error) {
 }
 
 func (a *App) webFileManagementURL() (string, error) {
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return "", err
+	}
 	if !settings.DufsEnabled {
 		return "", fmt.Errorf("Dufs 文件管理未开启")
 	}
-	return a.dufsStatus().PrimaryURL, nil
+	status, err := a.dufsStatus()
+	if err != nil {
+		return "", err
+	}
+	return status.PrimaryURL, nil
 }
 
 func (a *App) SaveWebSettings(req WebSettingsRequest) error {

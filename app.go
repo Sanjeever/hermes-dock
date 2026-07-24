@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,14 +19,17 @@ const (
 	appVersion      = "1.11.19"
 	templateVersion = "2026.07.22"
 	defaultImage    = "nousresearch/hermes-agent:v2026.6.19"
+	textFileLimit   = 1 << 20
 )
 
 type App struct {
 	ctx                 context.Context
 	instanceRoot        string
 	mu                  sync.Mutex
+	startupMu           sync.Mutex
 	stateMu             sync.Mutex
 	operationMu         sync.Mutex
+	webLifecycleMu      sync.Mutex
 	webSessionMu        sync.RWMutex
 	loginMu             sync.Mutex
 	logMu               sync.Mutex
@@ -57,6 +61,7 @@ func NewApp() *App {
 		hostBridgeAddr:    hostBridgeAddress,
 		applySlowAfter:    2 * time.Minute,
 		applyPollInterval: 500 * time.Millisecond,
+		web:               newWebRuntime(),
 	}
 }
 
@@ -75,11 +80,14 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.instanceRoot = detectInstanceRoot()
 	a.startUpdateWatcher()
-	a.startupErr = a.ensureInstanceReady()
-	if a.startupErr == nil {
-		a.startupErr = a.preparePostUpdateTask()
+	startupErr := a.ensureInstanceReady()
+	if startupErr == nil {
+		startupErr = a.preparePostUpdateTask()
 	}
-	if a.startupErr == nil {
+	a.startupMu.Lock()
+	a.startupErr = startupErr
+	a.startupMu.Unlock()
+	if startupErr == nil {
 		a.acknowledgeInstalledUpdate()
 		a.resumeApplyConfigTask()
 		a.startPostUpdateTask()
@@ -107,14 +115,12 @@ func (a *App) GetAppState() (AppState, error) {
 }
 
 func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
-	if a.startupErr != nil {
-		if err := a.ensureInstanceReady(); err != nil {
-			return AppState{}, err
-		}
-		a.startupErr = nil
-	} else if err := a.ensureInstanceReady(); err != nil {
+	if err := a.ensureInstanceReady(); err != nil {
 		return AppState{}, err
 	}
+	a.startupMu.Lock()
+	a.startupErr = nil
+	a.startupMu.Unlock()
 	profileID, err := a.resolveProfileID(profileID)
 	if err != nil {
 		return AppState{}, err
@@ -127,7 +133,10 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 	if err != nil {
 		return AppState{}, err
 	}
-	compose := a.readComposeSettings()
+	compose, err := a.readComposeSettings()
+	if err != nil {
+		return AppState{}, err
+	}
 	proxy := a.readProxySettings()
 	env, err := readEnvFile(a.profileEnvPath(profileID))
 	if err != nil {
@@ -150,6 +159,7 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 		return AppState{}, err
 	}
 	containerStatus := a.containerStatus(context.Background())
+	dufs := dufsStatusFromSettings(compose)
 
 	return AppState{
 		AppVersion:       appVersion,
@@ -170,7 +180,7 @@ func (a *App) GetAppStateForProfile(profileID string) (AppState, error) {
 		ComposeAvailable: a.composeAvailable(context.Background()),
 		ContainerStatus:  containerStatus,
 		Web:              a.webStatus(),
-		Dufs:             a.dufsStatus(),
+		Dufs:             dufs,
 		HostBridge:       a.hostBridgeStatus(),
 		Update:           a.updateStatus(),
 		ApplyConfig:      a.readApplyConfigStatus(),
@@ -186,8 +196,10 @@ func (a *App) ensureInstanceReady() error {
 
 func (a *App) ensureInstanceReadyLocked() error {
 	if fileExists(a.statePath()) && fileExists(a.composePath()) && fileExists(a.defaultEnvPath()) && fileExists(a.defaultConfigPath()) {
-		settings := a.readComposeSettings()
-		var err error
+		settings, err := a.readComposeSettings()
+		if err != nil {
+			return err
+		}
 		settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-repair")
 		if err != nil {
 			return err
@@ -239,13 +251,15 @@ func (a *App) ensureInstanceReadyLocked() error {
 	if err := a.ensureDockDataDir(); err != nil {
 		return err
 	}
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return err
+	}
 	if !fileExists(a.statePath()) && !fileExists(a.composePath()) {
 		settings = a.withInitialResourceDefaults(settings)
 	} else if settings.Image == "" {
 		settings = defaultComposeSettings()
 	}
-	var err error
 	settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-initialize")
 	if err != nil {
 		return err
@@ -337,7 +351,13 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	existing, _ := a.readState()
+	existing := defaultState()
+	if fileExists(a.statePath()) {
+		existing, err = a.readState()
+		if err != nil {
+			return LauncherState{}, err
+		}
+	}
 	instanceID := existing.InstanceID
 	if instanceID == "" {
 		instanceID = uuid.NewString()
@@ -370,7 +390,11 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 	if existing.InstanceID == "" {
 		state.RuntimeDependencyVersion = runtimeDependencyBundleVersion
 	}
-	if err := a.writeState(state); err != nil {
+	if err := a.updateStateAllowMissing(func(current *LauncherState) error {
+		state.Backups = current.Backups
+		*current = state
+		return nil
+	}); err != nil {
 		return LauncherState{}, err
 	}
 	if err := a.migratePrivateHermesServicesIfNeeded(settings); err != nil {
@@ -388,6 +412,8 @@ func (a *App) initializeInstanceLocked(settings ComposeSettings) (LauncherState,
 func (a *App) writeOverrideIfMissing() error {
 	if _, err := os.Stat(a.overridePath()); errors.Is(err, os.ErrNotExist) {
 		return atomicWriteFile(a.overridePath(), []byte("# 在这里添加高级 Docker Compose 覆盖配置。\n"), 0644)
+	} else if err != nil {
+		return err
 	}
 	return nil
 }
@@ -435,7 +461,9 @@ func (a *App) FactoryResetInstance() (err error) {
 		a.startUpdateWatcher()
 		return err
 	}
+	a.startupMu.Lock()
 	a.startupErr = nil
+	a.startupMu.Unlock()
 	if err := a.ensureInstanceReadyLocked(); err != nil {
 		a.startUpdateWatcher()
 		return err
@@ -477,11 +505,18 @@ func (a *App) validateResetRoot() error {
 }
 
 func (a *App) OpenFileManagement() error {
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return err
+	}
 	if !settings.DufsEnabled {
 		return fmt.Errorf("Dufs 文件管理未开启")
 	}
-	runtime.BrowserOpenURL(a.ctx, a.dufsStatus().LocalURL)
+	status, err := a.dufsStatus()
+	if err != nil {
+		return err
+	}
+	runtime.BrowserOpenURL(a.ctx, status.LocalURL)
 	return nil
 }
 
@@ -490,9 +525,27 @@ func (a *App) ReadTextFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(resolved)
+	file, err := openFileBeneath(a.instanceRoot, resolved)
 	if err != nil {
 		return "", err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("只能读取普通文本文件")
+	}
+	if info.Size() > textFileLimit {
+		return "", fmt.Errorf("文件过大，最多允许 %d MiB", textFileLimit>>20)
+	}
+	data, err := io.ReadAll(io.LimitReader(file, textFileLimit+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) > textFileLimit {
+		return "", fmt.Errorf("文件过大，最多允许 %d MiB", textFileLimit>>20)
 	}
 	return string(data), nil
 }
@@ -509,6 +562,9 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	}
 	if resolved == a.composePath() {
 		return fmt.Errorf("标准 Docker Compose 由启动器管理，请使用覆盖文件")
+	}
+	if len([]byte(req.Content)) > textFileLimit {
+		return fmt.Errorf("文件内容过大，最多允许 %d MiB", textFileLimit>>20)
 	}
 	if strings.HasSuffix(resolved, ".yaml") || strings.HasSuffix(resolved, ".yml") {
 		if err := parseYAML([]byte(req.Content), nil); err != nil {
@@ -531,7 +587,7 @@ func (a *App) SaveTextFile(req TextFileRequest) error {
 	if filepath.Base(resolved) == ".env" {
 		mode = 0600
 	}
-	if err := atomicWriteFile(resolved, []byte(req.Content), mode); err != nil {
+	if err := atomicWriteFileBeneath(a.instanceRoot, resolved, []byte(req.Content), mode); err != nil {
 		return err
 	}
 	return a.markRebuildRequired()

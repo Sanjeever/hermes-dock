@@ -177,8 +177,15 @@ func readDufsPasswordHash(path string) (string, error) {
 	return passwordHash, nil
 }
 
-func (a *App) dufsStatus() DufsStatus {
-	settings := a.readComposeSettings()
+func (a *App) dufsStatus() (DufsStatus, error) {
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return DufsStatus{}, err
+	}
+	return dufsStatusFromSettings(settings), nil
+}
+
+func dufsStatusFromSettings(settings ComposeSettings) DufsStatus {
 	localURL := "http://127.0.0.1:" + settings.DufsPort
 	lanURLs := lanWebURLs(settings.DufsPort)
 	primaryURL := localURL
@@ -198,7 +205,10 @@ func (a *App) dufsStatus() DufsStatus {
 
 func (a *App) dufsRuntimeHash() (string, error) {
 	hash := sha256.New()
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return "", err
+	}
 	service := []byte(renderDufsService(settings))
 	_, _ = fmt.Fprintf(hash, "%d:", len(service))
 	_, _ = hash.Write(service)

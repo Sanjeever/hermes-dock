@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,25 @@ func TestPersistWeixinCredentialsUsesLoginProfile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(app.profileDataDir("support"), ".env")); !os.IsNotExist(err) {
 		t.Fatalf("support .env should not be created, stat err = %v", err)
+	}
+}
+
+func TestPersistWeixinCredentialsDoesNotOverwriteUnreadableEnv(t *testing.T) {
+	app := newTestApp(t)
+	original := strings.Repeat("x", 70*1024)
+	if err := os.WriteFile(app.envPath(), []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := app.persistWeixinCredentials(defaultProfileID, weixinEvent{AccountID: "account", Token: "secret"})
+	if err == nil {
+		t.Fatal("invalid .env should block credential save")
+	}
+	saved, readErr := os.ReadFile(app.envPath())
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(saved) != original {
+		t.Fatal("invalid .env was overwritten")
 	}
 }
 

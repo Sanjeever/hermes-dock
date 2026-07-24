@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -30,6 +31,9 @@ func TestHandleWebRPCValidatesRequestBoundary(t *testing.T) {
 		{name: "method", method: http.MethodGet, body: `{}`, wantStatus: http.StatusMethodNotAllowed, wantBody: "method not allowed"},
 		{name: "origin", method: http.MethodPost, origin: "https://example.com", body: `{}`, wantStatus: http.StatusForbidden, wantBody: "origin rejected"},
 		{name: "json", method: http.MethodPost, body: `{`, wantStatus: http.StatusBadRequest, wantBody: "请求格式错误"},
+		{name: "unknown field", method: http.MethodPost, body: `{"method":"Unknown","params":[],"extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "请求格式错误"},
+		{name: "trailing json", method: http.MethodPost, body: `{"method":"Unknown","params":[]} {}`, wantStatus: http.StatusBadRequest, wantBody: "请求格式错误"},
+		{name: "oversized", method: http.MethodPost, body: `{"method":"` + strings.Repeat("x", webMaxRequestBody) + `","params":[]}`, wantStatus: http.StatusBadRequest, wantBody: "请求格式错误"},
 		{name: "rpc method", method: http.MethodPost, body: `{"method":"Unknown","params":[]}`, wantStatus: http.StatusBadRequest, wantBody: "Web 不支持该操作：Unknown"},
 	}
 
@@ -50,6 +54,66 @@ func TestHandleWebRPCValidatesRequestBoundary(t *testing.T) {
 				t.Fatalf("body = %q, want %q", response.Body.String(), test.wantBody)
 			}
 		})
+	}
+}
+
+func TestNewAppInitializesWebRuntime(t *testing.T) {
+	if NewApp().web == nil {
+		t.Fatal("web runtime should be initialized")
+	}
+}
+
+func TestWebServerCompletionDoesNotClobberNewServer(t *testing.T) {
+	web := newWebRuntime()
+	oldServer := &http.Server{}
+	newServer := &http.Server{}
+	web.server = newServer
+	web.running = true
+
+	if web.finishServer(oldServer, nil) {
+		t.Fatal("stale server completion should be ignored")
+	}
+	if !web.running || web.server != newServer {
+		t.Fatal("stale server completion changed active server state")
+	}
+	if !web.finishServer(newServer, nil) {
+		t.Fatal("active server completion should be recorded")
+	}
+	if web.running {
+		t.Fatal("active server should be marked stopped")
+	}
+}
+
+func TestWebHTTPServerHasConnectionTimeouts(t *testing.T) {
+	server := newWebHTTPServer("127.0.0.1:0", http.NewServeMux(), context.Background())
+	if server.ReadHeaderTimeout <= 0 || server.ReadTimeout <= 0 || server.WriteTimeout <= 0 || server.IdleTimeout <= 0 {
+		t.Fatalf("web server timeouts are incomplete: %+v", server)
+	}
+}
+
+func TestEmitWebCleansUpSlowClientLogTail(t *testing.T) {
+	app := NewApp()
+	client := &webClient{id: "slow", send: make(chan webEvent)}
+	app.web.clients[client] = true
+	app.web.logTailRefs[client.id] = true
+
+	app.emitWeb("logs:line", map[string]string{"line": "test"})
+
+	if app.web.clients[client] || app.web.logTailRefs[client.id] {
+		t.Fatal("slow client resources were not fully released")
+	}
+}
+
+func TestWebLogfRedactsSecrets(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	app.webLogf("rpc failed error=api_key=secret-value")
+	data, err := os.ReadFile(app.webLogPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "secret-value") {
+		t.Fatalf("web log contains secret: %s", data)
 	}
 }
 

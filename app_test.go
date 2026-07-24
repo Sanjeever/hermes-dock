@@ -134,7 +134,7 @@ func TestStartupComposeUsesTargetedImagePermissions(t *testing.T) {
 		"      HERMES_WRITE_SAFE_ROOT: \"/opt/data\"",
 		"      HERMES_DASHBOARD: \"0\"",
 		"      HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT: \"true\"",
-		"      AGENT_BROWSER_EXECUTABLE_PATH: \"" + bundledChromiumExecutablePath(runtime.GOARCH) + "\"",
+		"      AGENT_BROWSER_EXECUTABLE_PATH: \"" + mustBundledChromiumExecutablePath(t, runtime.GOARCH) + "\"",
 		"      - ./launcher/runtime-deps/" + runtimeDependencyBundleVersion + ":/opt/hermes-dock/runtime-deps:ro",
 		"      - \"" + filepath.Join(home, ".hermes-dock", "shared") + ":/opt/data/.dock/shared\"",
 		"      - ./launcher/helpers/verify-runtime-deps:/etc/cont-init.d/016-verify-runtime-deps:ro",
@@ -759,5 +759,21 @@ func TestNormalizeDeepSeekDefaults(t *testing.T) {
 	}
 	if model.APIMode != "chat_completions" {
 		t.Fatalf("api mode = %q", model.APIMode)
+	}
+}
+
+func TestTextFileEditorRejectsOversizedContent(t *testing.T) {
+	app := NewApp()
+	app.instanceRoot = t.TempDir()
+	large := strings.Repeat("x", textFileLimit+1)
+	path := filepath.Join(app.instanceRoot, "large.txt")
+	if err := os.WriteFile(path, []byte(large), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.ReadTextFile("large.txt"); err == nil {
+		t.Fatal("oversized file should be rejected")
+	}
+	if err := app.SaveTextFile(TextFileRequest{Path: "new.txt", Content: large}); err == nil {
+		t.Fatal("oversized content should be rejected")
 	}
 }

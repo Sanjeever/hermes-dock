@@ -11,7 +11,7 @@ import (
 
 func TestDufsDefaultsCreateHashedSingleAccountConfig(t *testing.T) {
 	app := newTestApp(t)
-	settings := app.readComposeSettings()
+	settings := mustReadComposeSettings(t, app)
 	if !settings.DufsEnabled || settings.DufsPort != defaultDufsPort || settings.DufsUsername != defaultDufsUsername {
 		t.Fatalf("unexpected Dufs defaults: %+v", settings)
 	}
@@ -41,7 +41,7 @@ func TestDufsDefaultsCreateHashedSingleAccountConfig(t *testing.T) {
 
 func TestRenderComposeIncludesHardenedDufsSidecar(t *testing.T) {
 	settings := defaultComposeSettings()
-	compose := renderCompose(settings, defaultProxySettings())
+	compose := mustRenderCompose(t, settings, defaultProxySettings())
 	for _, want := range []string{
 		"image: " + defaultDufsImage,
 		`user: "` + dufsContainerUser() + `"`,
@@ -59,7 +59,7 @@ func TestRenderComposeIncludesHardenedDufsSidecar(t *testing.T) {
 
 func TestSaveDufsPasswordMarksDufsOnlyApply(t *testing.T) {
 	app := newTestApp(t)
-	settings := app.readComposeSettings()
+	settings := mustReadComposeSettings(t, app)
 	settings.DufsPassword = "new-password"
 	if err := app.SaveComposeSettings(settings); err != nil {
 		t.Fatal(err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -146,20 +147,29 @@ func validateSharedDirectory(path string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-func (a *App) readComposeSettings() ComposeSettings {
-	state, _ := a.readState()
+func (a *App) readComposeSettings() (ComposeSettings, error) {
 	settings := defaultComposeSettings()
-	if state.ComposeSettings.Image != "" {
-		settings = state.ComposeSettings
-		if settings.MemoryLimit == "" || settings.CPULimit == "" {
-			settings = a.withRecommendedResourceDefaults(settings)
+	state, err := a.readState()
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return ComposeSettings{}, fmt.Errorf("读取启动器状态失败：%w", err)
 		}
-		settings = withComposeDefaults(settings)
+	} else {
+		if state.ComposeSettings.Image != "" {
+			settings = state.ComposeSettings
+			if settings.MemoryLimit == "" || settings.CPULimit == "" {
+				settings = a.withRecommendedResourceDefaults(settings)
+			}
+			settings = withComposeDefaults(settings)
+		}
+		if state.HermesImage != "" {
+			settings.Image = state.HermesImage
+		}
 	}
-	if state.HermesImage != "" {
-		settings.Image = state.HermesImage
+	env, err := readEnvFile(a.defaultEnvPath())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return ComposeSettings{}, fmt.Errorf("读取默认 profile .env 失败：%w", err)
 	}
-	env, _ := readEnvFile(a.defaultEnvPath())
 	if value := envValue(env, "HERMES_GATEWAY_BUSY_INPUT_MODE"); value != "" {
 		settings.GatewayBusyInputMode = value
 	}
@@ -169,12 +179,15 @@ func (a *App) readComposeSettings() ComposeSettings {
 	if value := envValue(env, "HERMES_BACKGROUND_NOTIFICATIONS"); value != "" {
 		settings.BackgroundNotifications = value
 	}
-	return withComposeDefaults(settings)
+	return withComposeDefaults(settings), nil
 }
 
 func (a *App) ensureComposeResourceDefaults() error {
 	state, err := a.readState()
-	if err != nil || state.ComposeSettings.Image == "" {
+	if err != nil {
+		return err
+	}
+	if state.ComposeSettings.Image == "" {
 		return nil
 	}
 	if state.ComposeSettings.MemoryLimit != "" && state.ComposeSettings.CPULimit != "" {
@@ -185,17 +198,22 @@ func (a *App) ensureComposeResourceDefaults() error {
 	if err := a.writeCompose(settings, "before-compose-resource-defaults"); err != nil {
 		return err
 	}
-	state.ComposeSettings = settings
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.updateState(func(state *LauncherState) error {
+		state.ComposeSettings = settings
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	})
 }
 
 func (a *App) SaveComposeSettings(settings ComposeSettings) error {
-	previousSettings := a.readComposeSettings()
-	previousState, err := a.readState()
+	previousSettings, err := a.readComposeSettings()
+	if err != nil {
+		return err
+	}
+	_, err = a.readState()
 	if err != nil {
 		return err
 	}
@@ -226,17 +244,26 @@ func (a *App) SaveComposeSettings(settings ComposeSettings) error {
 	if err := a.writeCompose(settings, "before-compose-save"); err != nil {
 		return err
 	}
-	state := previousState
-	hermesUnchanged := renderHermesService(previousSettings, a.readProxySettings()) == renderHermesService(settings, a.readProxySettings())
-	dufsOnly := hermesUnchanged && (!previousState.NeedsRebuild || previousState.PendingDufsOnly)
-	state.PreviousHermesImage = state.HermesImage
-	state.HermesImage = settings.Image
-	state.ComposeSettings = settings
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = dufsOnly
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := a.writeState(state); err != nil {
+	previousHermesService, err := renderHermesService(previousSettings, a.readProxySettings())
+	if err != nil {
+		return err
+	}
+	nextHermesService, err := renderHermesService(settings, a.readProxySettings())
+	if err != nil {
+		return err
+	}
+	hermesUnchanged := previousHermesService == nextHermesService
+	if err := a.updateState(func(state *LauncherState) error {
+		dufsOnly := hermesUnchanged && (!state.NeedsRebuild || state.PendingDufsOnly)
+		state.PreviousHermesImage = state.HermesImage
+		state.HermesImage = settings.Image
+		state.ComposeSettings = settings
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = dufsOnly
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	}); err != nil {
 		return err
 	}
 	return a.syncHostBridge(settings.HostControlEnabled == "true")
@@ -271,14 +298,14 @@ const (
 	bundledChromiumExecutablePathAMD64 = "/opt/hermes/.playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell"
 )
 
-func bundledChromiumExecutablePath(goarch string) string {
+func bundledChromiumExecutablePath(goarch string) (string, error) {
 	switch goarch {
 	case "arm64":
-		return bundledChromiumExecutablePathARM64
+		return bundledChromiumExecutablePathARM64, nil
 	case "amd64":
-		return bundledChromiumExecutablePathAMD64
+		return bundledChromiumExecutablePathAMD64, nil
 	default:
-		panic("unsupported Chromium architecture: " + goarch)
+		return "", fmt.Errorf("不支持的 Chromium 架构：%s", goarch)
 	}
 }
 
@@ -290,7 +317,10 @@ func (a *App) syncComposeEnv(settings ComposeSettings) error {
 		{Key: "HERMES_GATEWAY_BUSY_ACK_ENABLED", Value: settings.GatewayBusyAckEnabled},
 		{Key: "HERMES_BACKGROUND_NOTIFICATIONS", Value: settings.BackgroundNotifications},
 	}
-	existing, _ := readEnvFile(a.defaultEnvPath())
+	existing, err := readEnvFileAllowMissing(a.defaultEnvPath())
+	if err != nil {
+		return err
+	}
 	for _, item := range updates {
 		if envValue(existing, item.Key) != item.Value {
 			return a.saveEnvironmentTo(a.defaultEnvPath(), updates)
@@ -363,7 +393,10 @@ func (a *App) writeCompose(settings ComposeSettings, reason string) error {
 			return err
 		}
 	}
-	content := renderCompose(settings, a.readProxySettings())
+	content, err := renderCompose(settings, a.readProxySettings())
+	if err != nil {
+		return err
+	}
 	return atomicWriteFile(a.composePath(), []byte(content), 0644)
 }
 
@@ -382,7 +415,10 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		return err
 	}
 	content := string(data)
-	browserExecutablePath := bundledChromiumExecutablePath(runtime.GOARCH)
+	browserExecutablePath, err := bundledChromiumExecutablePath(runtime.GOARCH)
+	if err != nil {
+		return err
+	}
 	current := strings.Contains(content, "hermes-profile-runner") &&
 		!strings.Contains(content, "env_file:") &&
 		!strings.Contains(content, "init-permissions") &&
@@ -406,21 +442,19 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 	if !fileExists(a.statePath()) {
 		return nil
 	}
-	state, err := a.readState()
-	if err != nil {
-		return err
-	}
-	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
-		ID:        composeRuntimeMigrationID,
-		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	return a.updateState(func(state *LauncherState) error {
+		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+			ID:        composeRuntimeMigrationID,
+			AppliedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = state.NeedsRebuild || !current
+		if !current {
+			state.PendingDufsOnly = false
+		}
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
 	})
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = state.NeedsRebuild || !current
-	if !current {
-		state.PendingDufsOnly = false
-	}
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
 }
 
 func (a *App) migrateRuntimeDependencyComposeIfNeeded(settings ComposeSettings) error {
@@ -450,11 +484,19 @@ func (a *App) migrateRuntimeDependencyComposeIfNeeded(settings ComposeSettings) 
 	if state.ComposeHash == composeHash && state.NeedsRebuild && !state.PendingDufsOnly {
 		return nil
 	}
-	state.ComposeHash = composeHash
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
+	return a.updateState(func(state *LauncherState) error {
+		if current && state.RuntimeDependencyVersion == runtimeDependencyBundleVersion {
+			return nil
+		}
+		if state.ComposeHash == composeHash && state.NeedsRebuild && !state.PendingDufsOnly {
+			return nil
+		}
+		state.ComposeHash = composeHash
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
+	})
 }
 
 func (a *App) migrateFixedHermesImageIfNeeded(settings ComposeSettings) error {
@@ -482,23 +524,25 @@ func (a *App) migrateFixedHermesImageIfNeeded(settings ComposeSettings) error {
 			return err
 		}
 	}
-	imageChanged := state.HermesImage != defaultImage || state.ComposeSettings.Image != defaultImage
-	if imageChanged {
-		state.PreviousHermesImage = state.HermesImage
-	}
-	state.HermesImage = defaultImage
-	state.ComposeSettings = settings
-	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
-		ID:        fixedImageMigrationID,
-		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	return a.updateState(func(state *LauncherState) error {
+		imageChanged := state.HermesImage != defaultImage || state.ComposeSettings.Image != defaultImage
+		if imageChanged {
+			state.PreviousHermesImage = state.HermesImage
+		}
+		state.HermesImage = defaultImage
+		state.ComposeSettings = settings
+		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+			ID:        fixedImageMigrationID,
+			AppliedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = state.NeedsRebuild || !current || imageChanged
+		if !current || imageChanged {
+			state.PendingDufsOnly = false
+		}
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
 	})
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = state.NeedsRebuild || !current || imageChanged
-	if !current || imageChanged {
-		state.PendingDufsOnly = false
-	}
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
 }
 
 func (a *App) migratePrivateHermesServicesIfNeeded(settings ComposeSettings) error {
@@ -523,19 +567,21 @@ func (a *App) migratePrivateHermesServicesIfNeeded(settings ComposeSettings) err
 			return err
 		}
 	}
-	state.ComposeSettings = settings
-	state.ComposeSettings.DufsPassword = ""
-	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
-		ID:        privateHermesMigrationID,
-		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	return a.updateState(func(state *LauncherState) error {
+		state.ComposeSettings = settings
+		state.ComposeSettings.DufsPassword = ""
+		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+			ID:        privateHermesMigrationID,
+			AppliedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = state.NeedsRebuild || !current
+		if !current {
+			state.PendingDufsOnly = false
+		}
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
 	})
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = state.NeedsRebuild || !current
-	if !current {
-		state.PendingDufsOnly = false
-	}
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
 }
 
 func privateHermesServicesCurrent(data []byte, dufsEnabled bool) bool {
@@ -617,12 +663,14 @@ func (a *App) migrateDufsComposeIfNeeded(settings ComposeSettings) error {
 			state.ComposeSettings.DufsUsingDefaultPassword == settings.DufsUsingDefaultPassword {
 			return nil
 		}
-		state.ComposeSettings.DufsEnabled = settings.DufsEnabled
-		state.ComposeSettings.DufsPort = settings.DufsPort
-		state.ComposeSettings.DufsUsername = settings.DufsUsername
-		state.ComposeSettings.DufsUsingDefaultPassword = settings.DufsUsingDefaultPassword
-		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		return a.writeState(state)
+		return a.updateState(func(state *LauncherState) error {
+			state.ComposeSettings.DufsEnabled = settings.DufsEnabled
+			state.ComposeSettings.DufsPort = settings.DufsPort
+			state.ComposeSettings.DufsUsername = settings.DufsUsername
+			state.ComposeSettings.DufsUsingDefaultPassword = settings.DufsUsingDefaultPassword
+			state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+			return nil
+		})
 	}
 	data, err := os.ReadFile(a.composePath())
 	if err != nil {
@@ -638,33 +686,43 @@ func (a *App) migrateDufsComposeIfNeeded(settings ComposeSettings) error {
 			return err
 		}
 	}
-	wasPending := state.NeedsRebuild
-	state.ComposeSettings = settings
-	state.ComposeSettings.DufsPassword = ""
-	state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
-		ID:        dufsComposeMigrationID,
-		AppliedAt: time.Now().UTC().Format(time.RFC3339),
+	return a.updateState(func(state *LauncherState) error {
+		wasPending := state.NeedsRebuild
+		state.ComposeSettings = settings
+		state.ComposeSettings.DufsPassword = ""
+		state.Migrations = appendIfMissingMigration(state.Migrations, MigrationRecord{
+			ID:        dufsComposeMigrationID,
+			AppliedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = state.NeedsRebuild || !current
+		if !current && (!wasPending || state.PendingDufsOnly) {
+			state.PendingDufsOnly = true
+		}
+		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		return nil
 	})
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = state.NeedsRebuild || !current
-	if !current && (!wasPending || state.PendingDufsOnly) {
-		state.PendingDufsOnly = true
-	}
-	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	return a.writeState(state)
 }
 
-func renderCompose(settings ComposeSettings, proxy ProxySettings) string {
-	return "services:\n" + renderHermesService(settings, proxy) + renderDufsService(settings) + `networks:
+func renderCompose(settings ComposeSettings, proxy ProxySettings) (string, error) {
+	hermesService, err := renderHermesService(settings, proxy)
+	if err != nil {
+		return "", err
+	}
+	return "services:\n" + hermesService + renderDufsService(settings) + `networks:
   hermes_runtime:
   file_management:
-`
+`, nil
 }
 
-func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
+func renderHermesService(settings ComposeSettings, proxy ProxySettings) (string, error) {
 	settings = withComposeDefaults(settings)
 	proxy = withProxyDefaults(proxy)
 	proxyEnv := renderComposeProxyEnvironment(proxy)
+	browserExecutablePath, err := bundledChromiumExecutablePath(runtime.GOARCH)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf(`  hermes:
     image: "%s"
     container_name: "%s"
@@ -720,7 +778,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
         limits:
           memory: "%s"
           cpus: "%s"
-`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), yamlQuote(bundledChromiumExecutablePath(runtime.GOARCH)), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit))
+`, yamlQuote(settings.Image), yamlQuote(settings.ContainerName), yamlQuote(settings.ShmSize), yamlQuote(settings.GatewayBusyInputMode), yamlQuote(settings.GatewayBusyAckEnabled), yamlQuote(settings.BackgroundNotifications), yamlQuote(browserExecutablePath), proxyEnv, runtimeDependencyBundleVersion, yamlQuote(settings.SharedDirectory), yamlQuote(settings.MemoryLimit), yamlQuote(settings.CPULimit)), nil
 }
 
 func renderDufsService(settings ComposeSettings) string {
@@ -776,7 +834,11 @@ func (a *App) StartHermes() error {
 		return err
 	}
 	defer release()
-	if err := ensureWritableDirectory(a.readComposeSettings().SharedDirectory); err != nil {
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return err
+	}
+	if err := ensureWritableDirectory(settings.SharedDirectory); err != nil {
 		return err
 	}
 	if err := a.ensureRuntimeDependencies(); err != nil {
@@ -918,7 +980,15 @@ func (a *App) finalizeRebuildAppliedSnapshot(composeHash string, dufsHash string
 
 func (a *App) composeRuntimeHash() (string, error) {
 	hash := sha256.New()
-	hermesService := []byte(renderHermesService(a.readComposeSettings(), a.readProxySettings()))
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return "", err
+	}
+	renderedHermesService, err := renderHermesService(settings, a.readProxySettings())
+	if err != nil {
+		return "", err
+	}
+	hermesService := []byte(renderedHermesService)
 	_, _ = fmt.Fprintf(hash, "%d:", len(hermesService))
 	_, _ = hash.Write(hermesService)
 	for _, path := range []string{a.overridePath()} {

@@ -96,7 +96,11 @@ func (a *App) startApplyConfigTaskWithOperationID(operationLocked bool, id strin
 }
 
 func (a *App) runApplyConfigTask(ctx context.Context, id string, forceRecreate bool) {
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		a.failApplyConfigTask(id, err)
+		return
+	}
 	if err := ensureWritableDirectory(settings.SharedDirectory); err != nil {
 		a.failApplyConfigTask(id, err)
 		return
@@ -550,7 +554,11 @@ func (a *App) resumeApplyingConfigTask(ctx context.Context, status ApplyConfigSt
 		a.failApplyConfigTask(status.ID, fmt.Errorf("应用中断后配置已发生变化，请重新应用"))
 		return
 	}
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		a.failApplyConfigTask(status.ID, err)
+		return
+	}
 	if status.Strategy == "dufs-only" {
 		if err := a.applyDufsRuntimeContext(ctx, settings, status.DufsRecreate); err != nil {
 			if ctx.Err() == nil {

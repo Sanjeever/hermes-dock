@@ -21,11 +21,18 @@ import (
 )
 
 const (
-	instanceBackupFormat        = "hermes-dock.instance-backup"
-	instanceBackupSchemaVersion = 1
-	instanceBackupConfirmPhrase = "导入"
-	instanceBackupManifestName  = "manifest.json"
-	instanceBackupChecksumsName = "checksums.txt"
+	instanceBackupFormat            = "hermes-dock.instance-backup"
+	instanceBackupSchemaVersion     = 1
+	instanceBackupConfirmPhrase     = "导入"
+	instanceBackupManifestName      = "manifest.json"
+	instanceBackupChecksumsName     = "checksums.txt"
+	instanceBackupMaxManifestBytes  = 1 << 20
+	instanceBackupMaxChecksumsBytes = 64 << 20
+	instanceBackupMaxFileCount      = 100_000
+	instanceBackupMaxArchiveEntries = 200_000
+	instanceBackupMaxFileBytes      = int64(16 << 30)
+	instanceBackupMaxTotalBytes     = int64(64 << 30)
+	instanceBackupMaxArchiveBytes   = instanceBackupMaxTotalBytes + int64(1<<30)
 )
 
 var instanceBackupRestorableRoots = []string{
@@ -143,7 +150,8 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 		}
 	}
 
-	preImportPath := filepath.Join(a.hermesDockDir(), "backups", "pre-import-"+time.Now().UTC().Format("20060102T150405Z")+".hdbackup")
+	preImportID := newBackupID()
+	preImportPath := filepath.Join(a.hermesDockDir(), "backups", "pre-import-"+preImportID+".hdbackup")
 	a.emit("backup:progress", StreamEvent{Line: "正在创建导入前备份"})
 	if _, err := a.exportInstanceBackupTo(preImportPath); err != nil {
 		return InstanceBackupImportResult{}, fmt.Errorf("创建导入前备份失败：%w", err)
@@ -165,31 +173,36 @@ func (a *App) ImportInstanceBackup(req InstanceBackupImportRequest) (InstanceBac
 	if err := a.ensureWebConfig(); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		return InstanceBackupImportResult{}, err
+	}
 	settings, err = a.ensureDufsConfig(settings, "", "before-dufs-config-import")
 	if err != nil {
 		return InstanceBackupImportResult{}, err
 	}
-	if err := atomicWriteFile(a.composePath(), []byte(renderCompose(settings, a.readProxySettings())), 0644); err != nil {
-		return InstanceBackupImportResult{}, err
-	}
-	now := time.Now().UTC()
-	state, err := a.readState()
+	composeContent, err := renderCompose(settings, a.readProxySettings())
 	if err != nil {
 		return InstanceBackupImportResult{}, err
 	}
-	state.AppVersion = appVersion
-	state.ComposeSettings = settings
-	state.ComposeHash = fileSHA256(a.composePath())
-	state.NeedsRebuild = true
-	state.PendingDufsOnly = false
-	state.Backups = append(state.Backups, BackupRecord{
-		ID:     now.Format("20060102T150405Z"),
-		Reason: "pre-import-instance",
-		Path:   strings.TrimPrefix(preImportPath, a.instanceRoot+string(os.PathSeparator)),
-	})
-	state.UpdatedAt = now.Format(time.RFC3339)
-	if err := a.writeState(state); err != nil {
+	if err := atomicWriteFile(a.composePath(), []byte(composeContent), 0644); err != nil {
+		return InstanceBackupImportResult{}, err
+	}
+	now := time.Now().UTC()
+	if err := a.updateState(func(state *LauncherState) error {
+		state.AppVersion = appVersion
+		state.ComposeSettings = settings
+		state.ComposeHash = fileSHA256(a.composePath())
+		state.NeedsRebuild = true
+		state.PendingDufsOnly = false
+		state.Backups = append(state.Backups, BackupRecord{
+			ID:     preImportID,
+			Reason: "pre-import-instance",
+			Path:   strings.TrimPrefix(preImportPath, a.instanceRoot+string(os.PathSeparator)),
+		})
+		state.UpdatedAt = now.Format(time.RFC3339)
+		return nil
+	}); err != nil {
 		return InstanceBackupImportResult{}, err
 	}
 	if err := a.clearWebSessions(); err != nil {
@@ -512,12 +525,15 @@ func writeBackupEntry(tw *tar.Writer, entry instanceBackupEntry, checksums map[s
 			return err
 		}
 		defer src.Close()
-		info, err = src.Stat()
+		currentInfo, err := src.Stat()
 		if err != nil {
 			return err
 		}
-		if !info.Mode().IsRegular() {
+		if !currentInfo.Mode().IsRegular() || !os.SameFile(info, currentInfo) {
 			return fmt.Errorf("备份文件类型已变化：%s", entry.RelPath)
+		}
+		if currentInfo.Size() != info.Size() {
+			return fmt.Errorf("备份期间文件大小发生变化：%s", entry.RelPath)
 		}
 	}
 	header, err := tar.FileInfoHeader(info, "")
@@ -576,6 +592,7 @@ func readInstanceBackupManifest(path string) (InstanceBackupManifest, error) {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
+	entries := 0
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -584,11 +601,24 @@ func readInstanceBackupManifest(path string) (InstanceBackupManifest, error) {
 		if err != nil {
 			return InstanceBackupManifest{}, err
 		}
+		entries++
+		if entries > instanceBackupMaxArchiveEntries {
+			return InstanceBackupManifest{}, fmt.Errorf("备份条目数量超过限制")
+		}
 		if header.Name != instanceBackupManifestName {
+			if header.Size > 0 {
+				return InstanceBackupManifest{}, fmt.Errorf("备份必须先提供 manifest.json")
+			}
 			continue
 		}
+		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+			return InstanceBackupManifest{}, fmt.Errorf("manifest.json 文件类型无效")
+		}
+		if header.Size < 0 || header.Size > instanceBackupMaxManifestBytes {
+			return InstanceBackupManifest{}, fmt.Errorf("manifest.json 超过大小限制")
+		}
 		var manifest InstanceBackupManifest
-		if err := json.NewDecoder(tr).Decode(&manifest); err != nil {
+		if err := decodeSingleJSON(io.LimitReader(tr, header.Size), &manifest); err != nil {
 			return InstanceBackupManifest{}, err
 		}
 		if err := validateInstanceBackupManifest(manifest); err != nil {
@@ -612,8 +642,12 @@ func extractInstanceBackup(path string, targetRoot string) (InstanceBackupManife
 	defer gz.Close()
 
 	var manifest InstanceBackupManifest
+	manifestSeen := false
 	var checksumText string
 	computed := map[string]string{}
+	archiveEntries := 0
+	fileCount := 0
+	var totalBytes int64
 	tr := tar.NewReader(gz)
 	for {
 		header, err := tr.Next()
@@ -623,18 +657,44 @@ func extractInstanceBackup(path string, targetRoot string) (InstanceBackupManife
 		if err != nil {
 			return InstanceBackupManifest{}, err
 		}
+		archiveEntries++
+		if archiveEntries > instanceBackupMaxArchiveEntries {
+			return InstanceBackupManifest{}, fmt.Errorf("备份条目数量超过限制")
+		}
 		name, err := cleanBackupArchiveName(header.Name)
 		if err != nil {
 			return InstanceBackupManifest{}, err
 		}
 		switch name {
 		case instanceBackupManifestName:
-			if err := json.NewDecoder(tr).Decode(&manifest); err != nil {
+			if manifestSeen {
+				return InstanceBackupManifest{}, fmt.Errorf("备份包含重复的 manifest.json")
+			}
+			if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+				return InstanceBackupManifest{}, fmt.Errorf("manifest.json 文件类型无效")
+			}
+			if header.Size < 0 || header.Size > instanceBackupMaxManifestBytes {
+				return InstanceBackupManifest{}, fmt.Errorf("manifest.json 超过大小限制")
+			}
+			if err := decodeSingleJSON(io.LimitReader(tr, header.Size), &manifest); err != nil {
 				return InstanceBackupManifest{}, err
+			}
+			if err := validateInstanceBackupManifest(manifest); err != nil {
+				return InstanceBackupManifest{}, err
+			}
+			manifestSeen = true
+			if fileCount > manifest.FileCount || totalBytes > manifest.TotalBytes {
+				return InstanceBackupManifest{}, fmt.Errorf("备份展开内容超过 manifest 声明")
 			}
 			continue
 		case instanceBackupChecksumsName:
-			data, err := io.ReadAll(tr)
+			if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+				return InstanceBackupManifest{}, fmt.Errorf("checksums.txt 文件类型无效")
+			}
+			if header.Size < 0 || header.Size > instanceBackupMaxChecksumsBytes {
+				return InstanceBackupManifest{}, fmt.Errorf("checksums.txt 超过大小限制")
+			}
+			data, err := io.ReadAll(io.LimitReader(tr, header.Size))
 			if err != nil {
 				return InstanceBackupManifest{}, err
 			}
@@ -647,6 +707,9 @@ func extractInstanceBackup(path string, targetRoot string) (InstanceBackupManife
 		dst := filepath.Join(targetRoot, filepath.FromSlash(name))
 		switch header.Typeflag {
 		case tar.TypeDir:
+			if header.Size != 0 {
+				return InstanceBackupManifest{}, fmt.Errorf("备份目录条目大小无效：%s", name)
+			}
 			if err := os.MkdirAll(dst, os.FileMode(header.Mode)&0755); err != nil {
 				return InstanceBackupManifest{}, err
 			}
@@ -654,11 +717,25 @@ func extractInstanceBackup(path string, targetRoot string) (InstanceBackupManife
 			if name == "data" {
 				return InstanceBackupManifest{}, fmt.Errorf("备份中的 data 必须是目录")
 			}
+			if header.Size < 0 || header.Size > instanceBackupMaxFileBytes {
+				return InstanceBackupManifest{}, fmt.Errorf("备份单个文件超过大小限制：%s", name)
+			}
+			if fileCount >= instanceBackupMaxFileCount {
+				return InstanceBackupManifest{}, fmt.Errorf("备份文件数量超过限制")
+			}
+			if totalBytes > instanceBackupMaxTotalBytes-header.Size {
+				return InstanceBackupManifest{}, fmt.Errorf("备份展开总大小超过限制")
+			}
+			fileCount++
+			totalBytes += header.Size
+			if manifestSeen && (fileCount > manifest.FileCount || totalBytes > manifest.TotalBytes) {
+				return InstanceBackupManifest{}, fmt.Errorf("备份展开内容超过 manifest 声明")
+			}
 			if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 				return InstanceBackupManifest{}, err
 			}
 			sum := sha256.New()
-			if err := writeExtractedFile(dst, tr, sum, os.FileMode(header.Mode)); err != nil {
+			if err := writeExtractedFile(dst, tr, sum, os.FileMode(header.Mode), header.Size); err != nil {
 				return InstanceBackupManifest{}, err
 			}
 			computed[name] = hex.EncodeToString(sum.Sum(nil))
@@ -666,8 +743,14 @@ func extractInstanceBackup(path string, targetRoot string) (InstanceBackupManife
 			return InstanceBackupManifest{}, fmt.Errorf("备份包含不支持的文件类型：%s", name)
 		}
 	}
+	if !manifestSeen {
+		return InstanceBackupManifest{}, fmt.Errorf("备份缺少 manifest.json")
+	}
 	if err := validateInstanceBackupManifest(manifest); err != nil {
 		return InstanceBackupManifest{}, err
+	}
+	if manifest.FileCount != fileCount || manifest.TotalBytes != totalBytes {
+		return InstanceBackupManifest{}, fmt.Errorf("备份展开统计与 manifest 不一致")
 	}
 	expected, err := parseBackupChecksums(checksumText)
 	if err != nil {
@@ -714,10 +797,16 @@ func validateInstanceBackupManifest(manifest InstanceBackupManifest) error {
 	if manifest.SchemaVersion != instanceBackupSchemaVersion {
 		return fmt.Errorf("不支持的备份版本：%d", manifest.SchemaVersion)
 	}
+	if manifest.FileCount < 0 || manifest.FileCount > instanceBackupMaxFileCount {
+		return fmt.Errorf("备份文件数量超过限制")
+	}
+	if manifest.TotalBytes < 0 || manifest.TotalBytes > instanceBackupMaxTotalBytes {
+		return fmt.Errorf("备份展开总大小超过限制")
+	}
 	return nil
 }
 
-func writeExtractedFile(path string, src io.Reader, sum hash.Hash, mode os.FileMode) error {
+func writeExtractedFile(path string, src io.Reader, sum hash.Hash, mode os.FileMode, size int64) error {
 	perm := mode.Perm()
 	if perm == 0 {
 		perm = 0600
@@ -727,8 +816,29 @@ func writeExtractedFile(path string, src io.Reader, sum hash.Hash, mode os.FileM
 		return err
 	}
 	defer dst.Close()
-	_, err = io.Copy(dst, io.TeeReader(src, sum))
-	return err
+	written, err := io.CopyN(dst, io.TeeReader(src, sum), size)
+	if err != nil {
+		return err
+	}
+	if written != size {
+		return fmt.Errorf("备份文件大小不一致：%s", path)
+	}
+	return nil
+}
+
+func decodeSingleJSON(reader io.Reader, out interface{}) error {
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(out); err != nil {
+		return err
+	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("JSON 包含多余内容")
+		}
+		return err
+	}
+	return nil
 }
 
 func parseBackupChecksums(text string) (map[string]string, error) {
@@ -771,21 +881,44 @@ func verifyBackupChecksums(expected map[string]string, computed map[string]strin
 }
 
 func copyBackupToTemp(sourcePath string) (string, func(), error) {
+	linkInfo, err := os.Lstat(sourcePath)
+	if err != nil {
+		return "", func() {}, err
+	}
+	if !linkInfo.Mode().IsRegular() {
+		return "", func() {}, fmt.Errorf("备份源文件不是普通文件")
+	}
+	if linkInfo.Size() > instanceBackupMaxArchiveBytes {
+		return "", func() {}, fmt.Errorf("备份文件超过大小限制")
+	}
 	src, err := os.Open(sourcePath)
 	if err != nil {
 		return "", func() {}, err
 	}
 	defer src.Close()
+	info, err := src.Stat()
+	if err != nil {
+		return "", func() {}, err
+	}
+	if !info.Mode().IsRegular() || !os.SameFile(linkInfo, info) {
+		return "", func() {}, fmt.Errorf("备份源文件已变化")
+	}
 	tmp, err := os.CreateTemp("", "hermes-dock-source-*.hdbackup")
 	if err != nil {
 		return "", func() {}, err
 	}
 	tmpPath := tmp.Name()
 	cleanup := func() { _ = os.Remove(tmpPath) }
-	if _, err := io.Copy(tmp, src); err != nil {
+	written, err := io.Copy(tmp, io.LimitReader(src, instanceBackupMaxArchiveBytes+1))
+	if err != nil {
 		_ = tmp.Close()
 		cleanup()
 		return "", func() {}, err
+	}
+	if written > instanceBackupMaxArchiveBytes {
+		_ = tmp.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("备份文件超过大小限制")
 	}
 	if err := tmp.Close(); err != nil {
 		cleanup()

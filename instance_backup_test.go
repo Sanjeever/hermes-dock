@@ -138,6 +138,38 @@ func TestValidateRestorableBackupPathAcceptsLegacyBackupCaches(t *testing.T) {
 	}
 }
 
+func TestExtractInstanceBackupRejectsOversizedFileHeader(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "oversized.hdbackup")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz := gzip.NewWriter(file)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{Name: "data/huge.bin", Mode: 0600, Size: instanceBackupMaxFileBytes + 1}); err != nil {
+		t.Fatal(err)
+	}
+	_ = tw.Close()
+	_ = gz.Close()
+	_ = file.Close()
+
+	if _, err := extractInstanceBackup(path, t.TempDir()); err == nil || !strings.Contains(err.Error(), "单个文件") {
+		t.Fatalf("oversized archive error = %v", err)
+	}
+}
+
+func TestValidateInstanceBackupManifestRejectsDeclaredSizeMismatch(t *testing.T) {
+	manifest := InstanceBackupManifest{
+		Format:        instanceBackupFormat,
+		SchemaVersion: instanceBackupSchemaVersion,
+		FileCount:     1,
+		TotalBytes:    instanceBackupMaxTotalBytes + 1,
+	}
+	if err := validateInstanceBackupManifest(manifest); err == nil {
+		t.Fatal("oversized manifest should be rejected")
+	}
+}
+
 func TestExportInstanceBackupStopsRunningContainerAndRestarts(t *testing.T) {
 	app := newTestApp(t)
 	installFakeDocker(t, true)
@@ -162,40 +194,38 @@ func TestExportInstanceBackupStopsRunningContainerAndRestarts(t *testing.T) {
 	}
 }
 
-func TestWriteBackupEntryUsesCurrentFileSize(t *testing.T) {
+func TestWriteBackupEntryRejectsFileSizeChange(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "growing-state.json")
 	mustWriteFile(t, path, "{}\n", 0600)
 	staleInfo, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "{\"state\":\"updated after collection\"}\n"
-	mustWriteFile(t, path, want, 0600)
+	mustWriteFile(t, path, "{\"state\":\"updated after collection\"}\n", 0600)
 
 	var archive bytes.Buffer
 	tw := tar.NewWriter(&archive)
 	checksums := map[string]string{}
-	if err := writeBackupEntry(tw, instanceBackupEntry{AbsPath: path, RelPath: "launcher/state.json", Info: staleInfo}, checksums); err != nil {
-		t.Fatal(err)
+	if err := writeBackupEntry(tw, instanceBackupEntry{AbsPath: path, RelPath: "launcher/state.json", Info: staleInfo}, checksums); err == nil {
+		t.Fatal("file size changes should abort export")
 	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
+}
 
-	tr := tar.NewReader(bytes.NewReader(archive.Bytes()))
-	header, err := tr.Next()
+func TestCopyBackupToTempRejectsOversizedSource(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "oversized.hdbackup")
+	file, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if header.Size != int64(len(want)) {
-		t.Fatalf("archived size = %d, want %d", header.Size, len(want))
-	}
-	content, err := io.ReadAll(tr)
-	if err != nil {
+	if err := file.Truncate(instanceBackupMaxArchiveBytes + 1); err != nil {
 		t.Fatal(err)
 	}
-	if string(content) != want {
-		t.Fatalf("archived content = %q, want %q", content, want)
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, cleanup, err := copyBackupToTemp(path); err == nil {
+		cleanup()
+		t.Fatal("oversized source should be rejected")
 	}
 }
 

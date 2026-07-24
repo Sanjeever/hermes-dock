@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+const weixinScannerMaxCapacity = 1024 * 1024
 
 type weixinEvent struct {
 	Type      string `json:"type"`
@@ -46,7 +49,11 @@ func (a *App) StartWeixinLoginForProfile(profileID string) error {
 		a.finishLoginSession("weixin", nil)
 		return err
 	}
-	settings := a.readComposeSettings()
+	settings, err := a.readComposeSettings()
+	if err != nil {
+		a.finishLoginSession("weixin", nil)
+		return err
+	}
 	containerName := "hermes-dock-weixin-login-" + uuid.NewString()
 	go a.runWeixinLogin(ctx, helperPath, settings.Image, profileID, containerName)
 	return nil
@@ -73,31 +80,37 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 		image,
 		"python", "/opt/hermes-dock/weixin_login.py",
 	}
-	cmd := backgroundCommandContext(ctx, "docker", args...)
+	commandCtx, cancelCommand := context.WithCancel(ctx)
+	defer cancelCommand()
+	cmd := backgroundCommandContext(commandCtx, "docker", args...)
 	cmd.Dir = a.instanceRoot
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
 		return
 	}
 	if err := cmd.Start(); err != nil {
-		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": err.Error()})
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
 		return
 	}
 
+	stderrDone := make(chan error, 1)
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			a.forwardWeixinHelperLine(scanner.Text())
+		err := scanWeixinHelperLines(stderr, a.forwardWeixinHelperLine)
+		if err != nil {
+			_ = stderr.Close()
+			cancelCommand()
 		}
+		stderrDone <- err
 	}()
 
 	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 64*1024), weixinScannerMaxCapacity)
 	for scanner.Scan() {
 		var event weixinEvent
 		line := scanner.Bytes()
@@ -123,15 +136,38 @@ func (a *App) runWeixinLogin(ctx context.Context, helperPath string, image strin
 			a.emit("weixin-login:status", event)
 		}
 	}
+	stdoutErr := scanner.Err()
+	if stdoutErr != nil {
+		_ = stdout.Close()
+		cancelCommand()
+	}
 	waitErr := cmd.Wait()
+	stderrErr := <-stderrDone
+	if stdoutErr != nil {
+		sessionErr = fmt.Errorf("读取微信扫码 helper 输出失败：%w", stdoutErr)
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(sessionErr.Error())})
+	}
+	if stderrErr != nil {
+		sessionErr = fmt.Errorf("读取微信扫码 helper 错误输出失败：%w", stderrErr)
+		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(sessionErr.Error())})
+	}
 	if ctx.Err() != nil {
 		if err := removeWeixinLoginContainer(containerName); err != nil {
 			sessionErr = err
 			a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(err.Error())})
 		}
-	} else if waitErr != nil {
+	} else if waitErr != nil && stdoutErr == nil && stderrErr == nil {
 		a.emit("weixin-login:error", map[string]string{"profile_id": profileID, "message": redact(waitErr.Error())})
 	}
+}
+
+func scanWeixinHelperLines(reader io.Reader, forward func(string)) error {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), weixinScannerMaxCapacity)
+	for scanner.Scan() {
+		forward(scanner.Text())
+	}
+	return scanner.Err()
 }
 
 func removeWeixinLoginContainer(containerName string) error {
@@ -201,7 +237,10 @@ func (a *App) persistWeixinCredentials(profileID string, event weixinEvent) erro
 		return err
 	}
 	path := filepath.Join(a.profileDataDir(profileID), ".env")
-	env, _ := readEnvFile(path)
+	env, err := readEnvFileAllowMissing(path)
+	if err != nil {
+		return fmt.Errorf("读取微信 profile .env 失败：%w", err)
+	}
 	updates := []EnvVar{
 		{Key: "WEIXIN_ACCOUNT_ID", Value: event.AccountID},
 		{Key: "WEIXIN_TOKEN", Value: event.Token},
