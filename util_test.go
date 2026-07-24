@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,5 +39,16 @@ func TestAtomicWriteFileReplacesContentAndMode(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("mode = %o, want 600", info.Mode().Perm())
+	}
+}
+
+func TestCommandOutputErrorPreservesCauseAndRedactsOutput(t *testing.T) {
+	cause := errors.New("exit status 1")
+	err := commandOutputError("执行失败", cause, []byte("api_key=secret-value"))
+	if !errors.Is(err, cause) {
+		t.Fatalf("error chain lost: %v", err)
+	}
+	if strings.Contains(err.Error(), "secret-value") {
+		t.Fatalf("command output was not redacted: %v", err)
 	}
 }

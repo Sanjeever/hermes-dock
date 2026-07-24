@@ -48,7 +48,7 @@ func (a *App) registerUpdateTask() error {
 		return fmt.Errorf("写入更新后启动项失败：%w", err)
 	}
 	if output, err := backgroundCommand("launchctl", "bootstrap", "system", updateLaunchdPath).CombinedOutput(); err != nil {
-		return fmt.Errorf("注册自动更新任务失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("注册自动更新任务失败", err, output)
 	}
 	return nil
 }
@@ -61,7 +61,7 @@ func (a *App) unregisterUpdateTask() error {
 		return errors.New("关闭自动更新需要管理员权限")
 	}
 	if output, err := backgroundCommand("launchctl", "bootout", "system/"+updateLaunchdLabel).CombinedOutput(); err != nil && !strings.Contains(string(output), "Could not find service") {
-		return fmt.Errorf("停用自动更新任务失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("停用自动更新任务失败", err, output)
 	}
 	if err := os.Remove(updateLaunchdPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err

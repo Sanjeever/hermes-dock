@@ -39,7 +39,7 @@ func (a *App) registerUpdateTask() error {
 	defer os.Remove(xmlPath)
 	output, err := backgroundCommand("schtasks.exe", "/Create", "/TN", updateTaskName, "/XML", xmlPath, "/F").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("注册自动更新计划任务失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("注册自动更新计划任务失败", err, output)
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ func (a *App) unregisterUpdateTask() error {
 	}
 	output, err := backgroundCommand("schtasks.exe", "/Delete", "/TN", updateTaskName, "/F").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("删除自动更新计划任务失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("删除自动更新计划任务失败", err, output)
 	}
 	return nil
 }

@@ -59,10 +59,10 @@ NoDisplay=true
 		return fmt.Errorf("写入更新后启动项失败：%w", err)
 	}
 	if output, err := backgroundCommand("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		return fmt.Errorf("重新加载 systemd 失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("重新加载 systemd 失败", err, output)
 	}
 	if output, err := backgroundCommand("systemctl", "enable", "--now", "hermes-dock-update.timer").CombinedOutput(); err != nil {
-		return fmt.Errorf("启用自动更新定时器失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("启用自动更新定时器失败", err, output)
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (a *App) unregisterUpdateTask() error {
 		return errors.New("关闭自动更新需要以 root 身份运行企智盒")
 	}
 	if output, err := backgroundCommand("systemctl", "disable", "--now", "hermes-dock-update.timer").CombinedOutput(); err != nil {
-		return fmt.Errorf("停用自动更新定时器失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("停用自动更新定时器失败", err, output)
 	}
 	if err := os.Remove(updateTimerPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -87,7 +87,7 @@ func (a *App) unregisterUpdateTask() error {
 		return err
 	}
 	if output, err := backgroundCommand("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		return fmt.Errorf("重新加载 systemd 失败：%s", strings.TrimSpace(string(output)))
+		return commandOutputError("重新加载 systemd 失败", err, output)
 	}
 	return nil
 }

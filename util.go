@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -51,6 +52,14 @@ func redact(input string) string {
 		output = pattern.regex.ReplaceAllString(output, pattern.replacement)
 	}
 	return output
+}
+
+func commandOutputError(action string, err error, output []byte) error {
+	detail := redact(strings.TrimSpace(string(output)))
+	if detail == "" {
+		return fmt.Errorf("%s：%w", action, err)
+	}
+	return fmt.Errorf("%s：%w；输出：%s", action, err, detail)
 }
 
 func firstNonEmpty(values ...string) string {
