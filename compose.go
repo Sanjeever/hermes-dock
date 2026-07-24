@@ -263,7 +263,7 @@ func validateComposeSettings(settings ComposeSettings) error {
 }
 
 const (
-	composeRuntimeMigrationID          = "compose-runtime-v6"
+	composeRuntimeMigrationID          = "compose-runtime-v7"
 	dufsComposeMigrationID             = "compose-dufs-v1"
 	fixedImageMigrationID              = "compose-fixed-image-v1"
 	privateHermesMigrationID           = "compose-private-hermes-services-v1"
@@ -394,11 +394,12 @@ func (a *App) migrateComposeIfNeeded(settings ComposeSettings) error {
 		strings.Contains(content, "/etc/cont-init.d/018-install-feishu-deps") &&
 		strings.Contains(content, "/etc/cont-init.d/019-patch-home-channel-prompt") &&
 		strings.Contains(content, "/etc/cont-init.d/020-install-dingtalk-deps") &&
+		strings.Contains(content, "/etc/cont-init.d/021-patch-dingtalk-images") &&
 		!strings.Contains(content, "/etc/cont-init.d/021-install-paddleocr-deps") &&
 		strings.Contains(content, "HERMES_DOCK_SUPPRESS_HOME_CHANNEL_PROMPT") &&
 		strings.Contains(content, `AGENT_BROWSER_EXECUTABLE_PATH: "`+browserExecutablePath+`"`)
 	if !current {
-		if err := a.writeCompose(settings, "before-compose-runtime-v6-migration"); err != nil {
+		if err := a.writeCompose(settings, "before-compose-runtime-v7-migration"); err != nil {
 			return err
 		}
 	}
@@ -708,6 +709,7 @@ func renderHermesService(settings ComposeSettings, proxy ProxySettings) string {
       - ./launcher/helpers/install-feishu-deps:/etc/cont-init.d/018-install-feishu-deps:ro
       - ./launcher/helpers/patch-home-channel-prompt:/etc/cont-init.d/019-patch-home-channel-prompt:ro
       - ./launcher/helpers/install-dingtalk-deps:/etc/cont-init.d/020-install-dingtalk-deps:ro
+      - ./launcher/helpers/patch-dingtalk-images:/etc/cont-init.d/021-patch-dingtalk-images:ro
       - ./launcher/helpers/hermes-profile-runner:/opt/hermes-dock/hermes-profile-runner:ro
       - ./launcher/helpers/hostctl:/usr/local/bin/hostctl:ro
       - ./launcher/host-bridge.token:/opt/hermes-dock/host-bridge.token:ro

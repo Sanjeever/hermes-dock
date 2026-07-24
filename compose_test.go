@@ -130,6 +130,54 @@ func TestMigrateComposeAddsBundledChromiumExecutablePath(t *testing.T) {
 	}
 }
 
+func TestMigrateComposeAddsDingTalkImagePatchMount(t *testing.T) {
+	app := newTestApp(t)
+	state, err := app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations := state.Migrations[:0]
+	for _, migration := range state.Migrations {
+		if migration.ID != composeRuntimeMigrationID {
+			migrations = append(migrations, migration)
+		}
+	}
+	state.Migrations = append(migrations, MigrationRecord{ID: "compose-runtime-v6"})
+	state.NeedsRebuild = false
+	state.PendingDufsOnly = true
+	if err := app.writeState(state); err != nil {
+		t.Fatal(err)
+	}
+
+	const mount = "      - ./launcher/helpers/patch-dingtalk-images:/etc/cont-init.d/021-patch-dingtalk-images:ro\n"
+	content, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := strings.Replace(string(content), mount, "", 1)
+	if err := atomicWriteFile(app.composePath(), []byte(legacy), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := app.migrateComposeIfNeeded(app.readComposeSettings()); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := os.ReadFile(app.composePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), strings.TrimSpace(mount)) {
+		t.Fatalf("migrated compose missing DingTalk image patch mount:\n%s", migrated)
+	}
+	state, err = app.readState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !migrationApplied(state.Migrations, composeRuntimeMigrationID) || !state.NeedsRebuild || state.PendingDufsOnly {
+		t.Fatalf("DingTalk image patch migration state = %+v", state)
+	}
+}
+
 func TestMigrateRuntimeDependencyComposeMarksHermesForRebuild(t *testing.T) {
 	app := newTestApp(t)
 	state, err := app.readState()
