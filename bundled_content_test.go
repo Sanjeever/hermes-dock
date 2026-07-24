@@ -94,6 +94,40 @@ func TestBundledCaptchaOCRUsesOnDemandRuntime(t *testing.T) {
 	}
 }
 
+func TestBundledAgentPlanSkillsUseProfileScopedKeyAndOutput(t *testing.T) {
+	files := map[string][]string{
+		"templates/seed-data/skills/byted-ark-seedream-skill/scripts/generate.js": {
+			"process.env.ARK_AGENT_PLAN_API_KEY",
+			"process.env.HERMES_DOCK_PROFILE_HOME",
+			"'outputs', 'seedream'",
+		},
+		"templates/seed-data/skills/byted-ark-seedance-skill/scripts/seedance.js": {
+			"process.env.ARK_AGENT_PLAN_API_KEY",
+			"process.env.HERMES_DOCK_PROFILE",
+		},
+		"templates/seed-data/skills/byted-ark-seedance-skill/scripts/seedance-wrapper.js": {
+			"process.env.HERMES_DOCK_PROFILE_HOME",
+			"'outputs', 'seedance'",
+		},
+		"templates/seed-data/skills/byted-web-search/scripts/web_search.py": {
+			`os.getenv("ARK_AGENT_PLAN_API_KEY")`,
+			"请在 Hermes Dock 的供应商页填写并应用配置",
+		},
+	}
+
+	for path, required := range files {
+		data, err := seedData.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range required {
+			if !strings.Contains(string(data), want) {
+				t.Fatalf("%s missing %q", path, want)
+			}
+		}
+	}
+}
+
 func TestSyncBundledContentRejectsTargetSkillSymlink(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink test is unix-only")

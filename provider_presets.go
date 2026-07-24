@@ -76,7 +76,6 @@ var modelProviderPresets = []ModelProviderPreset{
 		BaseURL:      "https://ark.cn-beijing.volces.com/api/plan/v3",
 		APIMode:      "chat_completions",
 		DefaultModel: "doubao-seed-2.0-code",
-		ModelListURL: "https://ark.cn-beijing.volces.com/api/plan/v3/models",
 	},
 	{
 		Key:          "opencode-go",
@@ -105,4 +104,21 @@ var modelProviderPresets = []ModelProviderPreset{
 		DefaultModel: "agnes-2.0-flash",
 		ModelListURL: "https://apihub.agnes-ai.com/v1/models",
 	},
+}
+
+var volcengineArkAgentPlanModels = []ModelOption{
+	{ID: "doubao-seed-evolving"},
+	{ID: "doubao-seed-2.1-turbo"},
+	{ID: "doubao-seed-2.0-code"},
+	{ID: "doubao-seed-2.0-pro"},
+	{ID: "doubao-seed-2.0-lite"},
+	{ID: "doubao-seed-2.0-mini"},
+	{ID: "kimi-k3"},
+	{ID: "glm-5.2"},
+	{ID: "kimi-k2.7-code"},
+	{ID: "minimax-m3"},
+	{ID: "deepseek-v4-flash"},
+	{ID: "deepseek-v4-pro"},
+	{ID: "minimax-m2.7"},
+	{ID: "kimi-k2.6"},
 }

@@ -89,7 +89,7 @@ export const fallbackModelProviderPresets: ModelProviderPreset[] = [
         baseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3',
         apiMode: 'chat_completions',
         defaultModel: 'doubao-seed-2.0-code',
-        modelListUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3/models',
+        modelListUrl: '',
     },
     {
         key: 'opencode-go',

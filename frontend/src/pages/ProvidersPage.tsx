@@ -1,7 +1,7 @@
 import {ChevronLeft, RefreshCcw, Save, Trash2} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import type {ModelConfig, ModelOption, ProviderConfig, ProviderEntry} from '../types';
-import {ensureCurrentModelOption, firstProviderID, nextProviderID, providerIDs, providerReferenceLabels} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, isVolcengineArkAgentPlanProvider, nextProviderID, providerIDs, providerReferenceLabels} from '../utils';
 
 export function ProvidersPage(props: {
     providers: ProviderConfig;
@@ -21,6 +21,7 @@ export function ProvidersPage(props: {
     const ids = providerIDs(props.providers);
     const selectedID = props.providers.providers[props.selectedProvider] ? props.selectedProvider : ids[0];
     const selected = props.providers.providers[selectedID];
+    const usesBuiltinModelList = isVolcengineArkAgentPlanProvider(selected);
     const refs = selectedID ? providerReferenceLabels(props.model, selectedID) : [];
     const updateSelected = (next: ProviderEntry) => {
         props.setProviders({providers: {...props.providers.providers, [selectedID]: next}});
@@ -106,10 +107,14 @@ export function ProvidersPage(props: {
                     <div className="field-hint">大多数供应商使用 OpenAI Chat Completions</div>
                 </label>
                 <SecretField label="API 密钥" value={selected.apiKey} visible={props.showApiKey} setVisible={props.setShowApiKey} onChange={(value) => updateSelected({...selected, apiKey: value})} hint="从供应商控制台获取"/>
-                <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateSelected({...selected, modelListUrl: value})} hint="留空时自动使用接口地址 + /models"/>
+                {usesBuiltinModelList ? (
+                    <div className="setting-note">Agent Plan 暂无模型列表接口，Hermes Dock 使用内置模型清单。保存该密钥后，图片生成、视频生成、豆包搜索和专业数据集会共同复用。</div>
+                ) : (
+                    <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateSelected({...selected, modelListUrl: value})} hint="留空时自动使用接口地址 + /models"/>
+                )}
                 {props.modelOptions.length > 0 && (
                     <label className="field">
-                        <span>从已拉取模型中选择推荐默认模型</span>
+                        <span>{usesBuiltinModelList ? '从内置清单中选择推荐默认模型' : '从已拉取模型中选择推荐默认模型'}</span>
                         <select value={selected.defaultModel} onChange={(event) => updateSelected({...selected, defaultModel: event.target.value})}>
                             {ensureCurrentModelOption(props.modelOptions, selected.defaultModel).map((item) => <option key={item.id} value={item.id}>{item.ownedBy ? `${item.id} · ${item.ownedBy}` : item.id}</option>)}
                         </select>
@@ -117,7 +122,7 @@ export function ProvidersPage(props: {
                 )}
                 {refs.length > 0 && <div className="form-warning">正在被使用：{refs.join('、')}</div>}
                 <div className="actions">
-                    <button className="ghost" onClick={() => props.onFetchModels(selected)} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>验证并拉取模型</button>
+                    <button className="ghost" onClick={() => props.onFetchModels(selected)} disabled={props.busy || (!usesBuiltinModelList && selected.apiKey.trim() === '') || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>{usesBuiltinModelList ? '加载内置模型' : '验证并拉取模型'}</button>
                     <button className="ghost" onClick={deleteSelected} disabled={props.busy || selected.builtin || refs.length > 0}><Trash2 size={16}/>删除</button>
                     <button className="primary" onClick={props.onSave} disabled={props.busy}><Save size={16}/>保存供应商配置</button>
                 </div>

@@ -1,7 +1,7 @@
 import {Activity, RefreshCcw, Save} from 'lucide-react';
 import {auxLabels} from '../constants';
 import type {AuxModel, ModelConfig, ModelOption, ProviderConfig} from '../types';
-import {ensureCurrentModelOption, firstProviderID, modelOptionKey, providerIDs} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, isVolcengineArkAgentPlanProvider, modelOptionKey, providerIDs} from '../utils';
 
 export function ModelsPage(props: {
     model: ModelConfig;
@@ -25,6 +25,7 @@ export function ModelsPage(props: {
     const enabledProviders = providerIDs(props.providers).filter((id) => !props.providers.providers[id].disabled);
     const selectedProviderID = props.providers.providers[model.provider] ? model.provider : firstProviderID(props.providers);
     const selectedProvider = props.providers.providers[selectedProviderID];
+    const selectedUsesBuiltinModelList = isVolcengineArkAgentPlanProvider(selectedProvider);
     const selectedProviderOptionsKey = modelOptionKey(selectedProviderID);
     const modelChoices = ensureCurrentModelOption(props.modelOptions, model.default);
     const showModelSelect = props.modelOptions.length > 0;
@@ -39,7 +40,7 @@ export function ModelsPage(props: {
     const auxCurrentModel = aux.model || selectedAuxProvider?.defaultModel || model.default;
     const auxModelChoices = ensureCurrentModelOption(auxProviderOptions, auxCurrentModel);
     const showAuxModelSelect = auxProviderOptions.length > 0;
-    const auxProviderReady = !!selectedAuxProvider && !selectedAuxProvider.disabled && selectedAuxProvider.apiKey.trim() !== '';
+    const auxProviderReady = !!selectedAuxProvider && !selectedAuxProvider.disabled && (selectedAuxProvider.apiKey.trim() !== '' || isVolcengineArkAgentPlanProvider(selectedAuxProvider));
     const applyProvider = (id: string) => {
         const provider = props.providers.providers[id];
         if (!provider) return;
@@ -129,7 +130,7 @@ export function ModelsPage(props: {
                     )}
                 </label>
                 <div className="actions model-actions">
-                    <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || !selectedProvider || selectedProvider.disabled || selectedProvider.apiKey.trim() === ''}><RefreshCcw size={16}/>拉取模型列表</button>
+                    <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || !selectedProvider || selectedProvider.disabled || (!selectedUsesBuiltinModelList && selectedProvider.apiKey.trim() === '')}><RefreshCcw size={16}/>{selectedUsesBuiltinModelList ? '加载内置模型' : '拉取模型列表'}</button>
                     {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
                 </div>
                 <div className="actions">
@@ -192,7 +193,7 @@ export function ModelsPage(props: {
                             )}
                         </label>
                         <div className="actions model-actions">
-                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderID)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>拉取模型列表</button>
+                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderID)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>{isVolcengineArkAgentPlanProvider(selectedAuxProvider) ? '加载内置模型' : '拉取模型列表'}</button>
                             {props.auxModelListStatus && <span className="inline-status">{props.auxModelListStatus}</span>}
                         </div>
                     </>

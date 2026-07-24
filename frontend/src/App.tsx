@@ -71,7 +71,7 @@ import {OperationsPage} from './pages/OperationsPage';
 import {OverviewPage} from './pages/OverviewPage';
 import {factoryResetPhrase, fallbackProviderConfig, nav} from './constants';
 import type {ApplyConfigStatus, AppState, BatchProfileConfigRequest, BatchProfileConfigResult, BundledContentSyncRequest, BundledContentSyncResult, ComposeSettings, DingTalkSettings, EnvVar, InstanceBackupManifest, ModelConfig, ModelOption, Notice, OperationsTab, Page, PlatformKey, ProviderConfig, ProviderEntry, ProxySettings, RunOptions, SkillDetail, SkillHubDetail, SkillHubQuery, SkillHubState, SkillsState, WebSettingsRequest, WizardStep} from './types';
-import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
+import {advancedFileOptions, containerStatusText, defaultAdvancedPath, doneLabel, envValue, firstProviderID, isVolcengineArkAgentPlanProvider, modelOptionKey, profileFilePath, titleFor, toPlainModelConfig, toPlainProviderConfig} from './utils';
 import {channelStatusKey, closedPolicyValue, disabledPolicyValue, firstBoundPlatform, platformLabel, restoreDefaultSkillsMessage, shouldPollRuntimeStatus, syncBundledSkillsMessage} from './appPolicies';
 import {useOperationRunner} from './hooks/useOperationRunner';
 import {useSkills} from './hooks/useSkills';
@@ -487,12 +487,13 @@ function App() {
         const provider = providers.providers[providerID];
         if (!provider) return;
         const optionsKey = modelOptionKey(providerID);
-        setModelListStatus('正在拉取模型列表');
+        const builtinList = isVolcengineArkAgentPlanProvider(provider);
+        setModelListStatus(builtinList ? '正在加载内置模型清单' : '正在拉取模型列表');
         try {
 			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
-            setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
+            setModelListStatus(`${builtinList ? '已加载' : '已拉取'} ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
             setModelOptionsKey(optionsKey);
             setModelOptions([]);
@@ -503,12 +504,13 @@ function App() {
 
     async function fetchProviderModels(providerID: string, provider: ProviderEntry) {
         const optionsKey = modelOptionKey(providerID);
-        setModelListStatus('正在拉取模型列表');
+        const builtinList = isVolcengineArkAgentPlanProvider(provider);
+        setModelListStatus(builtinList ? '正在加载内置模型清单' : '正在拉取模型列表');
         try {
 			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setModelOptionsKey(optionsKey);
             setModelOptions(items as ModelOption[]);
-            setModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
+            setModelListStatus(`${builtinList ? '已加载' : '已拉取'} ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
             setModelOptionsKey(optionsKey);
             setModelOptions([]);
@@ -523,16 +525,17 @@ function App() {
             setAuxModelListStatus('供应商不可用');
             return;
         }
-        if (provider.apiKey.trim() === '') {
+        const builtinList = isVolcengineArkAgentPlanProvider(provider);
+        if (provider.apiKey.trim() === '' && !builtinList) {
             setAuxModelListStatus('请先在基础模型服务里填写 API 密钥');
             return;
         }
         const optionsKey = modelOptionKey(providerID);
-        setAuxModelListStatus('正在拉取模型列表');
+        setAuxModelListStatus(builtinList ? '正在加载内置模型清单' : '正在拉取模型列表');
         try {
 			const items = await FetchProviderConfigModelList(activeProfileRef.current, provider);
             setAuxModelOptions((current) => ({...current, [optionsKey]: items as ModelOption[]}));
-            setAuxModelListStatus(`已拉取 ${(items as ModelOption[]).length} 个模型`);
+            setAuxModelListStatus(`${builtinList ? '已加载' : '已拉取'} ${(items as ModelOption[]).length} 个模型`);
         } catch (error) {
             setAuxModelOptions((current) => ({...current, [optionsKey]: []}));
             setAuxModelListStatus(String(error));

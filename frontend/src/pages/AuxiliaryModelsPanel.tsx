@@ -1,7 +1,7 @@
 import {ChevronLeft, RefreshCcw, Save} from 'lucide-react';
 import {auxLabels} from '../constants';
 import type {AuxModel, ModelConfig, ModelOption, ProviderConfig} from '../types';
-import {ensureCurrentModelOption, firstProviderID, modelOptionKey, providerIDs} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, isVolcengineArkAgentPlanProvider, modelOptionKey, providerIDs} from '../utils';
 
 export function AuxiliaryModelsPanel(props: {
     model: ModelConfig;
@@ -28,7 +28,7 @@ export function AuxiliaryModelsPanel(props: {
     const auxProviderOptions = props.auxModelOptions[auxProviderOptionsKey] || (auxUsesMainProvider ? props.modelOptions : []);
     const auxCurrentModel = aux.model || selectedAuxProvider?.defaultModel || props.model.default;
     const auxModelChoices = ensureCurrentModelOption(auxProviderOptions, auxCurrentModel);
-    const auxProviderReady = !!selectedAuxProvider && !selectedAuxProvider.disabled && selectedAuxProvider.apiKey.trim() !== '';
+    const auxProviderReady = !!selectedAuxProvider && !selectedAuxProvider.disabled && (selectedAuxProvider.apiKey.trim() !== '' || isVolcengineArkAgentPlanProvider(selectedAuxProvider));
     const customAuxiliary = props.model.auxiliaryMode === 'custom';
 
     const setAux = (next: AuxModel) => {
@@ -139,7 +139,7 @@ export function AuxiliaryModelsPanel(props: {
                             )}
                         </label>
                         <div className="actions model-actions">
-                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderID)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>拉取模型列表</button>
+                            <button className="ghost" onClick={() => props.onFetchAuxModels(selectedAuxProviderID)} disabled={props.busy || !auxProviderReady}><RefreshCcw size={16}/>{isVolcengineArkAgentPlanProvider(selectedAuxProvider) ? '加载内置模型' : '拉取模型列表'}</button>
                             {props.auxModelListStatus && <span className="inline-status">{props.auxModelListStatus}</span>}
                         </div>
                     </div>

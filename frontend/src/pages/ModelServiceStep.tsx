@@ -1,7 +1,7 @@
 import {Activity, ChevronRight, RefreshCcw, Server} from 'lucide-react';
 import {Field, SecretField} from '../components/fields';
 import type {ModelConfig, ModelOption, ProviderConfig, ProviderEntry} from '../types';
-import {ensureCurrentModelOption, firstProviderID, providerIDs, providerReferenceLabels} from '../utils';
+import {ensureCurrentModelOption, firstProviderID, isVolcengineArkAgentPlanProvider, providerIDs, providerReferenceLabels} from '../utils';
 
 export function ModelServiceStep(props: {
     providers: ProviderConfig;
@@ -28,6 +28,7 @@ export function ModelServiceStep(props: {
     const ids = providerIDs(props.providers);
     const selectedID = props.providers.providers[props.selectedProvider] ? props.selectedProvider : firstProviderID(props.providers);
     const selected = props.providers.providers[selectedID];
+    const usesBuiltinModelList = isVolcengineArkAgentPlanProvider(selected);
     const enabledProviders = ids.filter((id) => !props.providers.providers[id].disabled);
     const modelChoices = ensureCurrentModelOption(props.modelOptions, props.model.default);
     const modelReady = !!selected && props.model.default.trim() !== '';
@@ -109,7 +110,7 @@ export function ModelServiceStep(props: {
                         </label>
                         {selected.apiKey.trim() === '' && <div className="form-warning">API 密钥为空时可以保存选择，但不能测试或正常调用。</div>}
                         <div className="actions model-actions">
-                            <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || selected.apiKey.trim() === '' || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>验证并拉取模型</button>
+                            <button className="ghost" onClick={props.onFetchModels} disabled={props.busy || (!usesBuiltinModelList && selected.apiKey.trim() === '') || selected.baseUrl.trim() === ''}><RefreshCcw size={16}/>{usesBuiltinModelList ? '加载内置模型' : '验证并拉取模型'}</button>
                             <button className="ghost" onClick={props.onTestModel} disabled={props.busy || !modelCanTest}><Activity size={16}/>{props.modelDirty ? '保存并测试模型' : '测试模型'}</button>
                             {props.modelListStatus && <span className="inline-status">{props.modelListStatus}</span>}
                             {props.modelTestStatus && <span className="inline-status">{props.modelTestStatus}</span>}
@@ -136,7 +137,11 @@ export function ModelServiceStep(props: {
                                 </select>
                                 <div className="field-hint">大多数供应商使用 OpenAI Chat Completions</div>
                             </label>
-                            <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateProvider(selectedID, {...selected, modelListUrl: value})} hint="留空时自动使用接口地址 + /models"/>
+                            {usesBuiltinModelList ? (
+                                <div className="setting-note">Agent Plan 使用 Hermes Dock 内置模型清单；同一密钥也用于图片、视频、豆包搜索和专业数据集。</div>
+                            ) : (
+                                <Field label="模型列表地址" value={selected.modelListUrl} onChange={(value) => updateProvider(selectedID, {...selected, modelListUrl: value})} hint="留空时自动使用接口地址 + /models"/>
+                            )}
                         </details>
                         <div className="setting-note">辅助模型保持自动策略，适合大多数新手场景；需要细调时再放到后续高级配置里处理。</div>
                     </>

@@ -14,6 +14,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	volcengineArkAgentPlanProviderID = "volcengine-ark-agent-plan"
+	volcengineDataProMCPURL          = "https://datapro.hqd.cn-beijing.volces.com/mcp"
+	volcengineDataProMCPHeader       = "X-Agent-Plan-Key"
+	volcengineDataProMCPKeyRef       = "${ARK_AGENT_PLAN_API_KEY}"
+)
+
 func parseYAMLFile(path string, out interface{}) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -184,6 +191,9 @@ func (a *App) SaveModelConfigForProfile(profileID string, model ModelConfig) err
 		}
 	}
 	cfg["auxiliary"] = auxMap
+	if err := applyVolcengineAgentPlanServices(cfg, providers); err != nil {
+		return err
+	}
 	cfg["providers"] = providerConfigToYAMLMap(providers)
 	applyProviderCompatibility(cfg, providers)
 
@@ -293,6 +303,9 @@ func (a *App) SaveProviderConfigForProfile(profileID string, providers ProviderC
 		if refs := providerReferences(cfg, id); len(refs) > 0 {
 			return fmt.Errorf("供应商正在被使用，不能删除：%s", strings.Join(refs, "、"))
 		}
+	}
+	if err := applyVolcengineAgentPlanServices(cfg, normalized); err != nil {
+		return err
 	}
 	cfg["providers"] = providerConfigToYAMLMap(normalized)
 	applyProviderCompatibility(cfg, normalized)
@@ -414,6 +427,9 @@ func (a *App) FetchModelList(req ModelListRequest) ([]ModelOption, error) {
 }
 
 func fetchModelListFromProvider(entry ProviderConfigEntry) ([]ModelOption, error) {
+	if isVolcengineArkAgentPlanProvider(entry) {
+		return append([]ModelOption(nil), volcengineArkAgentPlanModels...), nil
+	}
 	apiKey := strings.TrimSpace(entry.APIKey)
 	if apiKey == "" {
 		return nil, fmt.Errorf("请先在供应商页填写 API 密钥")
@@ -592,7 +608,11 @@ func normalizeProviderEntry(entry ProviderConfigEntry, preset ModelProviderPrese
 	entry.Provider = firstNonEmpty(entry.Provider, preset.Provider)
 	entry.BaseURL = firstNonEmpty(entry.BaseURL, preset.BaseURL)
 	entry.APIMode = firstNonEmpty(entry.APIMode, preset.APIMode)
-	entry.ModelListURL = firstNonEmpty(entry.ModelListURL, preset.ModelListURL)
+	if preset.Key == volcengineArkAgentPlanProviderID {
+		entry.ModelListURL = ""
+	} else {
+		entry.ModelListURL = firstNonEmpty(entry.ModelListURL, preset.ModelListURL)
+	}
 	entry.DefaultModel = firstNonEmpty(entry.DefaultModel, preset.DefaultModel)
 	entry.Builtin = true
 	return entry
@@ -857,6 +877,11 @@ func referencedProviderEnvUpdates(cfg map[string]interface{}, providers Provider
 		}
 	}
 	byKey := map[string]EnvVar{}
+	if provider, ok := providers.Providers[volcengineArkAgentPlanProviderID]; ok {
+		if apiKey := strings.TrimSpace(provider.APIKey); apiKey != "" {
+			byKey["ARK_AGENT_PLAN_API_KEY"] = EnvVar{Key: "ARK_AGENT_PLAN_API_KEY", Value: apiKey, Secret: true}
+		}
+	}
 	for id := range ids {
 		provider, ok := providers.Providers[id]
 		if !ok {
@@ -976,6 +1001,56 @@ func volcengineArkPlanPresetKey(baseURL string) string {
 	default:
 		return ""
 	}
+}
+
+func isVolcengineArkAgentPlanProvider(provider ProviderConfigEntry) bool {
+	return strings.EqualFold(strings.TrimSpace(provider.Provider), "custom") &&
+		volcengineArkPlanPresetKey(provider.BaseURL) == volcengineArkAgentPlanProviderID
+}
+
+func applyVolcengineAgentPlanServices(cfg map[string]interface{}, providers ProviderConfig) error {
+	provider, ok := providers.Providers[volcengineArkAgentPlanProviderID]
+	if !ok || strings.TrimSpace(provider.APIKey) == "" {
+		return nil
+	}
+
+	if servers, ok := cfg["mcp_servers"]; ok {
+		switch servers.(type) {
+		case map[string]interface{}, map[interface{}]interface{}:
+		default:
+			return fmt.Errorf("mcp_servers 配置不是有效映射，请先在高级编辑中处理")
+		}
+	}
+	servers := asMap(cfg["mcp_servers"])
+	server, exists := servers["datapro"]
+	if exists {
+		switch server.(type) {
+		case map[string]interface{}, map[interface{}]interface{}:
+		default:
+			return fmt.Errorf("MCP 名称 datapro 已被其他配置占用，请先在高级编辑中处理")
+		}
+		entry := asMap(server)
+		if url := strings.TrimSpace(asString(entry["url"])); url != volcengineDataProMCPURL {
+			return fmt.Errorf("MCP 名称 datapro 已被其他服务占用，请先在高级编辑中处理")
+		}
+		if headers, ok := entry["headers"]; ok {
+			switch headers.(type) {
+			case map[string]interface{}, map[interface{}]interface{}:
+			default:
+				return fmt.Errorf("MCP datapro 的 headers 配置无效，请先在高级编辑中处理")
+			}
+		}
+	}
+
+	entry := asMap(server)
+	headers := asMap(entry["headers"])
+	headers[volcengineDataProMCPHeader] = volcengineDataProMCPKeyRef
+	entry["url"] = volcengineDataProMCPURL
+	entry["transport"] = "http"
+	entry["headers"] = headers
+	servers["datapro"] = entry
+	cfg["mcp_servers"] = servers
+	return nil
 }
 
 func compactBody(body []byte) string {

@@ -183,6 +183,9 @@ func (a *App) copyProfileConfigSelection(
 			}
 			targetConfig["auxiliary"] = auxiliary
 		}
+		if err := applyVolcengineAgentPlanServices(targetConfig, targetProviders); err != nil {
+			return false, err
+		}
 		targetConfig["providers"] = providerConfigToYAMLMap(targetProviders)
 		applyProviderCompatibility(targetConfig, targetProviders)
 		data, err := yaml.Marshal(targetConfig)

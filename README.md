@@ -22,7 +22,7 @@ Hermes Dock 是一个面向本地单实例 Hermes Agent 的桌面启动器。它
 - 通过模型、部署和平台绑定表单写入必要配置，不向普通用户提供环境变量编辑页。
 - 可视化配置主模型和 auxiliary 模型。
 - 支持百炼按量计费、百炼 Coding Plan、百炼 Token Plan 团队版、智谱按量计费、智谱 Coding Plan、火山方舟 Coding Plan、火山方舟 Agent Plan、OpenCode Go、DeepSeek 和 Agnes AI 模型供应商预设。
-- 支持通过 API Key 拉取模型列表并选择模型。
+- 支持通过 API Key 拉取模型列表并选择模型；火山方舟 Agent Plan 使用启动器内置模型清单。
 - 支持个人微信 Weixin / WeChat Personal 扫码登录。
 - 支持企业微信 AI Bot WebSocket 配置。
 - 支持飞书 / Lark WebSocket 配置。
@@ -269,12 +269,12 @@ MVP 内置十个供应商实例：
 - `zhipu-payg`：智谱按量计费，默认模型 `glm-5.2`。
 - `zhipu-coding-plan`：智谱 Coding Plan，默认模型 `glm-5.2`。
 - `volcengine-ark-coding-plan`：火山方舟 Coding Plan，默认模型 `doubao-seed-2.0-code`。
-- `volcengine-ark-agent-plan`：火山方舟 Agent Plan，默认模型 `doubao-seed-2.0-code`。
+- `volcengine-ark-agent-plan`：火山方舟 Agent Plan，默认模型 `doubao-seed-2.0-code`，使用内置的订阅模型清单。
 - `opencode-go`：OpenCode Go，默认模型 `deepseek-v4-flash`。
 - `deepseek`：DeepSeek，默认模型 `deepseek-v4-flash`。
 - `agnes`：Agnes AI，默认模型 `agnes-2.0-flash`。
 
-供应商页负责新增、编辑、禁用供应商，以及填写 API Key、接口地址、API 模式和模型列表地址。模型页只选择已配置的供应商和模型名。保存供应商或模型配置时，启动器只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env` 的 `DASHSCOPE_API_KEY`、`ZHIPU_API_KEY`、`ARK_API_KEY`、`ARK_AGENT_PLAN_API_KEY`、`OPENCODE_GO_API_KEY`、`DEEPSEEK_API_KEY` 或 `AGNES_API_KEY`，供对应 profile 运行态读取。火山方舟 Coding Plan 与 Agent Plan 是不同订阅，分别使用 `ARK_API_KEY` 和 `ARK_AGENT_PLAN_API_KEY`，密钥不共用。
+供应商页负责新增、编辑、禁用供应商，以及填写 API Key、接口地址、API 模式和模型列表地址。模型页只选择已配置的供应商和模型名。保存供应商或模型配置时，启动器把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env` 的 `DASHSCOPE_API_KEY`、`ZHIPU_API_KEY`、`ARK_API_KEY`、`ARK_AGENT_PLAN_API_KEY`、`OPENCODE_GO_API_KEY`、`DEEPSEEK_API_KEY` 或 `AGNES_API_KEY`，供对应 profile 运行态读取。火山方舟 Agent Plan 的密钥即使未被模型引用也会同步，因为内置的 Seedream 图片生成、Seedance 视频生成、豆包搜索和 DataPro 专业数据集共同使用 `ARK_AGENT_PLAN_API_KEY`；保存有效密钥时还会在当前 profile 的 `mcp_servers.datapro` 中写入 DataPro HTTP MCP 配置，Header 通过 `${ARK_AGENT_PLAN_API_KEY}` 引用环境变量，不重复保存明文密钥。火山方舟 Coding Plan 与 Agent Plan 是不同订阅，分别使用 `ARK_API_KEY` 和 `ARK_AGENT_PLAN_API_KEY`，密钥不共用。
 
 自定义供应商在 UI 中统一保存为 `provider: custom`，适配 OpenAI 兼容或 Anthropic Messages 兼容接口。模型列表不持久化；拉取失败时仍可手动填写模型名。
 

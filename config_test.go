@@ -236,8 +236,8 @@ func TestNormalizeProviderConfigAddsVolcengineArkPlans(t *testing.T) {
 	if agentPlan.APIMode != "chat_completions" {
 		t.Fatalf("api mode = %q", agentPlan.APIMode)
 	}
-	if agentPlan.ModelListURL != "https://ark.cn-beijing.volces.com/api/plan/v3/models" {
-		t.Fatalf("model list URL = %q", agentPlan.ModelListURL)
+	if agentPlan.ModelListURL != "" {
+		t.Fatalf("model list URL = %q, want built-in list", agentPlan.ModelListURL)
 	}
 	if key := modelProviderAPIKeyEnv(agentPlan.Provider, agentPlan.BaseURL); key != "ARK_AGENT_PLAN_API_KEY" {
 		t.Fatalf("env key = %q, want ARK_AGENT_PLAN_API_KEY", key)
@@ -273,6 +273,130 @@ func TestVolcengineArkPlansUseSeparateAPIKeyEnv(t *testing.T) {
 	}
 	if updates[1].Key != "ARK_AGENT_PLAN_API_KEY" || updates[1].Value != "agent-secret" {
 		t.Fatalf("agent env update = %#v", updates[1])
+	}
+}
+
+func TestVolcengineArkAgentPlanUsesBuiltinModelListWithoutAPIKey(t *testing.T) {
+	provider := normalizeProviderConfig(ProviderConfig{}).Providers[volcengineArkAgentPlanProviderID]
+	models, err := fetchModelListFromProvider(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"doubao-seed-evolving",
+		"doubao-seed-2.1-turbo",
+		"doubao-seed-2.0-code",
+		"doubao-seed-2.0-pro",
+		"doubao-seed-2.0-lite",
+		"doubao-seed-2.0-mini",
+		"kimi-k3",
+		"glm-5.2",
+		"kimi-k2.7-code",
+		"minimax-m3",
+		"deepseek-v4-flash",
+		"deepseek-v4-pro",
+		"minimax-m2.7",
+		"kimi-k2.6",
+	}
+	if len(models) != len(want) {
+		t.Fatalf("model count = %d, want %d", len(models), len(want))
+	}
+	for i, id := range want {
+		if models[i].ID != id {
+			t.Fatalf("model %d = %q, want %q", i, models[i].ID, id)
+		}
+	}
+}
+
+func TestSaveVolcengineArkAgentPlanAddsDataProMCPAndProfileEnv(t *testing.T) {
+	app := newTestApp(t)
+	providers, err := app.readProviderConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentPlan := providers.Providers[volcengineArkAgentPlanProviderID]
+	agentPlan.APIKey = "agent-secret"
+	providers.Providers[volcengineArkAgentPlanProviderID] = agentPlan
+
+	if err := app.SaveProviderConfig(providers); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := app.readConfigMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datapro := asMap(asMap(cfg["mcp_servers"])["datapro"])
+	if got := asString(datapro["url"]); got != volcengineDataProMCPURL {
+		t.Fatalf("datapro url = %q", got)
+	}
+	if got := asString(datapro["transport"]); got != "http" {
+		t.Fatalf("datapro transport = %q", got)
+	}
+	if got := asString(asMap(datapro["headers"])[volcengineDataProMCPHeader]); got != volcengineDataProMCPKeyRef {
+		t.Fatalf("datapro key header = %q", got)
+	}
+
+	env, err := readEnvFile(app.envPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := envValue(env, "ARK_AGENT_PLAN_API_KEY"); got != "agent-secret" {
+		t.Fatalf("ARK_AGENT_PLAN_API_KEY = %q", got)
+	}
+}
+
+func TestApplyVolcengineAgentPlanServicesDoesNotReplaceDifferentDataProServer(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{})
+	agentPlan := providers.Providers[volcengineArkAgentPlanProviderID]
+	agentPlan.APIKey = "agent-secret"
+	providers.Providers[volcengineArkAgentPlanProviderID] = agentPlan
+	cfg := map[string]interface{}{
+		"mcp_servers": map[string]interface{}{
+			"datapro": map[string]interface{}{"url": "https://example.com/mcp"},
+		},
+	}
+
+	if err := applyVolcengineAgentPlanServices(cfg, providers); err == nil {
+		t.Fatal("expected conflicting datapro MCP to be rejected")
+	}
+	if got := asString(asMap(asMap(cfg["mcp_servers"])["datapro"])["url"]); got != "https://example.com/mcp" {
+		t.Fatalf("conflicting datapro url was replaced: %q", got)
+	}
+}
+
+func TestApplyVolcengineAgentPlanServicesDoesNotReplaceStdioDataProServer(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{})
+	agentPlan := providers.Providers[volcengineArkAgentPlanProviderID]
+	agentPlan.APIKey = "agent-secret"
+	providers.Providers[volcengineArkAgentPlanProviderID] = agentPlan
+	cfg := map[string]interface{}{
+		"mcp_servers": map[string]interface{}{
+			"datapro": map[string]interface{}{"command": "custom-datapro"},
+		},
+	}
+
+	if err := applyVolcengineAgentPlanServices(cfg, providers); err == nil {
+		t.Fatal("expected stdio datapro MCP to be rejected")
+	}
+	if got := asString(asMap(asMap(cfg["mcp_servers"])["datapro"])["command"]); got != "custom-datapro" {
+		t.Fatalf("conflicting datapro command was replaced: %q", got)
+	}
+}
+
+func TestApplyVolcengineAgentPlanServicesDoesNotReplaceInvalidMCPServers(t *testing.T) {
+	providers := normalizeProviderConfig(ProviderConfig{})
+	agentPlan := providers.Providers[volcengineArkAgentPlanProviderID]
+	agentPlan.APIKey = "agent-secret"
+	providers.Providers[volcengineArkAgentPlanProviderID] = agentPlan
+	cfg := map[string]interface{}{"mcp_servers": []interface{}{"custom"}}
+
+	if err := applyVolcengineAgentPlanServices(cfg, providers); err == nil {
+		t.Fatal("expected invalid mcp_servers to be rejected")
+	}
+	servers, ok := cfg["mcp_servers"].([]interface{})
+	if !ok || len(servers) != 1 || asString(servers[0]) != "custom" {
+		t.Fatalf("invalid mcp_servers was replaced: %#v", cfg["mcp_servers"])
 	}
 }
 

@@ -71,7 +71,7 @@ providers:
     base_url: https://ark.cn-beijing.volces.com/api/plan/v3
     api_mode: chat_completions
     api_key: ''
-    model_list_url: 'https://ark.cn-beijing.volces.com/api/plan/v3/models'
+    model_list_url: ''
     default_model: 'doubao-seed-2.0-code'
     builtin: true
     disabled: false

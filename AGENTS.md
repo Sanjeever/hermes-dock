@@ -273,14 +273,16 @@ UI 和功能边界：
 - `zhipu-payg`：智谱按量计费，`provider: custom`，默认模型 `glm-5.2`，模型列表 `https://open.bigmodel.cn/api/paas/v4/models`。
 - `zhipu-coding-plan`：智谱 Coding Plan，`provider: custom`，默认模型 `glm-5.2`，模型列表 `https://open.bigmodel.cn/api/coding/paas/v4/models`。
 - `volcengine-ark-coding-plan`：火山方舟 Coding Plan，`provider: custom`，默认模型 `doubao-seed-2.0-code`，模型列表 `https://ark.cn-beijing.volces.com/api/coding/v3/models`。
-- `volcengine-ark-agent-plan`：火山方舟 Agent Plan，`provider: custom`，默认模型 `doubao-seed-2.0-code`，模型列表 `https://ark.cn-beijing.volces.com/api/plan/v3/models`。
+- `volcengine-ark-agent-plan`：火山方舟 Agent Plan，`provider: custom`，默认模型 `doubao-seed-2.0-code`；官方未提供可用的 `/api/plan/v3/models` 端点，启动器直接返回内置订阅模型清单。
 - `opencode-go`：OpenCode Go，`provider: custom`，默认模型 `deepseek-v4-flash`，模型列表 `https://opencode.ai/zen/go/v1/models`。
 - `deepseek`：DeepSeek，`provider: deepseek`，默认模型 `deepseek-v4-flash`，模型列表 `https://api.deepseek.com/models`。
 - `agnes`：Agnes AI，`provider: custom`，默认模型 `agnes-2.0-flash`，模型列表 `https://apihub.agnes-ai.com/v1/models`。
 
 火山方舟 Coding Plan 与 Agent Plan 是不同订阅，密钥不可共用；兼容同步到 profile `.env` 时分别使用 `ARK_API_KEY` 和 `ARK_AGENT_PLAN_API_KEY`。
 
-供应商页负责新增、编辑、禁用供应商和填写 API Key。内置供应商不可删除，自定义供应商被主模型或辅助模型引用时不可删除。模型页只选择供应商 ID 和模型名；主供应商没有 API Key 时允许保存模型选择，但禁止测试。保存供应商或模型配置时，只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env`，空密钥不同步，也不清理旧 `.env` 遗留键。
+火山方舟 Agent Plan 额外内置 `byted-ark-seedream-skill`、`byted-ark-seedance-skill`、`byted-web-search` 和 DataPro 专业数据集 MCP，四项能力只读取当前 profile 的 `ARK_AGENT_PLAN_API_KEY`。保存有效的 Agent Plan 供应商密钥时，在当前 profile 的 `mcp_servers.datapro` 中写入 `https://datapro.hqd.cn-beijing.volces.com/mcp`，Header 使用 `${ARK_AGENT_PLAN_API_KEY}` 环境变量占位符；不得把密钥明文复制到 MCP 配置。若用户已把 `datapro` 名称用于其他 URL，必须报错而不是覆盖。三个内置 skill 的产物保存在当前 profile 目录，且不得从 `ARK_API_KEY`、聊天消息或其他平台配置读取或保存密钥。
+
+供应商页负责新增、编辑、禁用供应商和填写 API Key。内置供应商不可删除，自定义供应商被主模型或辅助模型引用时不可删除。模型页只选择供应商 ID 和模型名；主供应商没有 API Key 时允许保存模型选择，但禁止测试。保存供应商或模型配置时，只把当前主模型和辅助模型实际引用的供应商密钥同步到当前 profile `.env`，空密钥不同步，也不清理旧 `.env` 遗留键；Agent Plan 是例外，因为其内置 skill 和 MCP 也实际引用该供应商，所以只要保存了非空密钥就同步 `ARK_AGENT_PLAN_API_KEY`。
 
 Auxiliary 模型策略由 UI 控制，状态记录在 `launcher/state.json` 的 `ModelAuxiliaryMode`。`auto` 策略下辅助模型保持 `provider: auto` 和空兼容字段；`follow-main` 和 `custom` 才根据引用供应商展开兼容字段。
 

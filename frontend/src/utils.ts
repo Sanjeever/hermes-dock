@@ -1,5 +1,5 @@
 import {auxLabels, nav} from './constants';
-import type {EnvVar, ModelConfig, ModelOption, Page, ProviderConfig} from './types';
+import type {EnvVar, ModelConfig, ModelOption, Page, ProviderConfig, ProviderEntry} from './types';
 
 export function titleFor(page: Page) {
     return nav.find((item) => item.id === page)?.label || '企智盒';
@@ -148,6 +148,17 @@ export function ensureCurrentModelOption(options: ModelOption[], current: string
 
 export function modelOptionKey(providerID: string) {
     return providerID || 'dashscope-payg';
+}
+
+export function isVolcengineArkAgentPlanProvider(provider?: ProviderEntry) {
+    if (!provider || provider.provider.trim().toLowerCase() !== 'custom') return false;
+    try {
+        const url = new URL(provider.baseUrl);
+        return url.hostname.toLowerCase() === 'ark.cn-beijing.volces.com'
+            && url.pathname.replace(/\/+$/, '') === '/api/plan/v3';
+    } catch {
+        return false;
+    }
 }
 
 export function toPlainModelConfig(model: ModelConfig): any {
