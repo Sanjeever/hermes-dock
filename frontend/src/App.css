@@ -320,6 +320,24 @@ h2 {
     word-break: break-word;
 }
 
+.startup-loading {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 760px;
+    color: #684a08;
+}
+
+.startup-loading h2,
+.startup-loading p {
+    margin: 0;
+}
+
+.startup-loading p {
+    margin-top: 4px;
+    color: #62695d;
+}
+
 .rebuild-banner {
     min-height: 44px;
     display: flex;
@@ -3166,11 +3184,79 @@ textarea:hover:not(:disabled) {
     min-height: 42px;
 }
 
+.app-error-screen {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 20% 8%, rgba(204, 232, 106, 0.16), transparent 28rem),
+        #ece8de;
+}
+
+.app-error-card {
+    box-sizing: border-box;
+    width: min(460px, 100%);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 18px 14px;
+    border-radius: 16px;
+    padding: 24px;
+    background: #fffaf0;
+    color: #1f2522;
+    box-shadow: 0 24px 64px rgba(44, 48, 39, 0.18);
+}
+
+.app-error-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: #fff1ee;
+    color: #b42318;
+}
+
+.app-error-card h1,
+.app-error-card p {
+    margin: 0;
+}
+
+.app-error-card h1 {
+    margin-top: 4px;
+    font-size: 24px;
+    line-height: 1.25;
+}
+
+.app-error-card p:not(.eyebrow) {
+    margin-top: 8px;
+    color: #62695d;
+    line-height: 1.6;
+}
+
+.app-error-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
 .web-logout-button {
     min-height: 30px;
     border-color: rgba(104, 74, 8, 0.2);
     background: rgba(255, 255, 255, 0.56);
     color: #684a08;
+}
+
+.web-logout-error {
+    position: fixed;
+    z-index: 30;
+    right: 16px;
+    bottom: 58px;
+    max-width: min(420px, calc(100vw - 32px));
+    box-shadow: 0 10px 24px rgba(44, 48, 39, 0.14);
 }
 
 .web-logout-button {

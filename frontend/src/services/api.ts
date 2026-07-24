@@ -23,11 +23,14 @@ import type {
 
 type RPCResponse<T> = { ok: true; result: T } | { ok: false; error: string };
 
+const webRequestTimeout = 15_000;
+const activeWebRequests = new Set<AbortController>();
+
 export const isWebRuntime = () => typeof window !== 'undefined' && !(window as any).go?.main?.App;
 export const webClientID = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
-    const response = await fetch('/api/rpc', {
+    const response = await fetchWithTimeout('/api/rpc', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         credentials: 'same-origin',
@@ -37,9 +40,53 @@ async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
         window.dispatchEvent(new CustomEvent('web-session-expired'));
         throw new Error('登录已失效，请重新登录');
     }
-    const body = await response.json() as RPCResponse<T>;
+    const body = await readJSON<RPCResponse<T>>(response);
+    if (!response.ok) throw new Error(responseError(body, `请求失败（HTTP ${response.status}）`));
     if (!body.ok) throw new Error(body.error || '操作失败');
     return body.result as T;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    let timedOut = false;
+    activeWebRequests.add(controller);
+    const timer = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+    }, webRequestTimeout);
+    try {
+        return await fetch(input, {...init, signal: controller.signal});
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error(timedOut ? '请求超时，请稍后重试' : '请求已取消');
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`网络请求失败：${message}`);
+    } finally {
+        window.clearTimeout(timer);
+        activeWebRequests.delete(controller);
+    }
+}
+
+export function cancelWebRequests() {
+    activeWebRequests.forEach((controller) => controller.abort());
+    activeWebRequests.clear();
+}
+
+async function readJSON<T>(response: Response): Promise<T> {
+    try {
+        return await response.json() as T;
+    } catch {
+        if (!response.ok) throw new Error(`请求失败（HTTP ${response.status}，响应不是有效 JSON）`);
+        throw new Error('服务器返回的数据格式错误');
+    }
+}
+
+function responseError(body: unknown, fallback: string) {
+    if (body && typeof body === 'object' && typeof (body as {error?: unknown}).error === 'string') {
+        return (body as {error: string}).error || fallback;
+    }
+    return fallback;
 }
 
 function wailsOrRPC<T>(name: string, params: unknown[] = []): Promise<T> {
@@ -50,25 +97,38 @@ function wailsOrRPC<T>(name: string, params: unknown[] = []): Promise<T> {
     return rpc<T>(name, params);
 }
 
-export function loginWeb(password: string) {
-    return fetch('/api/login', {
+export async function loginWeb(password: string) {
+    const response = await fetchWithTimeout('/api/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         credentials: 'same-origin',
         body: JSON.stringify({password}),
-    }).then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || body.ok === false) throw new Error(body.error || '登录失败');
-        return body;
     });
+    const body = await readJSON<{ok?: boolean; error?: string}>(response);
+    if (!response.ok || body.ok === false) throw new Error(responseError(body, `登录失败（HTTP ${response.status}）`));
+    return body;
 }
 
-export function logoutWeb() {
-    return fetch('/api/logout', {method: 'POST', credentials: 'same-origin'});
+export async function logoutWeb() {
+    const response = await fetchWithTimeout('/api/logout', {method: 'POST', credentials: 'same-origin'});
+    if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent('web-session-expired'));
+        throw new Error('登录已失效，请重新登录');
+    }
+    const body = await readJSON<{ok?: boolean; error?: string}>(response);
+    if (!response.ok || body.ok === false) throw new Error(responseError(body, `退出登录失败（HTTP ${response.status}）`));
+    return body;
 }
 
-export function getWebSession(): Promise<{ authenticated: boolean; usingDefaultPassword: boolean }> {
-    return fetch('/api/session', {credentials: 'same-origin'}).then((response) => response.json());
+export async function getWebSession(): Promise<{ authenticated: boolean; usingDefaultPassword: boolean }> {
+    const response = await fetchWithTimeout('/api/session', {credentials: 'same-origin'});
+    const body = await readJSON<{authenticated?: unknown; usingDefaultPassword?: unknown}>(response);
+    if (!response.ok) throw new Error(responseError(body, `检查登录状态失败（HTTP ${response.status}）`));
+    if (typeof body.authenticated !== 'boolean') throw new Error('服务器返回的数据格式错误');
+    return {
+        authenticated: body.authenticated,
+        usingDefaultPassword: body.usingDefaultPassword === true,
+    };
 }
 
 export const GetAppState = (profileID = '') => wailsOrRPC<AppState>('GetAppStateForProfile', [profileID]);
